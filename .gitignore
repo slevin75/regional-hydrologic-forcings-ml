@@ -1,3 +1,9 @@
+#Targets
+_targets
+
+#All output
+*/out/*
+
 # History files
 .Rhistory
 .Rapp.history

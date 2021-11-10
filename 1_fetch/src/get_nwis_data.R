@@ -2,7 +2,9 @@
 get_nwis_daily_data<-function(site_num,outdir,parameterCd,startDate, endDate){
    ##read daily NWIS data, and save to csv file.
   data_out<-readNWISdv(site_num, parameterCd, startDate, endDate)
-  
+  ##renaming column names for discharge and discharge_cd
+  names(data_out)[grep(pattern="X_.*\\cd",x=names(data_out))]<-"discharge_cd"
+  names(data_out)[grep(pattern="X_",x=names(data_out))]<-"discharge"
   filepath<-file.path(outdir,paste0(site_num, "_dv.csv"))
   write_csv(data_out, file=filepath)
   return(filepath)
@@ -26,12 +28,16 @@ screen_daily_data<-function(filename,yearType){
   ##screen for years with missing data
   data<-read.csv(filename)
   data$Date <- as.Date(data$Date)
+  ###prior to screening, remove any provisional data - this will be counted as 'no data'
+  prov_data<- grep("P",data$discharge_cd)
+  if(length(prov_data)>0){data<-data[-prov_data,]}
+  
   if(yearType=="water"){
     water_year_start<-10
   }else{
       water_year_start <- 1
     }
-  missing_data<-screen_flow_data(data.frame(site_no=data$site_no, Date=data$Date,Value=data$X_00060_00003),water_year_start=water_year_start)
+  missing_data<-screen_flow_data(data.frame(site_no=data$site_no, Date=data$Date,Value=data$discharge),water_year_start=water_year_start)
   return(missing_data)
 }
 
@@ -44,7 +50,7 @@ clean_daily_data<-function(filename,missing_data, yearType ){
   data$Date <- as.Date(data$Date)
   
   ##remove any missing flow data
-  data<-data[which(!is.na(data$X_00060_00003)),]
+  data<-data[which(!is.na(data$discharge)),]
   data<-addWaterYear(data)
   
   ##remove all data from years with data gaps
@@ -56,7 +62,7 @@ clean_daily_data<-function(filename,missing_data, yearType ){
   }
   
   ###run EflowStats validation to produce clean, ready to process data
-  clean_data<-validate_data(data_sc[,c("Date","X_00060_00003")],yearType=yearType)
+  clean_data<-validate_data(data_sc[,c("Date","discharge")],yearType=yearType)
   clean_data$site_no<-unique(data_sc$site_no)
   return(clean_data)
 }  #end clean_daily_data function

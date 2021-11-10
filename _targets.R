@@ -1,17 +1,16 @@
 library(targets)
 library(tarchetypes)
-library(dataRetrieval)
-library(EflowStats)
 library(tidyverse)
-library(lubridate)
-library(fasstr)
+
+dir.create('1_fetch/out',showWarnings=FALSE)
 source("./1_fetch/src/get_nwis_data.R")
 source("./1_fetch/src/calc_HIT.R")
 
 # true confession - I don't really know what these three lines do, I just copied them from 
 #the pipelines training
-tar_option_set(packages = "dplyr")
-suppressPackageStartupMessages(library(dplyr))
+tar_option_set(packages = c("fasstr","EflowStats","dataRetrieval",
+                            "lubridate"))
+suppressPackageStartupMessages(library(tidyverse))
 options(tidyverse.quiet = TRUE)
 
 
@@ -21,7 +20,7 @@ startDate<-as.Date("1900-10-01")
 endDate<-as.Date("2020-09-30")
 ##water year or calendar year.  I assume we are doing this on water year but
 ##Eflow stats can do either one and it needs to be specified 
-yearType="water"
+yearType<-"water"
 
 ##note -we will need a screening function to get a list of potential 
 ##gages from gagesII to make the p1_sites_list target.For now, I'm just using a few sites.
@@ -44,19 +43,19 @@ p1_flow_metrics<- tar_map(
   
   ##clean data and reformat for EflowStats 
   tar_target(p1_clean_daily_flow,
-             clean_daily_data(p1_daily_flow,p1_screen_daily_flow,yearType="water")),
+             clean_daily_data(p1_daily_flow,p1_screen_daily_flow,yearType)),
   
   ##get drainage area (needed for EflowStats - can change this later if DA is part of the
   ## basin characteristics file)
   tar_target(p1_drainage_area,
-             readNWISsite(siteNumber=sites)$drain_area_va),
+             readNWISsite(siteNumbers=sites)$drain_area_va),
   
   ##get peak flow data (also needed for Eflow Stats)
   ##note - in this function, dataRetreival gives an NA for date any time the day of occurance is unknown in NWIS,
   ##I just removed any peak that didn't have a date, but if we want, I can fill in the date so we don't lose that 
   ##peak value.  
   tar_target(p1_peak_flow,
-             get_nwis_peak_data(sites,outdir="./fetch/out",startDate,endDate)),
+             get_nwis_peak_data(sites,outdir="./1_fetch/out",startDate,endDate)),
   
   ##flood threshold is used in eFlowStats for some hi flow duration and frequency stats
   tar_target(p1_flood_threshold,
@@ -78,6 +77,7 @@ list(
   ##combine flow metrics from all sites into one dataframe - not sure if that is 
   ##the format we want for this or if it would be better as a list?
   tar_combine(p1_combined_HIT_metrics,
-              p1_flow_metrics[[6]],
+              p1_flow_metrics$p1_HIT_metrics,
               command=combine_flow_metrics(!!!.x))
+ 
 ) #end list

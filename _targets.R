@@ -1,6 +1,6 @@
 library(targets)
 library(tarchetypes)
-library(tidyverse)
+
 
 dir.create('1_fetch/out',showWarnings=FALSE)
 source("./1_fetch/src/get_nwis_data.R")

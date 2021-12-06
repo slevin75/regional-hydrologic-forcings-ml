@@ -75,10 +75,10 @@ calc_water_year<-function(dates){
  
 } #end calc_water_year
 
-combine_flow_metrics<- function(...){
-  flow_metrics_all_sites<-bind_rows(...)
+combine_flow_metrics <- function(...) {
+  flow_metrics_all_sites <- bind_rows(...) %>%
+    pivot_wider(names_from = indice, values_from = statistic)
   return(flow_metrics_all_sites)
-  
 }
 
 

@@ -35,6 +35,7 @@ gagesii$ID<- substr(gagesii$ID,start=2,stop=nchar(gagesii$ID))
 ##since there is no state attribution in the gagesii list, for East River, I am taking 
 ##AggEco==WestMnts and LON > -117 which cuts off the pacific northwest and cA areas
 
+
 #p1_sites_list<- c("06036805" ,"06036905", "06037500","06043500","06073500","06078500","06090500",
 #"06092500","06109800","06115500" ,"06137570" ,"06154410","06188000","06190540")
 #note- 
@@ -49,6 +50,7 @@ p1_sites_list<-gagesii %>%
   filter(LAT<42) %>%
   filter(LON > -76)%>%
   pull(ID)
+
 
 
 ##targets

@@ -65,8 +65,10 @@ p1_flow_metrics<- tar_map(
   
   ###compute all 171 HIT metrics
   tar_target(p1_HIT_metrics,
-             calc_HITmetrics(p1_clean_daily_flow,yearType,drainArea=p1_drainage_area,
-                         floodThreshold=p1_flood_threshold))
+             calc_HITmetrics(p1_clean_daily_flow, 
+                             yearType, 
+                             drainArea = p1_drainage_area$DA_NWIS, 
+                             floodThreshold = p1_flood_threshold))
   
 )
 

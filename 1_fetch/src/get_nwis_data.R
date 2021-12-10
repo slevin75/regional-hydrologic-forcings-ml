@@ -29,7 +29,7 @@ screen_daily_data<-function(filename,yearType){
   data<-read.csv(filename)
   data$Date <- as.Date(data$Date)
   ###prior to screening, remove any provisional data - this will be counted as 'no data'
-  prov_data<- grep("P",data$discharge_cd)
+  prov_data<- grep('P|e',data$discharge_cd)
   if(length(prov_data)>0){data<-data[-prov_data,]}
   
   if(yearType=="water"){
@@ -38,6 +38,7 @@ screen_daily_data<-function(filename,yearType){
       water_year_start <- 1
     }
   missing_data<-screen_flow_data(data.frame(site_no=data$site_no, Date=data$Date,Value=data$discharge),water_year_start=water_year_start)
+  missing_data<-data.frame(site_num = unique(data$site_no),missing_data)
   return(missing_data)
 }
 

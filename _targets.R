@@ -48,7 +48,8 @@ p1_flow_metrics<- tar_map(
   ##get drainage area (needed for EflowStats - can change this later if DA is part of the
   ## basin characteristics file)
   tar_target(p1_drainage_area,
-             readNWISsite(siteNumbers=sites)$drain_area_va),
+             readNWISsite(siteNumbers=sites) %>%
+               select(site_no, DA_NWIS = drain_area_va)),
   
   ##get peak flow data (also needed for Eflow Stats)
   ##note - in this function, dataRetreival gives an NA for date any time the day of occurance is unknown in NWIS,
@@ -64,8 +65,10 @@ p1_flow_metrics<- tar_map(
   
   ###compute all 171 HIT metrics
   tar_target(p1_HIT_metrics,
-             calc_HITmetrics(p1_clean_daily_flow,yearType,drainArea=p1_drainage_area,
-                         floodThreshold=p1_flood_threshold))
+             calc_HITmetrics(p1_clean_daily_flow, 
+                             yearType, 
+                             drainArea = p1_drainage_area$DA_NWIS, 
+                             floodThreshold = p1_flood_threshold))
   
 )
 

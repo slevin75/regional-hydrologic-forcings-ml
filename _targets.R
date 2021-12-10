@@ -37,12 +37,18 @@ gagesii$ID<- substr(gagesii$ID,start=2,stop=nchar(gagesii$ID))
 
 #p1_sites_list<- c("06036805" ,"06036905", "06037500","06043500","06073500","06078500","06090500",
 #"06092500","06109800","06115500" ,"06137570" ,"06154410","06188000","06190540")
+#note- 
+
+#p1_sites_list<-gagesii %>%
+#  filter(AggEco=="WestMnts") %>%
+#  filter(LON > -117)%>%
+#  pull(ID)
+
+##DE - just pulling a bounding box of sites here
 p1_sites_list<-gagesii %>%
-  filter(AggEco=="WestMnts") %>%
-  filter(LON > -117)%>%
+  filter(LAT<42) %>%
+  filter(LON > -76)%>%
   pull(ID)
-p1_sites_list<-p1_sites_list[which(nchar(p1_sites_list) < 12)]
-p1_sites_list<-p1_sites_list[1:30]
 
 
 ##targets

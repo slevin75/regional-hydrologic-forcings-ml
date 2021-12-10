@@ -1,13 +1,11 @@
 library(targets)
 library(tarchetypes)
-
+library(readxl)
 
 dir.create('1_fetch/out',showWarnings=FALSE)
 source("./1_fetch/src/get_nwis_data.R")
 source("./1_fetch/src/calc_HIT.R")
 
-# true confession - I don't really know what these three lines do, I just copied them from 
-#the pipelines training
 tar_option_set(packages = c("fasstr","EflowStats","dataRetrieval",
                             "lubridate"))
 suppressPackageStartupMessages(library(tidyverse))
@@ -17,70 +15,84 @@ options(tidyverse.quiet = TRUE)
 ###parameters  
 NWIS_parameter <- '00060'
 startDate<-as.Date("1900-10-01") 
-endDate<-as.Date("2020-09-30")
+endDate<-as.Date("2020-9-30")
 ##water year or calendar year.  I assume we are doing this on water year but
 ##Eflow stats can do either one and it needs to be specified 
 yearType<-"water"
+##number of complete years we require for a site to be
+complete_years <- 10
+#precentile for flood threshold in Eflowstats.  0.6 is the default
+perc<-0.6
 
-##note -we will need a screening function to get a list of potential 
-##gages from gagesII to make the p1_sites_list target.For now, I'm just using a few sites.
-p1_sites_list<- c("06746095","06614800", "09035800","07083000","07086500")
+###gages2.1 ref site list - not sure how to get this right from sharepoint, so the
+##filepath is currently to my onedrive.
+gagesii_path<-"C:/Users/slevin/OneDrive - DOI/FWA_bridgeScour/Data/Gages2.1_RefSiteList.xlsx"
+gagesii<-read_xlsx(gagesii_path)
+gagesii$ID<- substr(gagesii$ID,start=2,stop=nchar(gagesii$ID))
+##
 
-##note-  We'll probably need to add another screening function somehwere that checks the 
-##number of complete water years.  Some of the gages have a long enough period of record, but don't have complete years. 
-##Right now the screening function I put in just removes all the incomplete years but it doesn't 
-##check to make sure the remaining period of record is long enough.
+## not sure yet how we'll be selecting gages so I'm not putting this in a function yet.
+##since there is no state attribution in the gagesii list, for East River, I am taking 
+##AggEco==WestMnts and LON > -117 which cuts off the pacific northwest and cA areas
 
-p1_flow_metrics<- tar_map(
-  values= tibble(sites=p1_sites_list),
-  ##download raw daily data
-  tar_target(p1_daily_flow, 
-             get_nwis_daily_data(sites,outdir="./1_fetch/out",NWIS_parameter,startDate,endDate),
-             format="file"),
-  ##screen for incomplete years of data
-  tar_target(p1_screen_daily_flow,
-             screen_daily_data(p1_daily_flow,yearType)),
-  
-  ##clean data and reformat for EflowStats 
-  tar_target(p1_clean_daily_flow,
-             clean_daily_data(p1_daily_flow,p1_screen_daily_flow,yearType)),
-  
-  ##get drainage area (needed for EflowStats - can change this later if DA is part of the
-  ## basin characteristics file)
-  tar_target(p1_drainage_area,
-             readNWISsite(siteNumbers=sites) %>%
-               select(site_no, DA_NWIS = drain_area_va)),
-  
-  ##get peak flow data (also needed for Eflow Stats)
-  ##note - in this function, dataRetreival gives an NA for date any time the day of occurance is unknown in NWIS,
-  ##I just removed any peak that didn't have a date, but if we want, I can fill in the date so we don't lose that 
-  ##peak value.  
-  tar_target(p1_peak_flow,
-             get_nwis_peak_data(sites,outdir="./1_fetch/out",startDate,endDate)),
-  
-  ##flood threshold is used in eFlowStats for some hi flow duration and frequency stats
-  tar_target(p1_flood_threshold,
-             get_peakThreshold(p1_clean_daily_flow[c("date","discharge")],
-                               peakValues=p1_peak_flow[c("peak_dt","peak_va")],yearType=yearType)),
-  
-  ###compute all 171 HIT metrics
-  tar_target(p1_HIT_metrics,
-             calc_HITmetrics(p1_clean_daily_flow, 
-                             yearType, 
-                             drainArea = p1_drainage_area$DA_NWIS, 
-                             floodThreshold = p1_flood_threshold))
-  
-)
+
+#p1_sites_list<- c("06036805" ,"06036905", "06037500","06043500","06073500","06078500","06090500",
+#"06092500","06109800","06115500" ,"06137570" ,"06154410","06188000","06190540")
+#note- 
+
+#p1_sites_list<-gagesii %>%
+#  filter(AggEco=="WestMnts") %>%
+#  filter(LON > -117)%>%
+#  pull(ID)
+
+##DE - just pulling a bounding box of sites here
+p1_sites_list<-gagesii %>%
+  filter(LAT<42) %>%
+  filter(LON > -76)%>%
+  pull(ID)
+
 
 
 ##targets
 list(
-  p1_flow_metrics,
-  
-  ##combine flow metrics from all sites into one dataframe - not sure if that is 
-  ##the format we want for this or if it would be better as a list?
-  tar_combine(p1_combined_HIT_metrics,
-              p1_flow_metrics$p1_HIT_metrics,
-              command=combine_flow_metrics(!!!.x))
+  ##check to make sure peak and daily flow are actually available for all sites
+  tar_target(p1_has_data,
+             has_data_check(p1_sites_list,NWIS_parameter)),
+ ##fetch daily streamflow
+ tar_target(p1_daily_flow, 
+             get_nwis_daily_data(p1_has_data,outdir="./1_fetch/out",NWIS_parameter,startDate,endDate),
+             map(p1_has_data),
+             format="file"),
+ ##compute the number of complete years
+ tar_target(p1_screen_daily_flow,
+             screen_daily_data(p1_daily_flow,yearType),
+             map(p1_daily_flow)),
+  ##select out sites with enough complete years
+ tar_target(p1_screened_site_list,
+            filter_complete_years(p1_screen_daily_flow,complete_years)),
+  ##clean and format daily data so it can be used in eflostats 
+ tar_target(p1_clean_daily_flow,
+            clean_daily_data(p1_screened_site_list,p1_daily_flow,p1_screen_daily_flow,yearType),
+            map(p1_screened_site_list)),
+ #get drainage area from NWIS
+ tar_target(p1_drainage_area,
+            get_NWIS_drainArea(p1_screened_site_list),
+            map(p1_screened_site_list)),
+ ##get and save as file peak flow from NWIS
+ tar_target(p1_peak_flow,
+               get_nwis_peak_data(p1_screened_site_list,outdir="./1_fetch/out",startDate,endDate),
+            map(p1_screened_site_list),
+            format="file"),
+ ##get flood threshold for eflowstats
+ tar_target(p1_flood_threshold,
+               get_floodThreshold(p1_screened_site_list, p1_clean_daily_flow,
+                                  p1_peak_flow,perc,yearType),
+            map(p1_screened_site_list)),
+ ##compute all HIT metrics for screened sites list
+ tar_target(p1_HIT_metrics,
+                 calc_HITmetrics(p1_screened_site_list,p1_clean_daily_flow,yearType,
+                                 drainArea_tab=p1_drainage_area,floodThreshold_tab=p1_flood_threshold),
+            map(p1_screened_site_list)) 
+
  
 ) #end list

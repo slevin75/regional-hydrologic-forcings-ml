@@ -4,3 +4,6 @@ Repo for machine learning models for regional prediction of hydrologic forcing f
 The package EflowStats can be installed from github using the following lines in R:
 install.packages("remotes")
 remotes::install_github("USGS-R/EflowStats")
+
+note: gages2.1 is currently (As of 12-16-21) being stored in a private repo until it is released to the public.
+

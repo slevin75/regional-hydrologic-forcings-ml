@@ -59,34 +59,34 @@ list(
   tar_target(p1_has_data,
              has_data_check(p1_sites_list,NWIS_parameter)),
  ##fetch daily streamflow
- tar_target(p1_daily_flow, 
+ tar_target(p1_daily_flow_csv, 
              get_nwis_daily_data(p1_has_data,outdir="./1_fetch/out",NWIS_parameter,startDate,endDate),
              map(p1_has_data),
              format="file"),
  ##compute the number of complete years
  tar_target(p1_screen_daily_flow,
-             screen_daily_data(p1_daily_flow,yearType),
-             map(p1_daily_flow)),
+             screen_daily_data(p1_daily_flow_csv,yearType),
+             map(p1_daily_flow_csv)),
   ##select out sites with enough complete years
  tar_target(p1_screened_site_list,
             filter_complete_years(p1_screen_daily_flow,complete_years)),
   ##clean and format daily data so it can be used in eflostats 
  tar_target(p1_clean_daily_flow,
-            clean_daily_data(p1_screened_site_list,p1_daily_flow,p1_screen_daily_flow,yearType),
+            clean_daily_data(p1_screened_site_list,p1_daily_flow_csv,p1_screen_daily_flow,yearType),
             map(p1_screened_site_list)),
  #get drainage area from NWIS
  tar_target(p1_drainage_area,
             get_NWIS_drainArea(p1_screened_site_list),
             map(p1_screened_site_list)),
  ##get and save as file peak flow from NWIS
- tar_target(p1_peak_flow,
+ tar_target(p1_peak_flow_csv,
                get_nwis_peak_data(p1_screened_site_list,outdir="./1_fetch/out",startDate,endDate),
             map(p1_screened_site_list),
             format="file"),
  ##get flood threshold for eflowstats
  tar_target(p1_flood_threshold,
                get_floodThreshold(p1_screened_site_list, p1_clean_daily_flow,
-                                  p1_peak_flow,perc,yearType),
+                                  p1_peak_flow_csv,perc,yearType),
             map(p1_screened_site_list)),
  ##compute all HIT metrics for screened sites list
  tar_target(p1_HIT_metrics,

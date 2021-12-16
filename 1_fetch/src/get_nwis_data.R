@@ -9,11 +9,12 @@ has_data_check<-function(site_nums,parameterCd){
 }
 
 filter_complete_years<-function(screen_daily_flow,complete_years){
-
+  
   complete_yr_count<-screen_daily_flow %>% 
     filter(!is.na(complete_yrs))%>%  
     group_by(site_no)%>%
     count()
+  print("complete yr ok")
   keep_sites<-complete_yr_count%>%
     filter(n >= complete_years)%>%
     pull(site_no)
@@ -23,7 +24,8 @@ filter_complete_years<-function(screen_daily_flow,complete_years){
 
 
 get_nwis_daily_data<-function(site_num,outdir,parameterCd,startDate, endDate){
-   ##read daily NWIS data, and save to csv file.
+   print(site_num)
+  ##read daily NWIS data, and save to csv file.
   data_out<-readNWISdv(site_num, parameterCd, startDate, endDate)
   ##renaming column names for discharge and discharge_cd
   names(data_out)[grep(pattern="X_.*\\cd",x=names(data_out))]<-"discharge_cd"
@@ -35,6 +37,7 @@ get_nwis_daily_data<-function(site_num,outdir,parameterCd,startDate, endDate){
 }
 
 get_nwis_peak_data<-function(site_num,outdir,startDate, endDate){
+  print(site_num)
   ##read NWIS peak data, and save to csv file.
   data_out<-readNWISpeak(site_num,  startDate, endDate)
   
@@ -88,12 +91,15 @@ clean_daily_data<-function(site,filenames, screen_daily_flow,yearType ){
   ##remove nas from data and remove incomplete years of data
   ##Eflow stats requires the cleaned data to have dates in the first column and 
   ##discharge in the second column.
+  print(site)
   filepath<-filenames[grep(site,filenames)]
-  data<-read_csv(filepath)
-  data$Date<-as_date(data$Date)
-  data$site_no<-as.character(data$site_no)
+  data<-read_csv(filepath,
+                 col_types=cols(agency_cd=col_character(),
+                                site_no=col_character(),
+                                Date=col_date(format="%Y-%m-%d"),
+                                discharge=col_double(),
+                                discharge_cd=col_character()))
   data<-addWaterYear(data)
-  print(paste("raw data nrow = ", nrow(data)))
   ##remove all data from years with data gaps
   keep_years<-screen_daily_flow %>%
     filter(site_no ==site)%>%
@@ -101,20 +107,19 @@ clean_daily_data<-function(site,filenames, screen_daily_flow,yearType ){
   if (yearType=="water"){
     data_sc<-data[which(data$waterYear %in% keep_years),]
   } else{
-    data_sc<-data[which(year(data$date)%in% keep_years),]
+    data_sc<-data[which(year(data$Date)%in% keep_years),]
   }
-  print(paste("nrow(data_sc", nrow(data_sc)))
-  
-  df<-data.frame(as.Date(data_sc$Date),data_sc$discharge)
+
+  df<-data.frame(date=as.Date(data_sc$Date),discharge=data_sc$discharge)
   ###run EflowStats validation to produce clean, ready to process data
   clean_data<-validate_data(df,yearType=yearType)
   clean_data$site_no<-unique(data_sc$site_no)
-  print(paste("nrow clean_data", nrow(clean_data)))
   return(clean_data)
 }  #end clean_daily_data function
 
 
 get_NWIS_drainArea<-function(site_num){
+  print(site_num)
   data_out<- data.frame(site_no=as.character(site_num),
                         drainArea=readNWISsite(siteNumbers=site_num)$drain_area_va)
   return(data_out)
@@ -122,7 +127,7 @@ get_NWIS_drainArea<-function(site_num){
 
 
 get_floodThreshold<-function(site_num,p1_clean_daily_flow,p1_peak_flow,perc,yearType){
-  
+  print(site_num)
   df_dv<- p1_clean_daily_flow %>%
     filter(site_no==site_num)%>%
     select(date,discharge)

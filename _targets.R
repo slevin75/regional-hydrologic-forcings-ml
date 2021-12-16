@@ -15,12 +15,12 @@ options(tidyverse.quiet = TRUE)
 ###parameters  
 NWIS_parameter <- '00060'
 startDate<-as.Date("1900-10-01") 
-endDate<-as.Date("2020-9-30")
+endDate<-as.Date("2020-09-30")
 ##water year or calendar year.  I assume we are doing this on water year but
 ##Eflow stats can do either one and it needs to be specified 
 yearType<-"water"
 ##number of complete years we require for a site to be
-complete_years <- 10
+complete_years <- 20
 #precentile for flood threshold in Eflowstats.  0.6 is the default
 perc<-0.6
 

@@ -9,7 +9,9 @@ has_data_check<-function(site_nums,parameterCd){
 }
 
 filter_complete_years<-function(screen_daily_flow,complete_years){
+
   complete_yr_count<-screen_daily_flow %>% 
+    filter(!is.na(complete_yrs))%>%  
     group_by(site_no)%>%
     count()
   keep_sites<-complete_yr_count%>%
@@ -50,9 +52,11 @@ get_nwis_peak_data<-function(site_num,outdir,startDate, endDate){
 
 screen_daily_data<-function(filename,yearType){
   ##screen for years with missing data
-  data<-read_csv(filename)
-  data$Date <- as.Date(data$Date)
-  data$site_no <- as.character(data$site_no)
+  data<-read_csv(filename,
+                 col_types=cols(agency_cd = col_character(),
+                                site_no=col_character(),Date=col_date(format="%Y-%m-%d"),
+                                discharge=col_double(),discharge_cd=col_character()))
+ 
   ###prior to screening, remove any provisional data - this will be counted as 'no data'
   prov_data<- grep('P|e',data$discharge_cd)
   if(length(prov_data)>0){data<-data[-prov_data,]}
@@ -71,7 +75,7 @@ screen_daily_data<-function(filename,yearType){
   if(nrow(complete_yrs) > 0 ){
    data_out<-data.frame(site_no=unique(data$site_no),complete_yrs=complete_yrs$Year)
   }else {
-   data_out<-data.frame(site_no=unique(data$site_no),complete_yrs=0)
+   data_out<-data.frame(site_no=unique(data$site_no),complete_yrs=NA)
   }
   
   return(data_out)

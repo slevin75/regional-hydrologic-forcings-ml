@@ -3,8 +3,8 @@ has_data_check<-function(site_nums,parameterCd){
   ##check to see if all sites actually have daily flow and peak flow data.  There are
   ##gages in gagesii that do not have one or the other, so screen these out before we try
   ##to download the data
-  dv_screen<-whatNWISdata(siteNumber=site_nums,parameterCd=parameterCd,service="dv")
-   pk_screen<-whatNWISdata(siteNumber=site_nums,service="pk")
+  dv_screen<-whatNWISdata(siteNumber=site_nums,parameterCd=parameterCd,service="dv", convertType = FALSE)
+  pk_screen<-whatNWISdata(siteNumber=site_nums,service="pk", convertType = FALSE)
   sites_with_data<-intersect(dv_screen$site_no,pk_screen$site_no)
 }
 
@@ -133,7 +133,7 @@ get_floodThreshold<-function(site_num,p1_clean_daily_flow,p1_peak_flow,perc,year
     select(date,discharge)
   
   filepath<-p1_peak_flow[grep(site_num,p1_peak_flow)]
-  peaks<-read_csv(filepath) 
+  peaks<-read_csv(filepath, show_col_types = FALSE) 
   peaks$site_no<-as.character(peaks$site_no)
   df_pk<-data.frame(date=as.Date(peaks$peak_dt),peak=peaks$peak_va)
   floodThreshold<-get_peakThreshold(df_dv,df_pk,perc=perc,yearType=yearType)

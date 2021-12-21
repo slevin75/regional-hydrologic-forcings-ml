@@ -28,6 +28,17 @@ perc <- 0.6
 ##statistics to compute within EflowStats
 stats_HIT <- c("calc_magAverage", "calc_magLow", "calc_magHigh", 
                "calc_frequencyHigh", "calc_durationHigh", "calc_rateChange")
+##EflowStats metrics to use
+metrics <- c('ma1', 'ma2', 'ml17', 'ml18', 'mh15', 'mh16', 'mh17', 
+             'mh20', 'mh21', 'mh24', 'mh27', 'fh1', 'fh2', 'fh5', 'fh8', 
+             'dh1', 'dh6', 'dh15', 'dh16', 'dh17', 'ra1', 'ra2', 'ra3', 'ra4'
+)
+##metrics to normalize by drainage area
+metrics_DA <- c('ma1', 'ma2', 'dh1', 'ra1', 'ra3')
+##metric ml17 to normalize by *annual mean/drainage area
+metrics_ml17 <- c('ml17')
+##metrics to normalize by *median/drainage area
+metrics_med_DA <- c('mh15', 'mh16', 'mh17', 'mh21', 'mh24', 'mh27')
 
 ###gages2.1 ref site list - not sure how to get this right from sharepoint, so the
 ##filepath is currently to onedrive.
@@ -105,6 +116,10 @@ list(
                              yearType = yearType,
                              drainArea_tab = p1_drainage_area,
                              floodThreshold_tab = p1_flood_threshold,
-                             stat_vec = stats_HIT),
+                             stat_vec = stats_HIT,
+                             save_metrics = metrics,
+                             norm_DA = metrics_DA,
+                             norm_med_DA = metrics_med_DA,
+                             norm_ml17 = metrics_ml17),
              map(p1_screened_site_list)) 
 ) #end list

@@ -124,5 +124,5 @@ list(
                              norm_DA = metrics_DA,
                              norm_med_DA = metrics_med_DA,
                              norm_ml17 = metrics_ml17),
-             map(p1_screened_site_list)) 
+             map(p1_screened_site_list))
 ) #end list

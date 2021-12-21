@@ -32,7 +32,7 @@ stats_HIT <- c("calc_magAverage", "calc_magLow", "calc_magHigh",
 metrics <- c('ma1', 'ma2', 
              'ml17', 'ml18', 
              'mh15', 'mh16', 'mh17', 'mh20', 'mh21', 'mh24', 'mh27', 
-             'fh1', 'fh2', 'fh5', 'fh8', 
+             'fh1', 'fh2', 'fh5', 
              'dh1', 'dh6', 'dh15', 'dh16', 'dh17', 'dh20',
              'ra1', 'ra2', 'ra3', 'ra4'
 )

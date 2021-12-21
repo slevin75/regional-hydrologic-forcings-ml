@@ -29,9 +29,12 @@ perc <- 0.6
 stats_HIT <- c("calc_magAverage", "calc_magLow", "calc_magHigh", 
                "calc_frequencyHigh", "calc_durationHigh", "calc_rateChange")
 ##EflowStats metrics to use
-metrics <- c('ma1', 'ma2', 'ml17', 'ml18', 'mh15', 'mh16', 'mh17', 
-             'mh20', 'mh21', 'mh24', 'mh27', 'fh1', 'fh2', 'fh5', 'fh8', 
-             'dh1', 'dh6', 'dh15', 'dh16', 'dh17', 'ra1', 'ra2', 'ra3', 'ra4'
+metrics <- c('ma1', 'ma2', 
+             'ml17', 'ml18', 
+             'mh15', 'mh16', 'mh17', 'mh20', 'mh21', 'mh24', 'mh27', 
+             'fh1', 'fh2', 'fh5', 'fh8', 
+             'dh1', 'dh6', 'dh15', 'dh16', 'dh17', 'dh20',
+             'ra1', 'ra2', 'ra3', 'ra4'
 )
 ##metrics to normalize by drainage area
 metrics_DA <- c('ma1', 'ma2', 'dh1', 'ra1', 'ra3')
@@ -85,7 +88,7 @@ list(
   tar_target(p1_screened_site_list,
              filter_complete_years(p1_screen_daily_flow, complete_years)),
   
-  ##clean and format daily data so it can be used in eflostats 
+  ##clean and format daily data so it can be used in EflowStats 
   tar_target(p1_clean_daily_flow,
              clean_daily_data(p1_screened_site_list, p1_daily_flow_csv, 
                               p1_screen_daily_flow, yearType),

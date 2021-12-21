@@ -44,6 +44,11 @@ calc_HITmetrics <- function(site_num, clean_daily_flow, yearType,
                                        calc_bfi = calc_bfi(discharge)*mean(discharge))
     
     out_data$statistic[out_data$indice %in% 'ml17'] <- mean(calc_bfibyyear$calc_bfi)/drainArea
+    
+    #Correct the CV of ml18 if it's one of the saved metrics
+    if(!is.null(save_metrics) & ('ml18' %in% save_metrics)){
+      out_data$statistic[out_data$indice %in% 'ml18'] <- sd(calc_bfibyyear$calc_bfi)/mean(calc_bfibyyear$calc_bfi) * 100
+    }
   }
   return(out_data)
 }

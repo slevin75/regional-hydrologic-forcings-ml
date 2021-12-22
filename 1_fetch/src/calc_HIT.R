@@ -35,14 +35,14 @@ calc_HITmetrics <- function(site_num, clean_daily_flow, yearType,
       out_data$statistic[out_data$indice %in% norm_DA]/drainArea, digits)
   }
   
-  #Normalize metrics by median
+  #Normalize metrics by drainage area and remove median normalization
   if (!is.null(norm_med_DA)){
     med_flow <- median(data$discharge, na.rm = TRUE)
     out_data$statistic[out_data$indice %in% norm_med_DA] <- round(
       out_data$statistic[out_data$indice %in% norm_med_DA]/drainArea*med_flow, digits)
   }
   
-  #Normalize ml17 by annual mean and drainage area
+  #Normalize ml17 by drainage area and remove annual mean normalization
   if (!is.null(norm_ml17)){
     calc_bfibyyear <- dplyr::summarize(dplyr::group_by(data, year_val), 
                                        calc_bfi = calc_bfi(discharge)*mean(discharge))

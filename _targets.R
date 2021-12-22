@@ -14,6 +14,7 @@ dir.create('1_fetch/out', showWarnings=FALSE)
 ##Load user defined functions
 source("./1_fetch/src/get_nwis_data.R")
 source("./1_fetch/src/calc_HIT.R")
+source("./1_fetch/src/calc_FDC.R")
 
 ###Define parameters
 NWIS_parameter <- '00060'
@@ -42,6 +43,8 @@ metrics_DA <- c('ma1', 'ma2', 'dh1', 'ra1', 'ra3')
 metrics_ml17 <- c('ml17')
 ##metrics to normalize by *median/drainage area
 metrics_med_DA <- c('mh15', 'mh16', 'mh17', 'mh21', 'mh24', 'mh27')
+#non-exceedance quantiles for additional metrics - daily flows
+NE_quants = c(seq(0.5, 0.95, 0.05), 0.98, 0.99, 0.995)
 
 ###gages2.1 ref site list - not sure how to get this right from sharepoint, so the
 ##filepath is currently to onedrive.
@@ -124,5 +127,30 @@ list(
                              norm_DA = metrics_DA,
                              norm_med_DA = metrics_med_DA,
                              norm_ml17 = metrics_ml17),
+             map(p1_screened_site_list)),
+  
+  ##compute additional FDC-based metrics for screened sites list
+  tar_target(p1_FDC_metrics,
+             calc_FDCmetrics(site_num = p1_screened_site_list, 
+                             clean_daily_flow = p1_clean_daily_flow, 
+                             yearType = yearType,
+                             drainArea_tab = p1_drainage_area,
+                             NE_probs = NE_quants),
              map(p1_screened_site_list))
+  
+  #Noting metrics that are the same in both (some different in last decimal place).
+  #I'm recommending that we drop the EflowStats equivalent metrics because names 
+  #are simpler to understand with the FDC quantile convention.
+  # ma2 = mhfdc_q0.5
+  # mh15 = mhfdc_q0.99
+  # mh16 = mhfdc_q0.9
+  # mh17 = mhfdc_q0.75
+  # mh21 = vhfdc1_q0.5
+  # mh24 = vhfdc2_q0.5
+  # mh27 = vhfdc2_q0.75
+  # fh1 = fhfdc_q0.75
+  # fh5 = fhfdc_q0.5
+  # dh17 = dhfdc_q0.5
+  # dh20 = dhfdc_q0.75
+  
 ) #end list

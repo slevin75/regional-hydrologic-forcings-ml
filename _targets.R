@@ -45,6 +45,11 @@ metrics_ml17 <- c('ml17')
 metrics_med_DA <- c('mh15', 'mh16', 'mh17', 'mh21', 'mh24', 'mh27')
 #non-exceedance quantiles for additional metrics - daily flows
 NE_quants = c(seq(0.5, 0.95, 0.05), 0.98, 0.99, 0.995)
+#Seasons to use in season analysis
+# suggested by Ken for high flows
+#season_months = c(12, seq(1, 11, 1))
+# matches water year
+season_months = c(10, 11, 12, seq(1, 9, 1))
 
 ###gages2.1 ref site list - not sure how to get this right from sharepoint, so the
 ##filepath is currently to onedrive.
@@ -136,7 +141,7 @@ list(
                              yearType = yearType,
                              drainArea_tab = p1_drainage_area,
                              NE_probs = NE_quants),
-             map(p1_screened_site_list))
+             map(p1_screened_site_list)),
   
   #Noting metrics that are the same in both (some different in last decimal place).
   #I'm recommending that we drop the EflowStats equivalent metrics because names 
@@ -152,5 +157,16 @@ list(
   # fh5 = fhfdc_q0.5
   # dh17 = dhfdc_q0.5
   # dh20 = dhfdc_q0.75
+  
+  ##compute seasonal FDC-based metrics
+  tar_target(p1_seasonal_FDC_metrics,
+             calc_FDCmetrics(site_num = p1_screened_site_list, 
+                             clean_daily_flow = p1_clean_daily_flow, 
+                             yearType = yearType,
+                             drainArea_tab = p1_drainage_area,
+                             NE_probs = NE_quants,
+                             seasonal = TRUE,
+                             season_months = season_months),
+             map(p1_screened_site_list))
   
 ) #end list

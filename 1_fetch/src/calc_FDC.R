@@ -25,7 +25,10 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
                                       TRUE ~ 0))
     
     if(any(data$season == 0)){
-      stop('some dates or months are misspecified')
+      stop(paste('some dates or months are misspecified for site', site_num))
+    }
+    if(!all(c(1,2,3,4) %in% unique(data$season))){
+      stop(paste('some seasons are not present for site', site_num))
     }
   }
   

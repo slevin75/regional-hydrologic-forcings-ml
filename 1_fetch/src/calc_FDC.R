@@ -283,5 +283,7 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
                            site_num = site_num)
   }
   
+  out_data <- pivot_wider(out_data, names_from = 'indice', values_from = 'statistic')
+  
   return(out_data)
 }

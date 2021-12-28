@@ -60,5 +60,8 @@ calc_HITmetrics <- function(site_num, clean_daily_flow, yearType,
         TRUE ~ statistic))
     }
   }
+  
+  out_data <- pivot_wider(out_data, names_from = 'indice', values_from = 'statistic')
+  
   return(out_data)
 }

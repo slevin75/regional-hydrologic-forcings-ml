@@ -16,6 +16,9 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
   NE_flows <- quantile(data$discharge, probs = NE_probs, type = 6, names = F)
   
   #Compute metrics for each NE_flows threshold
+  #dh, fh, and vh are for duration, frequency, and volume of high flows. 
+  #fdc is for flow-duration curve. 
+  #1 and 2 are two different volume metrics
   dhfdc <- fhfdc <- vhfdc1 <- vhfdc2 <- vector('numeric', length=length(NE_flows))
   for (i in 1:length(NE_flows)){
     #Get the duration of events above each of the NE_flows (dh17 style metrics)

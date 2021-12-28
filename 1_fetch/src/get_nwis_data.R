@@ -128,7 +128,7 @@ get_floodThreshold <- function(site_num, p1_clean_daily_flow, p1_peak_flow,
     select(date, discharge)
   
   filepath <- p1_peak_flow[grep(site_num, p1_peak_flow)]
-  peaks <- read_csv(filepath, show_col_types = FALSE) 
+  peaks <- read_csv(filepath, col_types = cols()) 
   peaks$site_no <- as.character(peaks$site_no)
   df_pk <- data.frame(date=as.Date(peaks$peak_dt),peak=peaks$peak_va)
   floodThreshold <- get_peakThreshold(df_dv, df_pk, perc=perc, yearType=yearType)

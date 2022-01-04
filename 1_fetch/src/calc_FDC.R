@@ -156,11 +156,11 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
                                  na.rm = TRUE)
     }
     
-    #Get the flow volumes above the NE_flows threshold for events above each of the NE_flows (mh21 style metrics)
+    #Get the flow volume for events above each of the NE_flows (mh21 style metrics but for total flow instead of flow above the threshold)
     lst <- find_events(data$discharge, threshold = NE_flows[i])
     eventData <- na.omit(lst)
     numEvents <- length(unique(eventData$event))
-    totalFlow <- sum(eventData$flow - NE_flows[i])
+    totalFlow <- sum(eventData$flow)
     vhfdc1[i] <- totalFlow/numEvents
     
     #Get the average of the max flow for events above each of the NE_flows (mh24 style metrics)
@@ -184,9 +184,9 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
         dplyr::arrange(year_val, season)
       
       #Some seasons do not have events, but we want those seasons to be reported 
-      #as having 0 volume. So, set all flows to the threshold in those seasons.
+      #as having 0 volume. So, set all flows to 0 in those seasons.
       seasonalVolume$event[is.na(seasonalVolume$event)] <- 0
-      seasonalVolume$flow[seasonalVolume$event == 0] <- NE_flows[i]
+      seasonalVolume$flow[seasonalVolume$event == 0] <- 0
       
       #Seasons with no events have flows reported. Want those to not be included 
       #in the calculation of average seasonal maximums
@@ -196,7 +196,7 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
       #That may be okay because we're dividing by the total number of events for the year
       seasonalVolume <- dplyr::summarize(dplyr::group_by(seasonalVolume, year_val, season), 
                                          numEvents = max(event), 
-                                         totalFlow = sum(flow - NE_flows[i]),
+                                         totalFlow = sum(flow),
                                          .groups = 'keep') %>%
         mutate(flow_event = totalFlow/numEvents)
       

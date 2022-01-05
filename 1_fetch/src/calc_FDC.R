@@ -93,8 +93,10 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
       }else{
         #Computes seasonal average duration over all years, then fraction per season.
         seasonalDuration = dplyr::summarize(group_by(seasonalDuration, season),
-                                     avg=mean(duration, na.rm=TRUE)) %>%
-                                     arrange(season)
+                                            avg=mean(duration, na.rm=TRUE)) %>%
+          arrange(season) %>%
+          pull(avg)
+        
         if (sum(seasonalDuration) == 0){
           dhfdc_s[(1+(i-1)*4):(4+(i-1)*4)] <- NA
         }else{
@@ -149,8 +151,10 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
       }else{
         #Computes seasonal average duration over all years, then fraction per season.
         seasonalCounts = dplyr::summarize(group_by(seasonalCounts, season),
-                                     avg=mean(numEvents, na.rm=TRUE)) %>%
-                                     arrange(season)
+                                          avg=mean(numEvents, na.rm=TRUE)) %>%
+          arrange(season) %>%
+          pull(avg)
+        
         if (sum(seasonalCounts) == 0){
           fhfdc_s[(1+(i-1)*4):(4+(i-1)*4)] <- NA
         }else{
@@ -259,8 +263,10 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
       }else{
         #Computes seasonal average over all years, then fraction per season.
         seasonalVolume = dplyr::summarize(group_by(seasonalVolume, season),
-                                   avg=mean(flow_event, na.rm=TRUE)) %>%
-                                   arrange(season)
+                                          avg=mean(flow_event, na.rm=TRUE)) %>%
+          arrange(season) %>%
+          pull(avg)
+        
         if (sum(seasonalVolume) == 0){
           vhfdc1_s[(1+(i-1)*4):(4+(i-1)*4)] <- NA
         }else{
@@ -269,8 +275,10 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
         
         #Compute the average of the maximum flow in each season
         seasonalMaxQ <- dplyr::summarize(group_by(seasonalMaxQ, season),
-                                  avg=mean(maxQ, na.rm=TRUE)) %>%
-                                  arrange(season)
+                                         avg=mean(maxQ, na.rm=TRUE)) %>%
+          arrange(season) %>%
+          pull(avg)
+        
         if (sum(seasonalMaxQ) == 0){
           vhfdc2_s[(1+(i-1)*4):(4+(i-1)*4)] <- NA
         }else{

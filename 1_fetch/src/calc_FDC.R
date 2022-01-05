@@ -166,7 +166,9 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
                                 {find_events(.$discharge, 
                                              threshold = NE_flows[i], type = "high")
                                 })
-      yearlyCounts <- na.omit(yearlyCounts)
+      #changing NAs to 0s so that years with no events are counted as 0s 
+      #instead of being omitted
+      yearlyCounts$event[is.na(yearlyCounts$event)] <- 0
       yearlyCounts <- dplyr::summarize(dplyr::group_by(yearlyCounts, year_val), 
                                        numEvents = max(event))
       fhfdc[i] <- mean(yearlyCounts$numEvents)

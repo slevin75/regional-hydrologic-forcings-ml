@@ -13,6 +13,29 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
   #Validate using the same function as EflowStats
   data <- validate_data(data, yearType)
   
+  #The find_events function assumes the timeseries is continuous. 
+  #Years do not have to be continuous, so that is handled here by making
+  #groups of continuous years
+  year_diff <- diff(sort(unique(data$year_val)))
+  if (any(year_diff > 1)){
+    #There are gaps in years.
+    group_nums <- seq(1,length(which(year_diff > 1))+1,1)
+    data$groups <- NA
+    for (y in 1:length(group_nums)){
+      if (y == 1){
+        grp_yrs <- sort(unique(data$year_val))[sort(unique(data$year_val)) < sort(unique(data$year_val))[which(year_diff > 1)+1][y]]
+      }else if (y == length(group_nums)){
+        grp_yrs <- sort(unique(data$year_val))[which((sort(unique(data$year_val)) >= sort(unique(data$year_val))[which(year_diff > 1)+1][y-1]))]
+      }else{
+        grp_yrs <- sort(unique(data$year_val))[which((sort(unique(data$year_val)) < sort(unique(data$year_val))[which(year_diff > 1)+1][y]) & (sort(unique(data$year_val)) >= sort(unique(data$year_val))[which(year_diff > 1)+1][y-1]))]
+      }
+      data$groups[data$year_val %in% grp_yrs] <- group_nums[y]
+    }
+  }else{
+    #No gaps. Use one group
+    data$groups <- 1
+  }
+  
   #Add columns needed to compute seasonal information
   if(seasonal){
     if(is.null(season_months)){
@@ -104,11 +127,48 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
         }
       }
     }else{
-      dhfdc[i] <- find_eventDuration(data$discharge, threshold = NE_flows[i], 
-                                     aggType = "average")
+      #Find events within each group of continuous years
+      lst <- dplyr::do(dplyr::group_by(data, groups), 
+                       {find_events(.$discharge, threshold = NE_flows[i], 
+                                    type = 'high')})
+      
+      #Trim events of unknown duration/volume
+      for (g in 1:max(lst$groups)){
+        if (!is.na(lst$event[lst$groups == g][1])) {
+          lst$event[lst$groups == g][which((lst$event[lst$groups == g] == lst$event[lst$groups == g][1]) == TRUE)] <- NA
+        }
+        if (!is.na(lst$event[lst$groups == g][length(lst$event[lst$groups == g])])) {
+          lst$event[lst$groups == g][which((lst$event[lst$groups == g] == lst$event[lst$groups == g][length(lst$event[lst$groups == g])]) == TRUE)] <- NA
+        }
+      }
+      
+      #renumber the NA events and flows as 0. This helps for next renumbering step
+      lst[is.na(lst$event), c('flow', 'event')] <- 0
+      
+      #renumber the events to be monotonic. Gaps in event number are okay.
+      if (max(lst$groups) > 1){
+        for (g in 2:max(lst$groups)){
+          inds <- which((lst$groups == group_nums[g]) & (lst$event > 0))
+          lst$event[inds] <- lst$event[inds] + max(
+            lst$event[lst$groups < group_nums[g]])
+        }
+      }
+      
+      #drop event 0
+      lst <- lst[-which(lst$event == 0),]
+      
+      event_durations <- dplyr::summarize(dplyr::group_by(lst, 
+                                                              event), 
+                                              duration = length(event))
+      
+      if (nrow(event_durations) > 0){
+        dhfdc[i] <- mean(event_durations$duration)
+      }else{
+        dhfdc[i] <- NA
+      }
     }
     
-    #Get the number of events above each of the NE_flows (fh5 style metrics)
+    #Get the number of events above each of the NE_flows (fh1 style metrics)
     if(seasonal){
       seasonalCounts <- dplyr::do(dplyr::group_by(data, year_val, season), 
                                   {find_events(.$discharge, 
@@ -240,7 +300,7 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
                                            max(maxQ, na.rm = TRUE)),
                                          .groups = 'keep')
         #Some seasons do not have events. Set the max to NA.
-        seasonalMaxQ[seasonalMaxQ$season_max == -Inf,"season_max"] <- NA
+        seasonalMaxQ[seasonalMaxQ$season_max == -Inf, "season_max"] <- NA
         
         seasonalMaxQ$year_frac <- 0
         for(j in 1:length(unique(seasonalMaxQ$year_val))){
@@ -288,18 +348,22 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
         }
       }
     }else{
-      #volume
-      lst <- find_events(data$discharge, threshold = NE_flows[i])
-      eventData <- na.omit(lst)
-      numEvents <- length(unique(eventData$event))
-      totalFlow <- sum(eventData$flow)
-      vhfdc1[i] <- totalFlow/numEvents
-      
-      #max flow 
-      eventMax <- dplyr::group_by(lst[c("flow", "event")], event)
-      eventMax <- dplyr::summarize(eventMax, maxQ = max(flow))
-      eventMax <- na.omit(eventMax)
-      vhfdc2[i] <- mean(eventMax$maxQ)
+      #uses processed lst variable from duration calculations
+      if (nrow(lst) > 0){
+        #volume
+        numEvents <- length(unique(lst$event))
+        totalFlow <- sum(lst$flow)
+        vhfdc1[i] <- totalFlow/numEvents
+        
+        #max flow 
+        eventMax <- dplyr::group_by(lst[c("flow", "event")], event)
+        eventMax <- dplyr::summarize(eventMax, maxQ = max(flow))
+        vhfdc2[i] <- mean(eventMax$maxQ)
+      }else{
+        #no events
+        vhfdc1[i] <- NA
+        vhfdc2[i] <- NA
+      }
     }
   }
   rm(i)

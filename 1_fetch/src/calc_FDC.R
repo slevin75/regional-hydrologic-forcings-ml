@@ -1,4 +1,5 @@
 #Function used to compute FDC-based metrics
+#inputs are the same as those for calc_HIT, except:
 #seasonal = TRUE will compute each of the metrics annually and seasonally for the months specified in the season_months vector
 #season_months is a numeric vector of months. Every 3 months are a season.
 #stat_type is a character equal to 'POR' for period of record metrics or 'ATS' for annual timeseries metrics.
@@ -31,6 +32,7 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
       }
       data$groups[data$year_val %in% grp_yrs] <- group_nums[y]
     }
+    rm(y)
   }else{
     #No gaps. Use one group
     data$groups <- 1
@@ -134,13 +136,15 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
       
       #Trim events of unknown duration/volume
       for (g in 1:max(lst$groups)){
-        if (!is.na(lst$event[lst$groups == g][1])) {
-          lst$event[lst$groups == g][which((lst$event[lst$groups == g] == lst$event[lst$groups == g][1]) == TRUE)] <- NA
+        grp_evnts <- lst$event[lst$groups == g]
+        if (!is.na(grp_evnts[1])){
+          lst$event[lst$groups == g][which((grp_evnts == grp_evnts[1]) == TRUE)] <- NA
         }
-        if (!is.na(lst$event[lst$groups == g][length(lst$event[lst$groups == g])])) {
-          lst$event[lst$groups == g][which((lst$event[lst$groups == g] == lst$event[lst$groups == g][length(lst$event[lst$groups == g])]) == TRUE)] <- NA
+        if (!is.na(grp_evnts[length(grp_evnts)])){
+          lst$event[lst$groups == g][which((grp_evnts == grp_evnts[length(grp_evnts)]) == TRUE)] <- NA
         }
       }
+      rm(g)
       
       #renumber the NA events and flows as 0. This helps for next renumbering step
       lst[is.na(lst$event), c('flow', 'event')] <- 0
@@ -148,18 +152,18 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
       #renumber the events to be monotonic. Gaps in event number are okay.
       if (max(lst$groups) > 1){
         for (g in 2:max(lst$groups)){
-          inds <- which((lst$groups == group_nums[g]) & (lst$event > 0))
+          inds <- which((lst$groups == g) & (lst$event > 0))
           lst$event[inds] <- lst$event[inds] + max(
-            lst$event[lst$groups < group_nums[g]])
+            lst$event[lst$groups < g])
         }
+        rm(g)
       }
       
       #drop event 0
       lst <- lst[-which(lst$event == 0),]
       
-      event_durations <- dplyr::summarize(dplyr::group_by(lst, 
-                                                              event), 
-                                              duration = length(event))
+      event_durations <- dplyr::summarize(dplyr::group_by(lst, event), 
+                                          duration = length(event))
       
       if (nrow(event_durations) > 0){
         dhfdc[i] <- mean(event_durations$duration)

@@ -17,18 +17,19 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
   #The find_events function assumes the timeseries is continuous. 
   #Years do not have to be continuous, so that is handled here by making
   #groups of continuous years
-  year_diff <- diff(sort(unique(data$year_val)))
+  yr_srt <- sort(unique(data$year_val))
+  year_diff <- diff(yr_srt)
   if (any(year_diff > 1)){
     #There are gaps in years.
     group_nums <- seq(1,length(which(year_diff > 1))+1,1)
     data$groups <- NA
     for (y in 1:length(group_nums)){
       if (y == 1){
-        grp_yrs <- sort(unique(data$year_val))[sort(unique(data$year_val)) < sort(unique(data$year_val))[which(year_diff > 1)+1][y]]
+        grp_yrs <- yr_srt[yr_srt < yr_srt[which(year_diff > 1)+1][y]]
       }else if (y == length(group_nums)){
-        grp_yrs <- sort(unique(data$year_val))[which((sort(unique(data$year_val)) >= sort(unique(data$year_val))[which(year_diff > 1)+1][y-1]))]
+        grp_yrs <- yr_srt[yr_srt >= yr_srt[which(year_diff > 1)+1][y-1]]
       }else{
-        grp_yrs <- sort(unique(data$year_val))[which((sort(unique(data$year_val)) < sort(unique(data$year_val))[which(year_diff > 1)+1][y]) & (sort(unique(data$year_val)) >= sort(unique(data$year_val))[which(year_diff > 1)+1][y-1]))]
+        grp_yrs <- yr_srt[which((yr_srt < yr_srt[which(year_diff > 1)+1][y]) & (yr_srt >= yr_srt[which(year_diff > 1)+1][y-1]))]
       }
       data$groups[data$year_val %in% grp_yrs] <- group_nums[y]
     }

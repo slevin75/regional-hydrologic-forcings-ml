@@ -14,32 +14,8 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
   #Validate using the same function as EflowStats
   data <- validate_data(data, yearType)
   
-  #The find_events function assumes the timeseries is continuous. 
-  #Years do not have to be continuous, so that is handled here by making
-  #groups of continuous years
-  yr_srt <- sort(unique(data$year_val))
-  yr_diff <- diff(yr_srt)
-  if (any(yr_diff > 1)){
-    #There are gaps in years.
-    #Make numbers to be assigned to groups
-    grp_nums <- seq(1,length(which(yr_diff > 1))+1,1)
-    data$groups <- NA
-    for (g in 1:length(grp_nums)){
-      if (g == 1){
-        grp_yrs <- yr_srt[yr_srt < yr_srt[which(yr_diff > 1)+1][g]]
-      }else if (g == length(grp_nums)){
-        grp_yrs <- yr_srt[yr_srt >= yr_srt[which(yr_diff > 1)+1][g-1]]
-      }else{
-        grp_yrs <- yr_srt[which((yr_srt < yr_srt[which(yr_diff > 1)+1][g]) & (yr_srt >= yr_srt[which(yr_diff > 1)+1][g-1]))]
-      }
-      data$groups[data$year_val %in% grp_yrs] <- grp_nums[g]
-    }
-    rm(g, grp_nums, grp_yrs)
-  }else{
-    #No gaps. Use one group
-    data$groups <- 1
-  }
-  rm(yr_srt, yr_diff)
+  #make groups of continuous years
+  data <- data_groups(data)
   
   #Add columns needed to compute seasonal information
   if(seasonal){
@@ -92,29 +68,13 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
                                     type = 'high')})$event
       
       #Trim events of unknown duration/volume
-      for (g in 1:max(lst$groups)){
-        grp_evnts <- lst$event[lst$groups == g]
-        if (!is.na(grp_evnts[1])){
-          lst$event[lst$groups == g][which((grp_evnts == grp_evnts[1]) == TRUE)] <- NA
-        }
-        if (!is.na(grp_evnts[length(grp_evnts)])){
-          lst$event[lst$groups == g][which((grp_evnts == grp_evnts[length(grp_evnts)]) == TRUE)] <- NA
-        }
-      }
-      rm(g, grp_evnts)
+      lst <- trim_events(lst)
       
       #renumber the NA events and flows as 0. This helps for next renumbering step
       lst[is.na(lst$event), c('discharge', 'event')] <- 0
       
       #renumber the events to be monotonic. Gaps in event number are okay.
-      if (max(lst$groups) > 1){
-        for (g in 2:max(lst$groups)){
-          inds <- which((lst$groups == g) & (lst$event > 0))
-          lst$event[inds] <- lst$event[inds] + max(
-            lst$event[lst$groups < g])
-        }
-        rm(g, inds)
-      }
+      lst <- monotonic_events(lst)
       
       event_durations <- dplyr::summarize(dplyr::group_by(lst, season, event), 
                                           duration = length(event),
@@ -127,16 +87,18 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
       #Compute seasonal fractions using ATS or POR approach:
       #Computes annual fraction per season, then averages over all years
       if (stat_type == 'ATS'){
+        #Compute duration for each event and add to dataframe
         seasonal_durations <- dplyr::mutate(dplyr::group_by(lst, season, event), 
                                            duration = length(event))
-        #get to table of one number per event
+        #get to a table of one entry per event
         seasonal_durations <- dplyr::summarize(dplyr::group_by(seasonal_durations,
                                                              year_val, season, 
                                                              event), 
                                 avg = mean(duration, na.rm=TRUE), .groups = 'keep')
         
-        seasonal_durations$avg[seasonal_durations$event==0] <- NA
+        seasonal_durations$avg[seasonal_durations$event == 0] <- NA
         
+        #average for each season in each year
         seasonal_durations <- dplyr::summarize(dplyr::group_by(seasonal_durations, 
                                                                year_val, season), 
                                 avg = mean(avg, na.rm=TRUE), .groups = 'keep')
@@ -157,14 +119,7 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
         }
         rm(j, inds)
         
-        dhfdc_s[1+(i-1)*4] <- mean(seasonal_durations$year_frac[seasonal_durations$season == 1],
-                                   na.rm = TRUE)
-        dhfdc_s[2+(i-1)*4] <- mean(seasonal_durations$year_frac[seasonal_durations$season == 2],
-                                   na.rm = TRUE)
-        dhfdc_s[3+(i-1)*4] <- mean(seasonal_durations$year_frac[seasonal_durations$season == 3],
-                                   na.rm = TRUE)
-        dhfdc_s[4+(i-1)*4] <- mean(seasonal_durations$year_frac[seasonal_durations$season == 4],
-                                   na.rm = TRUE)
+        dhfdc_s[(1+(i-1)*4):(4+(i-1)*4)] <- seasonal_mean(seasonal_durations)
       }else{
         seasonal_durations <- dplyr::summarize(dplyr::group_by(event_durations, season), 
                                              avg = mean(duration, na.rm=TRUE)) %>%
@@ -187,29 +142,13 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
                                     type = 'high')})
       
       #Trim events of unknown duration/volume
-      for (g in 1:max(lst$groups)){
-        grp_evnts <- lst$event[lst$groups == g]
-        if (!is.na(grp_evnts[1])){
-          lst$event[lst$groups == g][which((grp_evnts == grp_evnts[1]) == TRUE)] <- NA
-        }
-        if (!is.na(grp_evnts[length(grp_evnts)])){
-          lst$event[lst$groups == g][which((grp_evnts == grp_evnts[length(grp_evnts)]) == TRUE)] <- NA
-        }
-      }
-      rm(g, grp_evnts)
+      lst <- trim_events(lst)
       
       #renumber the NA events and flows as 0. This helps for next renumbering step
       lst[is.na(lst$event), c('flow', 'event')] <- 0
       
       #renumber the events to be monotonic. Gaps in event number are okay.
-      if (max(lst$groups) > 1){
-        for (g in 2:max(lst$groups)){
-          inds <- which((lst$groups == g) & (lst$event > 0))
-          lst$event[inds] <- lst$event[inds] + max(
-            lst$event[lst$groups < g])
-        }
-        rm(g, inds)
-      }
+      lst <- monotonic_events(lst)
       
       #drop event 0
       lst <- lst[-which(lst$event == 0),]
@@ -254,14 +193,7 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
         }
         rm(j, inds)
         
-        fhfdc_s[1+(i-1)*4] <- mean(seasonal_counts$year_frac[seasonal_counts$season == 1],
-                                   na.rm = TRUE)
-        fhfdc_s[2+(i-1)*4] <- mean(seasonal_counts$year_frac[seasonal_counts$season == 2],
-                                   na.rm = TRUE)
-        fhfdc_s[3+(i-1)*4] <- mean(seasonal_counts$year_frac[seasonal_counts$season == 3],
-                                   na.rm = TRUE)
-        fhfdc_s[4+(i-1)*4] <- mean(seasonal_counts$year_frac[seasonal_counts$season == 4],
-                                   na.rm = TRUE)
+        fhfdc_s[(1+(i-1)*4):(4+(i-1)*4)] <- seasonal_mean(seasonal_counts)
       }else{
         #Computes seasonal average duration over all years, then fraction per season.
         seasonal_counts = dplyr::summarize(group_by(seasonal_counts, season),
@@ -347,14 +279,7 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
         }
         rm(j, inds)
         
-        vhfdc1_s[1+(i-1)*4] <- mean(seasonal_volumes$year_frac[seasonal_volumes$season == 1],
-                                    na.rm = TRUE)
-        vhfdc1_s[2+(i-1)*4] <- mean(seasonal_volumes$year_frac[seasonal_volumes$season == 2],
-                                    na.rm = TRUE)
-        vhfdc1_s[3+(i-1)*4] <- mean(seasonal_volumes$year_frac[seasonal_volumes$season == 3],
-                                    na.rm = TRUE)
-        vhfdc1_s[4+(i-1)*4] <- mean(seasonal_volumes$year_frac[seasonal_volumes$season == 4],
-                                    na.rm = TRUE)
+        vhfdc1_s[(1+(i-1)*4):(4+(i-1)*4)] <- seasonal_mean(seasonal_volumes)
         
         #Compute the average of the maximum flow in each season
         seasonal_maxQ <- dplyr::summarize(dplyr::group_by(seasonal_maxQ, year_val, season),
@@ -371,21 +296,14 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
           if(all(is.na(seasonal_maxQ$season_max[inds]))){
             seasonal_maxQ$year_frac[inds] <- NA
           }else{
-            #Set the NAs to 0 so the fractions are 0 for that season
+            #Set the NAs to 0 so the fractions are 0 for those seasons
             seasonal_maxQ$season_max[inds][is.na(seasonal_maxQ$season_max[inds])] <- 0
             seasonal_maxQ$year_frac[inds] <- seasonal_maxQ$season_max[inds]/sum(seasonal_maxQ$season_max[inds])
           }
         }
         rm(j, inds)
         
-        vhfdc2_s[1+(i-1)*4] <- mean(seasonal_maxQ$year_frac[seasonal_maxQ$season == 1],
-                                    na.rm = TRUE)
-        vhfdc2_s[2+(i-1)*4] <- mean(seasonal_maxQ$year_frac[seasonal_maxQ$season == 2],
-                                    na.rm = TRUE)
-        vhfdc2_s[3+(i-1)*4] <- mean(seasonal_maxQ$year_frac[seasonal_maxQ$season == 3],
-                                    na.rm = TRUE)
-        vhfdc2_s[4+(i-1)*4] <- mean(seasonal_maxQ$year_frac[seasonal_maxQ$season == 4],
-                                    na.rm = TRUE)
+        vhfdc2_s[(1+(i-1)*4):(4+(i-1)*4)] <- seasonal_mean(seasonal_maxQ)
       }else{
         #Computes seasonal average over all years, then fraction per season.
         seasonal_volumes <- dplyr::summarize(group_by(seasonal_volumes, season),
@@ -421,14 +339,14 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
       #uses processed lst variable from duration calculations
       if (nrow(lst) > 0){
         #volume
-        numEvents <- length(unique(lst$event))
-        totalFlow <- sum(lst$flow)
-        vhfdc1[i] <- totalFlow/numEvents
+        num_events <- length(unique(lst$event))
+        total_flow <- sum(lst$flow)
+        vhfdc1[i] <- total_flow/num_events
         
         #max flow 
-        eventMax <- dplyr::group_by(lst[c("flow", "event")], event)
-        eventMax <- dplyr::summarize(eventMax, maxQ = max(flow))
-        vhfdc2[i] <- mean(eventMax$maxQ)
+        event_max <- dplyr::group_by(lst[c("flow", "event")], event)
+        event_max <- dplyr::summarize(event_max, maxQ = max(flow))
+        vhfdc2[i] <- mean(event_max$maxQ)
       }else{
         #no events
         vhfdc1[i] <- NA
@@ -481,4 +399,70 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
   out_data <- pivot_wider(out_data, names_from = 'indice', values_from = 'statistic')
   
   return(out_data)
+}
+
+seasonal_mean <- function(seasonal_var){
+  metric <- c(mean(seasonal_var$year_frac[seasonal_var$season == 1], na.rm = TRUE),
+              mean(seasonal_var$year_frac[seasonal_var$season == 2], na.rm = TRUE),
+              mean(seasonal_var$year_frac[seasonal_var$season == 3], na.rm = TRUE),
+              mean(seasonal_var$year_frac[seasonal_var$season == 4], na.rm = TRUE))
+  
+  return(metric)
+}
+
+data_groups <- function(data){
+  #The find_events function assumes the timeseries is continuous. 
+  #Years do not have to be continuous, so that is handled here by making
+  #groups of continuous years
+  yr_srt <- sort(unique(data$year_val))
+  yr_diff <- diff(yr_srt)
+  if (any(yr_diff > 1)){
+    #There are gaps in years.
+    #Make numbers to be assigned to groups
+    grp_nums <- seq(1,length(which(yr_diff > 1))+1,1)
+    data$groups <- NA
+    for (g in 1:length(grp_nums)){
+      if (g == 1){
+        grp_yrs <- yr_srt[yr_srt < yr_srt[which(yr_diff > 1)+1][g]]
+      }else if (g == length(grp_nums)){
+        grp_yrs <- yr_srt[yr_srt >= yr_srt[which(yr_diff > 1)+1][g-1]]
+      }else{
+        grp_yrs <- yr_srt[which((yr_srt < yr_srt[which(yr_diff > 1)+1][g]) & (yr_srt >= yr_srt[which(yr_diff > 1)+1][g-1]))]
+      }
+      data$groups[data$year_val %in% grp_yrs] <- grp_nums[g]
+    }
+    rm(g, grp_nums, grp_yrs)
+  }else{
+    #No gaps. Use one group
+    data$groups <- 1
+  }
+  
+  return(data)
+}
+
+trim_events <- function(data){
+  #Trim events of unknown duration/volume
+  for (g in 1:max(data$groups)){
+    grp_evnts <- data$event[data$groups == g]
+    if (!is.na(grp_evnts[1])){
+      data$event[data$groups == g][which((grp_evnts == grp_evnts[1]) == TRUE)] <- NA
+    }
+    if (!is.na(grp_evnts[length(grp_evnts)])){
+      data$event[data$groups == g][which((grp_evnts == grp_evnts[length(grp_evnts)]) == TRUE)] <- NA
+    }
+  }
+  
+  return(data)
+}
+
+monotonic_events <- function(data){
+  if (max(data$groups) > 1){
+    for (g in 2:max(data$groups)){
+      inds <- which((data$groups == g) & (data$event > 0))
+      data$event[inds] <- data$event[inds] + max(
+        data$event[data$groups < g])
+    }
+  }
+  
+  return(data)
 }

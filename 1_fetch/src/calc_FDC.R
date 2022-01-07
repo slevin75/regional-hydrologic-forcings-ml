@@ -18,26 +18,28 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
   #Years do not have to be continuous, so that is handled here by making
   #groups of continuous years
   yr_srt <- sort(unique(data$year_val))
-  year_diff <- diff(yr_srt)
-  if (any(year_diff > 1)){
+  yr_diff <- diff(yr_srt)
+  if (any(yr_diff > 1)){
     #There are gaps in years.
-    group_nums <- seq(1,length(which(year_diff > 1))+1,1)
+    #Make numbers to be assigned to groups
+    grp_nums <- seq(1,length(which(yr_diff > 1))+1,1)
     data$groups <- NA
-    for (y in 1:length(group_nums)){
-      if (y == 1){
-        grp_yrs <- yr_srt[yr_srt < yr_srt[which(year_diff > 1)+1][y]]
-      }else if (y == length(group_nums)){
-        grp_yrs <- yr_srt[yr_srt >= yr_srt[which(year_diff > 1)+1][y-1]]
+    for (g in 1:length(grp_nums)){
+      if (g == 1){
+        grp_yrs <- yr_srt[yr_srt < yr_srt[which(yr_diff > 1)+1][g]]
+      }else if (g == length(grp_nums)){
+        grp_yrs <- yr_srt[yr_srt >= yr_srt[which(yr_diff > 1)+1][g-1]]
       }else{
-        grp_yrs <- yr_srt[which((yr_srt < yr_srt[which(year_diff > 1)+1][y]) & (yr_srt >= yr_srt[which(year_diff > 1)+1][y-1]))]
+        grp_yrs <- yr_srt[which((yr_srt < yr_srt[which(yr_diff > 1)+1][g]) & (yr_srt >= yr_srt[which(yr_diff > 1)+1][g-1]))]
       }
-      data$groups[data$year_val %in% grp_yrs] <- group_nums[y]
+      data$groups[data$year_val %in% grp_yrs] <- grp_nums[g]
     }
-    rm(y)
+    rm(g, grp_nums, grp_yrs)
   }else{
     #No gaps. Use one group
     data$groups <- 1
   }
+  rm(yr_srt, yr_diff)
   
   #Add columns needed to compute seasonal information
   if(seasonal){
@@ -60,7 +62,7 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
     }
   }
   
-  drainArea <- drainArea_tab %>%
+  drain_area <- drainArea_tab %>%
     filter(site_no == site_num) %>%
     pull(drainArea)
   
@@ -79,54 +81,103 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
   }
   for (i in 1:length(NE_flows)){
     #Get the duration of events above each of the NE_flows (dh17 style metrics)
-    # Seasonal durations will be underestimated because the event start date can 
-    #  occur in the previous season, but the event is counted as a new event. 
-    #  This may be okay because we're dividing by the total average annual duration.
+    # Seasonal durations are relative to the total time in that season, not the
+    # total duration of the event. On average, that should reflect the event
+    # duration in that season.
     if(seasonal){
-      seasonalDuration <- dplyr::do(dplyr::group_by(data, year_val, season), 
-                                  duration = {find_eventDuration(.$discharge,
-                                                      threshold = NE_flows[i],
-                                                      aggType = "average")
-                                  }) %>%
-        mutate(duration = unlist(duration)) %>%
-        dplyr::arrange(year_val, season)
+      #Find events within each group of continuous years
+      lst <- data
+      lst$event <- dplyr::do(dplyr::group_by(lst, groups), 
+                       {find_events(.$discharge, threshold = NE_flows[i], 
+                                    type = 'high')})$event
+      
+      #Trim events of unknown duration/volume
+      for (g in 1:max(lst$groups)){
+        grp_evnts <- lst$event[lst$groups == g]
+        if (!is.na(grp_evnts[1])){
+          lst$event[lst$groups == g][which((grp_evnts == grp_evnts[1]) == TRUE)] <- NA
+        }
+        if (!is.na(grp_evnts[length(grp_evnts)])){
+          lst$event[lst$groups == g][which((grp_evnts == grp_evnts[length(grp_evnts)]) == TRUE)] <- NA
+        }
+      }
+      rm(g, grp_evnts)
+      
+      #renumber the NA events and flows as 0. This helps for next renumbering step
+      lst[is.na(lst$event), c('discharge', 'event')] <- 0
+      
+      #renumber the events to be monotonic. Gaps in event number are okay.
+      if (max(lst$groups) > 1){
+        for (g in 2:max(lst$groups)){
+          inds <- which((lst$groups == g) & (lst$event > 0))
+          lst$event[inds] <- lst$event[inds] + max(
+            lst$event[lst$groups < g])
+        }
+        rm(g, inds)
+      }
+      
+      event_durations <- dplyr::summarize(dplyr::group_by(lst, season, event), 
+                                          duration = length(event),
+                                          .groups = 'drop_last')
+      
+      #Set event 0 to NA duration. This ensures that all seasons in all years 
+      #have data, even if they do not have events.
+      event_durations$duration[event_durations$event == 0] <- NA
       
       #Compute seasonal fractions using ATS or POR approach:
       #Computes annual fraction per season, then averages over all years
       if (stat_type == 'ATS'){
-        seasonalDuration$year_frac <- 0
-        for(j in 1:length(unique(seasonalDuration$year_val))){
+        seasonal_durations <- dplyr::mutate(dplyr::group_by(lst, season, event), 
+                                           duration = length(event))
+        #get to table of one number per event
+        seasonal_durations <- dplyr::summarize(dplyr::group_by(seasonal_durations,
+                                                             year_val, season, 
+                                                             event), 
+                                avg = mean(duration, na.rm=TRUE), .groups = 'keep')
+        
+        seasonal_durations$avg[seasonal_durations$event==0] <- NA
+        
+        seasonal_durations <- dplyr::summarize(dplyr::group_by(seasonal_durations, 
+                                                               year_val, season), 
+                                avg = mean(avg, na.rm=TRUE), .groups = 'keep')
+        
+        seasonal_durations$avg[is.na(seasonal_durations$avg)] <- 0
+        
+        seasonal_durations$year_frac <- 0
+        for(j in 1:length(unique(seasonal_durations$year_val))){
           inds <- c((1+(4*(j-1))):(4*j))
           
           #There can be years with no events, so need to check for those first
-          if(sum(seasonalDuration$duration[inds]) == 0){
-            seasonalDuration$year_frac[inds] <- NA
+          if(sum(seasonal_durations$avg[inds]) == 0){
+            seasonal_durations$year_frac[inds] <- NA
           }else{
-            seasonalDuration$year_frac[inds] <- seasonalDuration$duration[inds]/sum(
-              seasonalDuration$duration[inds])
+            seasonal_durations$year_frac[inds] <- seasonal_durations$avg[inds]/sum(
+              seasonal_durations$avg[inds])
           }
         }
-        rm(j)
+        rm(j, inds)
         
-        dhfdc_s[1+(i-1)*4] <- mean(seasonalDuration$year_frac[seasonalDuration$season == 1], 
+        dhfdc_s[1+(i-1)*4] <- mean(seasonal_durations$year_frac[seasonal_durations$season == 1],
                                    na.rm = TRUE)
-        dhfdc_s[2+(i-1)*4] <- mean(seasonalDuration$year_frac[seasonalDuration$season == 2], 
+        dhfdc_s[2+(i-1)*4] <- mean(seasonal_durations$year_frac[seasonal_durations$season == 2],
                                    na.rm = TRUE)
-        dhfdc_s[3+(i-1)*4] <- mean(seasonalDuration$year_frac[seasonalDuration$season == 3], 
+        dhfdc_s[3+(i-1)*4] <- mean(seasonal_durations$year_frac[seasonal_durations$season == 3],
                                    na.rm = TRUE)
-        dhfdc_s[4+(i-1)*4] <- mean(seasonalDuration$year_frac[seasonalDuration$season == 4], 
+        dhfdc_s[4+(i-1)*4] <- mean(seasonal_durations$year_frac[seasonal_durations$season == 4],
                                    na.rm = TRUE)
       }else{
-        #Computes seasonal average duration over all years, then fraction per season.
-        seasonalDuration = dplyr::summarize(group_by(seasonalDuration, season),
-                                            avg=mean(duration, na.rm=TRUE)) %>%
+        seasonal_durations <- dplyr::summarize(dplyr::group_by(event_durations, season), 
+                                             avg = mean(duration, na.rm=TRUE)) %>%
           arrange(season) %>%
           pull(avg)
         
-        if (sum(seasonalDuration) == 0){
+        if (all(is.na(seasonal_durations))){
+          #No events in any season
           dhfdc_s[(1+(i-1)*4):(4+(i-1)*4)] <- NA
         }else{
-          dhfdc_s[(1+(i-1)*4):(4+(i-1)*4)] <- seasonalDuration/sum(seasonalDuration)
+          #Change the NAs to 0s and compute the fractions per season
+          seasonal_durations[is.na(seasonal_durations)] <- 0
+          dhfdc_s[(1+(i-1)*4):(4+(i-1)*4)] <- seasonal_durations/sum(seasonal_durations)
         }
       }
     }else{
@@ -145,7 +196,7 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
           lst$event[lst$groups == g][which((grp_evnts == grp_evnts[length(grp_evnts)]) == TRUE)] <- NA
         }
       }
-      rm(g)
+      rm(g, grp_evnts)
       
       #renumber the NA events and flows as 0. This helps for next renumbering step
       lst[is.na(lst$event), c('flow', 'event')] <- 0
@@ -157,16 +208,15 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
           lst$event[inds] <- lst$event[inds] + max(
             lst$event[lst$groups < g])
         }
-        rm(g)
+        rm(g, inds)
       }
       
       #drop event 0
       lst <- lst[-which(lst$event == 0),]
       
-      event_durations <- dplyr::summarize(dplyr::group_by(lst, event), 
-                                          duration = length(event))
-      
-      if (nrow(event_durations) > 0){
+      if (nrow(lst) > 0){
+        event_durations <- dplyr::summarize(dplyr::group_by(lst, event), 
+                                            duration = length(event))
         dhfdc[i] <- mean(event_durations$duration)
       }else{
         dhfdc[i] <- NA
@@ -175,7 +225,7 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
     
     #Get the number of events above each of the NE_flows (fh1 style metrics)
     if(seasonal){
-      seasonalCounts <- dplyr::do(dplyr::group_by(data, year_val, season), 
+      seasonal_counts <- dplyr::do(dplyr::group_by(data, year_val, season), 
                                   {find_events(.$discharge, 
                                                threshold = NE_flows[i], type = "high")
                                   }) %>%
@@ -183,47 +233,46 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
       
       #changing NAs to 0s so that seasons with no events are counted as 0 
       #instead of NA
-      seasonalCounts$event[is.na(seasonalCounts$event)] <- 0
+      seasonal_counts$event[is.na(seasonal_counts$event)] <- 0
       
-      #This function double counts events when they overlap in season. 
-      #That may be okay because we're dividing by the total number of events for the year
-      seasonalCounts <- dplyr::summarize(dplyr::group_by(seasonalCounts, year_val, season), 
+      #This function double counts events when they overlap in season.
+      seasonal_counts <- dplyr::summarize(dplyr::group_by(seasonal_counts, year_val, season), 
                                          numEvents = max(event), .groups = 'keep')
       
       #Compute seasonal fractions using ATS or POR approach:
       #Computes annual fraction per season, then averages over all years
       if (stat_type == 'ATS'){
-        seasonalCounts$year_frac <- 0
-        for(j in 1:length(unique(seasonalCounts$year_val))){
+        seasonal_counts$year_frac <- 0
+        for(j in 1:length(unique(seasonal_counts$year_val))){
           inds <- c((1+(4*(j-1))):(4*j))
           #There can be years with no events, so need to check for those first
-          if(sum(seasonalCounts$numEvents[inds]) == 0){
-            seasonalCounts$year_frac[inds] <- NA
+          if(sum(seasonal_counts$numEvents[inds]) == 0){
+            seasonal_counts$year_frac[inds] <- NA
           }else{
-            seasonalCounts$year_frac[inds] <- seasonalCounts$numEvents[inds]/sum(seasonalCounts$numEvents[inds])
+            seasonal_counts$year_frac[inds] <- seasonal_counts$numEvents[inds]/sum(seasonal_counts$numEvents[inds])
           }
         }
-        rm(j)
+        rm(j, inds)
         
-        fhfdc_s[1+(i-1)*4] <- mean(seasonalCounts$year_frac[seasonalCounts$season == 1],
+        fhfdc_s[1+(i-1)*4] <- mean(seasonal_counts$year_frac[seasonal_counts$season == 1],
                                    na.rm = TRUE)
-        fhfdc_s[2+(i-1)*4] <- mean(seasonalCounts$year_frac[seasonalCounts$season == 2],
+        fhfdc_s[2+(i-1)*4] <- mean(seasonal_counts$year_frac[seasonal_counts$season == 2],
                                    na.rm = TRUE)
-        fhfdc_s[3+(i-1)*4] <- mean(seasonalCounts$year_frac[seasonalCounts$season == 3],
+        fhfdc_s[3+(i-1)*4] <- mean(seasonal_counts$year_frac[seasonal_counts$season == 3],
                                    na.rm = TRUE)
-        fhfdc_s[4+(i-1)*4] <- mean(seasonalCounts$year_frac[seasonalCounts$season == 4],
+        fhfdc_s[4+(i-1)*4] <- mean(seasonal_counts$year_frac[seasonal_counts$season == 4],
                                    na.rm = TRUE)
       }else{
         #Computes seasonal average duration over all years, then fraction per season.
-        seasonalCounts = dplyr::summarize(group_by(seasonalCounts, season),
+        seasonal_counts = dplyr::summarize(group_by(seasonal_counts, season),
                                           avg=mean(numEvents, na.rm=TRUE)) %>%
           arrange(season) %>%
           pull(avg)
         
-        if (sum(seasonalCounts) == 0){
+        if (sum(seasonal_counts) == 0){
           fhfdc_s[(1+(i-1)*4):(4+(i-1)*4)] <- NA
         }else{
-          fhfdc_s[(1+(i-1)*4):(4+(i-1)*4)] <- seasonalCounts/sum(seasonalCounts)
+          fhfdc_s[(1+(i-1)*4):(4+(i-1)*4)] <- seasonal_counts/sum(seasonal_counts)
         }
       }
     }else{
@@ -243,113 +292,129 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
     #the NE_flows (mh21 style metrics for total flow instead of flow above threshold, 
     #and mh24 style metrics for max flow)
     if(seasonal){
-      seasonalVolume <- dplyr::do(dplyr::group_by(data, year_val, season), 
-                                  {find_events(.$discharge, 
-                                               threshold = NE_flows[i], type = 'high')
-                                  }) %>%
-        dplyr::arrange(year_val, season)
+      #This function splits event volume over seasons when they overlap in season.
+      seasonal_volumes <- dplyr::summarize(dplyr::group_by(lst, year_val, season), 
+                                         numEvents = length(unique(event[event != 0])), 
+                                         totalFlow = sum(discharge),
+                                         .groups = 'keep') %>%
+        mutate(flow_event = totalFlow/numEvents)
       
       #Get the max flow for each event
-      seasonalMaxQ <- dplyr::summarize(dplyr::group_by(seasonalVolume, year_val,
+      seasonal_maxQ <- dplyr::summarize(dplyr::group_by(lst, year_val,
                                                       season, event),
                                        .groups = 'drop_last', 
-                                      maxQ = max(flow)) %>%
+                                      maxQ = max(discharge)) %>%
         dplyr::arrange(year_val, season)
       
-      #Some seasons do not have events, but we want those seasons to be reported 
-      #as having 0 volume. So, set all flows to 0 in those seasons.
-      seasonalVolume$event[is.na(seasonalVolume$event)] <- 0
-      seasonalVolume$flow[seasonalVolume$event == 0] <- 0
+      #When events overlap in season, this code assigns the max to the season
+      #with the larger max for that event.
+      for(d in 1:length(unique(seasonal_maxQ$event))){
+        inds <- which(seasonal_maxQ$event == unique(seasonal_maxQ$event)[d])
+        if(length(inds) > 1){
+          #Find index of max flow
+          ind_max <- which(seasonal_maxQ$maxQ[inds] == max(seasonal_maxQ$maxQ[inds]))
+          if(length(ind_max) > 1){
+            #Assign to the first season because that's when the event started
+            #Other seasons get converted to NA (these are deleted later)
+            seasonal_maxQ[inds,][-1, 'maxQ'] <- NA
+          }else{
+            #Assign to season in which the max occurred
+            #Other season gets converted to NA (these are deleted later)
+            seasonal_maxQ[inds,][-ind_max, 'maxQ'] <- NA
+          }
+          rm(ind_max)
+        }
+      }
+      rm(d, inds)
       
       #Seasons with no events have flows reported. Want those to not be included 
       #in the calculation of average seasonal maximums
-      seasonalMaxQ$maxQ[is.na(seasonalMaxQ$event)] <- NA
-      
-      #This function double counts events when they overlap in season. 
-      #That may be okay because we're dividing by the total number of events for the year
-      seasonalVolume <- dplyr::summarize(dplyr::group_by(seasonalVolume, year_val, season), 
-                                         numEvents = max(event), 
-                                         totalFlow = sum(flow),
-                                         .groups = 'keep') %>%
-        mutate(flow_event = totalFlow/numEvents)
+      seasonal_maxQ[seasonal_maxQ$event == 0, c('event', 'maxQ')] <- NA
       
       #Compute seasonal fractions using ATS or POR approach:
       #Computes annual fraction per season, then averages over all years
       if (stat_type == 'ATS'){
-        seasonalVolume$year_frac <- 0
-        for(j in 1:length(unique(seasonalVolume$year_val))){
+        seasonal_volumes$year_frac <- 0
+        seasonal_volumes$flow_event[is.nan(seasonal_volumes$flow_event)] <- 0
+        for(j in 1:length(unique(seasonal_volumes$year_val))){
           inds <- c((1+(4*(j-1))):(4*j))
           #There can be years with no events, so need to check for those first
-          if(sum(seasonalVolume$numEvents[inds]) == 0){
-            seasonalVolume$year_frac[inds] <- NA
+          if(sum(seasonal_volumes$numEvents[inds]) == 0){
+            seasonal_volumes$year_frac[inds] <- NA
           }else{
-            seasonalVolume$year_frac[inds] <- seasonalVolume$flow_event[inds]/sum(seasonalVolume$flow_event[inds], na.rm = TRUE)
-            #Set any NaN values to 0. These result from a season not having events
-            seasonalVolume$year_frac[inds][is.nan(seasonalVolume$year_frac[inds])] <- 0
+            seasonal_volumes$year_frac[inds] <- seasonal_volumes$flow_event[inds]/sum(seasonal_volumes$flow_event[inds], na.rm = TRUE)
           }
         }
-        rm(j)
+        rm(j, inds)
         
-        vhfdc1_s[1+(i-1)*4] <- mean(seasonalVolume$year_frac[seasonalVolume$season == 1],
+        vhfdc1_s[1+(i-1)*4] <- mean(seasonal_volumes$year_frac[seasonal_volumes$season == 1],
                                     na.rm = TRUE)
-        vhfdc1_s[2+(i-1)*4] <- mean(seasonalVolume$year_frac[seasonalVolume$season == 2],
+        vhfdc1_s[2+(i-1)*4] <- mean(seasonal_volumes$year_frac[seasonal_volumes$season == 2],
                                     na.rm = TRUE)
-        vhfdc1_s[3+(i-1)*4] <- mean(seasonalVolume$year_frac[seasonalVolume$season == 3],
+        vhfdc1_s[3+(i-1)*4] <- mean(seasonal_volumes$year_frac[seasonal_volumes$season == 3],
                                     na.rm = TRUE)
-        vhfdc1_s[4+(i-1)*4] <- mean(seasonalVolume$year_frac[seasonalVolume$season == 4],
+        vhfdc1_s[4+(i-1)*4] <- mean(seasonal_volumes$year_frac[seasonal_volumes$season == 4],
                                     na.rm = TRUE)
         
         #Compute the average of the maximum flow in each season
-        seasonalMaxQ <- dplyr::summarize(dplyr::group_by(seasonalMaxQ, year_val, season),
+        seasonal_maxQ <- dplyr::summarize(dplyr::group_by(seasonal_maxQ, year_val, season),
                                          season_max = suppressWarnings(
                                            max(maxQ, na.rm = TRUE)),
                                          .groups = 'keep')
-        #Some seasons do not have events. Set the max to NA.
-        seasonalMaxQ[seasonalMaxQ$season_max == -Inf, "season_max"] <- NA
+        #Some seasons do not have events. Set to NA
+        seasonal_maxQ[seasonal_maxQ$season_max == -Inf, "season_max"] <- NA
         
-        seasonalMaxQ$year_frac <- 0
-        for(j in 1:length(unique(seasonalMaxQ$year_val))){
+        seasonal_maxQ$year_frac <- 0
+        for(j in 1:length(unique(seasonal_maxQ$year_val))){
           inds <- c((1+(4*(j-1))):(4*j))
           #There can be years with no events, so need to check for those first
-          if(all(is.na(seasonalMaxQ$season_max[inds]))){
-            seasonalMaxQ$year_frac[inds] <- NA
+          if(all(is.na(seasonal_maxQ$season_max[inds]))){
+            seasonal_maxQ$year_frac[inds] <- NA
           }else{
-            seasonalMaxQ$year_frac[inds] <- seasonalMaxQ$season_max[inds]/sum(seasonalMaxQ$season_max[inds], na.rm = TRUE)
+            #Set the NAs to 0 so the fractions are 0 for that season
+            seasonal_maxQ$season_max[inds][is.na(seasonal_maxQ$season_max[inds])] <- 0
+            seasonal_maxQ$year_frac[inds] <- seasonal_maxQ$season_max[inds]/sum(seasonal_maxQ$season_max[inds])
           }
         }
-        rm(j)
+        rm(j, inds)
         
-        vhfdc2_s[1+(i-1)*4] <- mean(seasonalMaxQ$year_frac[seasonalMaxQ$season == 1],
+        vhfdc2_s[1+(i-1)*4] <- mean(seasonal_maxQ$year_frac[seasonal_maxQ$season == 1],
                                     na.rm = TRUE)
-        vhfdc2_s[2+(i-1)*4] <- mean(seasonalMaxQ$year_frac[seasonalMaxQ$season == 2],
+        vhfdc2_s[2+(i-1)*4] <- mean(seasonal_maxQ$year_frac[seasonal_maxQ$season == 2],
                                     na.rm = TRUE)
-        vhfdc2_s[3+(i-1)*4] <- mean(seasonalMaxQ$year_frac[seasonalMaxQ$season == 3],
+        vhfdc2_s[3+(i-1)*4] <- mean(seasonal_maxQ$year_frac[seasonal_maxQ$season == 3],
                                     na.rm = TRUE)
-        vhfdc2_s[4+(i-1)*4] <- mean(seasonalMaxQ$year_frac[seasonalMaxQ$season == 4],
+        vhfdc2_s[4+(i-1)*4] <- mean(seasonal_maxQ$year_frac[seasonal_maxQ$season == 4],
                                     na.rm = TRUE)
       }else{
         #Computes seasonal average over all years, then fraction per season.
-        seasonalVolume = dplyr::summarize(group_by(seasonalVolume, season),
+        seasonal_volumes <- dplyr::summarize(group_by(seasonal_volumes, season),
                                           avg=mean(flow_event, na.rm=TRUE)) %>%
           arrange(season) %>%
           pull(avg)
         
-        if (sum(seasonalVolume) == 0){
+        if (all(is.na(seasonal_volumes))){
+          #No events in any season
           vhfdc1_s[(1+(i-1)*4):(4+(i-1)*4)] <- NA
         }else{
-          vhfdc1_s[(1+(i-1)*4):(4+(i-1)*4)] <- seasonalVolume/sum(seasonalVolume)
+          #Change the NaNs to 0s and compute the fractions per season
+          seasonal_volumes[is.na(seasonal_volumes)] <- 0
+          vhfdc1_s[(1+(i-1)*4):(4+(i-1)*4)] <- seasonal_volumes/sum(seasonal_volumes)
         }
         
         #Compute the average of the maximum flow in each season
-        seasonalMaxQ <- dplyr::summarize(group_by(seasonalMaxQ, season),
+        seasonal_maxQ <- dplyr::summarize(group_by(seasonal_maxQ, season),
                                          avg=mean(maxQ, na.rm=TRUE)) %>%
           arrange(season) %>%
           pull(avg)
         
-        if (sum(seasonalMaxQ) == 0){
+        if (all(is.na(seasonal_maxQ))){
+          #No events in any season
           vhfdc2_s[(1+(i-1)*4):(4+(i-1)*4)] <- NA
         }else{
-          vhfdc2_s[(1+(i-1)*4):(4+(i-1)*4)] <- seasonalMaxQ/sum(seasonalMaxQ)
+          #Change the NaNs to 0s and compute the fractions per season
+          seasonal_maxQ[is.na(seasonal_maxQ)] <- 0
+          vhfdc2_s[(1+(i-1)*4):(4+(i-1)*4)] <- seasonal_maxQ/sum(seasonal_maxQ)
         }
       }
     }else{
@@ -374,7 +439,7 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
   rm(i)
   
   #Compile metrics for output data
-  #non-seasonal FDC magnitudes and volumes divided by drainage area
+  #non-seasonal FDC magnitudes and volumes are divided by drainage area
   #all values rounded
   if(seasonal){
     dhfdc_s <- round(dhfdc_s, digits)
@@ -390,11 +455,11 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
                       unlist(lapply(X = paste0('vhfdc2_q', NE_probs, '_s'), 
                                     FUN = paste0, seq(1,4,1))))
   }else{
-    mhfdc <- round(NE_flows/drainArea, digits)
+    mhfdc <- round(NE_flows/drain_area, digits)
     dhfdc <- round(dhfdc, digits)
     fhfdc <- round(fhfdc, digits)
-    vhfdc1 <- round(vhfdc1/drainArea, digits)
-    vhfdc2 <- round(vhfdc2/drainArea, digits)
+    vhfdc1 <- round(vhfdc1/drain_area, digits)
+    vhfdc2 <- round(vhfdc2/drain_area, digits)
     annual_names <- c(paste0('mhfdc_q', NE_probs),
                       paste0('dhfdc_q', NE_probs),
                       paste0('fhfdc_q', NE_probs),

@@ -14,8 +14,8 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
   #Validate using the same function as EflowStats
   data <- validate_data(data, yearType)
   
-  #make groups of continuous years
-  data <- data_groups(data)
+  #add column indicating groups of continuous years
+  data <- make_data_groups(data)
   
   #Add columns needed to compute seasonal information
   if(seasonal){
@@ -74,7 +74,7 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
       lst[is.na(lst$event), c('discharge', 'event')] <- 0
       
       #renumber the events to be monotonic. Gaps in event number are okay.
-      lst <- monotonic_events(lst)
+      lst <- make_monotonic_events(lst)
       
       event_durations <- dplyr::summarize(dplyr::group_by(lst, season, event), 
                                           duration = length(event),
@@ -148,7 +148,7 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
       lst[is.na(lst$event), c('flow', 'event')] <- 0
       
       #renumber the events to be monotonic. Gaps in event number are okay.
-      lst <- monotonic_events(lst)
+      lst <- make_monotonic_events(lst)
       
       #drop event 0
       lst <- lst[-which(lst$event == 0),]
@@ -410,7 +410,7 @@ seasonal_mean <- function(seasonal_var){
   return(metric)
 }
 
-data_groups <- function(data){
+make_data_groups <- function(data){
   #The find_events function assumes the timeseries is continuous. 
   #Years do not have to be continuous, so that is handled here by making
   #groups of continuous years
@@ -455,7 +455,7 @@ trim_events <- function(data){
   return(data)
 }
 
-monotonic_events <- function(data){
+make_monotonic_events <- function(data){
   if (max(data$groups) > 1){
     for (g in 2:max(data$groups)){
       inds <- which((data$groups == g) & (data$event > 0))

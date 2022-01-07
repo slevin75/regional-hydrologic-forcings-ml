@@ -208,16 +208,16 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
         }
       }
     }else{
-      yearlyCounts <- dplyr::do(dplyr::group_by(data, year_val), 
+      yearly_counts <- dplyr::do(dplyr::group_by(data, year_val), 
                                 {find_events(.$discharge, 
                                              threshold = NE_flows[i], type = "high")
                                 })
       #changing NAs to 0s so that years with no events are counted as 0s 
       #instead of being omitted
-      yearlyCounts$event[is.na(yearlyCounts$event)] <- 0
-      yearlyCounts <- dplyr::summarize(dplyr::group_by(yearlyCounts, year_val), 
+      yearly_counts$event[is.na(yearly_counts$event)] <- 0
+      yearly_counts <- dplyr::summarize(dplyr::group_by(yearly_counts, year_val), 
                                        numEvents = max(event))
-      fhfdc[i] <- mean(yearlyCounts$numEvents)
+      fhfdc[i] <- mean(yearly_counts$numEvents)
     }
     
     #Get the flow volume and average of the max flow for events above each of 

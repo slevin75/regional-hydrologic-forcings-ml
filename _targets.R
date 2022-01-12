@@ -160,7 +160,8 @@ list(
                              yearType = yearType,
                              drainArea_tab = p1_drainage_area,
                              NE_probs = NE_quants,
-                             seasonal = FALSE),
+                             seasonal = FALSE,
+                             year_start = year_start),
              map(p1_screened_site_list)),
   
   #Noting metrics that are the same in both (some different in last decimal place).
@@ -187,7 +188,8 @@ list(
                              NE_probs = NE_quants,
                              seasonal = TRUE,
                              season_months = season_months,
-                             stat_type = 'POR'),
+                             stat_type = 'POR',
+                             year_start = season_year_start),
              map(p1_screened_site_list_season))
   
 ) #end list

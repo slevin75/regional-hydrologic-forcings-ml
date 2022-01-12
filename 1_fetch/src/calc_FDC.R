@@ -6,13 +6,19 @@
 calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType, 
                             drainArea_tab, NE_probs, digits = 3,
                             seasonal = FALSE, season_months = NULL,
-                            stat_type = 'POR'){
+                            stat_type = 'POR', year_start){
   message(paste('starting site', site_num))
   data <- clean_daily_flow %>%
     filter(site_no == site_num)
   
-  #Validate using the same function as EflowStats
-  data <- validate_data(data, yearType)
+  #Validate data
+  if (yearType == 'water' & year_start == 10){
+    #use the same function as EflowStats
+    data <- validate_data(data, yearType)
+  }else{
+    #Use user-defined validation based on EflowStats function
+    data <- validate_data_yr_start(data, year_start)
+  }
   
   #add column indicating groups of continuous years
   data <- make_data_groups(data)
@@ -276,16 +282,24 @@ seasonal_mean <- function(seasonal_var){
   return(metric)
 }
 
-get_seasonal_frac <- function(seasonal_metric){
+get_seasonal_frac <- function(seasonal_metric, na_method = TRUE){
   #vector to store seasonal fractions of a metric
   fracs <- vector('numeric', length = 4)
   
-  if (all(is.na(seasonal_metric))){
+  if(na_method){
+    check_invalid <- all(is.na(seasonal_metric))
+  }else{
+    check_invalid <- (sum(seasonal_metric) == 0)
+  }
+  
+  if (check_invalid){
     #No events in any season
     fracs[1:4] <- NA
   }else{
-    #Change the NAs to 0s and compute the fractions per season
-    seasonal_metric[is.na(seasonal_metric)] <- 0
+    if(na_method){
+      #Change the NAs to 0s and compute the fractions per season
+      seasonal_metric[is.na(seasonal_metric)] <- 0
+    }
     fracs[1:4] <- seasonal_metric/sum(seasonal_metric)
   }
   
@@ -366,7 +380,7 @@ calc_dhfdc_metrics <- function(data, NE_flow, stat_type = 'POR', seasonal = FALS
         arrange(season) %>%
         pull(avg)
       
-      dhfdc[1:4] <- get_seasonal_frac(seasonal_durations)
+      dhfdc[1:4] <- get_seasonal_frac(seasonal_durations, TRUE)
     }
   }else{
     if (nrow(data) > 0){
@@ -415,11 +429,7 @@ calc_fhfdc_metrics <- function(data, NE_flow, stat_type = 'POR', seasonal = FALS
         arrange(season) %>%
         pull(avg)
       
-      if (sum(seasonal_counts) == 0){
-        fhfdc[1:4] <- NA
-      }else{
-        fhfdc[1:4] <- seasonal_counts/sum(seasonal_counts)
-      }
+      fhfdc[1:4] <- get_seasonal_frac(seasonal_counts, FALSE)
     }
   }else{
     yearly_counts <- dplyr::do(dplyr::group_by(data, year_val), 
@@ -493,7 +503,7 @@ calc_vhfdc_metrics <- function(data, NE_flow, stat_type = 'POR', seasonal = FALS
         arrange(season) %>%
         pull(avg)
       
-      vhfdc1[1:4] <- get_seasonal_frac(seasonal_volumes)
+      vhfdc1[1:4] <- get_seasonal_frac(seasonal_volumes, TRUE)
       
       #Compute the average of the maximum flow in each season
       seasonal_maxQ <- dplyr::summarize(group_by(seasonal_maxQ, season),
@@ -501,7 +511,7 @@ calc_vhfdc_metrics <- function(data, NE_flow, stat_type = 'POR', seasonal = FALS
         arrange(season) %>%
         pull(avg)
       
-      vhfdc2[1:4] <- get_seasonal_frac(seasonal_maxQ)
+      vhfdc2[1:4] <- get_seasonal_frac(seasonal_maxQ, TRUE)
     }
   }else{
     if (nrow(data) > 0){
@@ -522,4 +532,15 @@ calc_vhfdc_metrics <- function(data, NE_flow, stat_type = 'POR', seasonal = FALS
   }
   
   return(list(vhfdc1, vhfdc2))
+}
+
+
+calc_season_average <- function(seasonal_var, metric_colname){
+  #computes the average of the metric for each season
+  seasonal_var <- dplyr::summarize(dplyr::group_by(seasonal_var, season), 
+                                         avg = mean(metric_colname, na.rm=TRUE)) %>%
+    arrange(season) %>%
+    pull(avg)
+  
+  return(seasonal_var)
 }

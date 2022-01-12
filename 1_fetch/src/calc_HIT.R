@@ -4,7 +4,7 @@ calc_HITmetrics <- function(site_num, clean_daily_flow, yearType,
                             save_metrics = NULL, norm_DA = NULL, 
                             norm_med_DA = NULL, norm_ml17 = NULL,
                             digits = 3){
-  print(site_num)
+  message(paste('starting site', site_num))
   data <- clean_daily_flow %>%
     filter(site_no == site_num)
 

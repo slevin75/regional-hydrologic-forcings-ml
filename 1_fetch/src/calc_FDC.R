@@ -7,7 +7,7 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
                             drainArea_tab, NE_probs, digits = 3,
                             seasonal = FALSE, season_months = NULL,
                             stat_type = 'POR'){
-  print(site_num)
+  message(paste('starting site', site_num))
   data <- clean_daily_flow %>%
     filter(site_no == site_num)
   

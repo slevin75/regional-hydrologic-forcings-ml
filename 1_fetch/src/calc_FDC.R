@@ -28,9 +28,11 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
     data <- add_season_cols(data, season_months)
   }
   
-  drain_area <- drainArea_tab %>%
-    filter(site_no == site_num) %>%
-    pull(drainArea)
+  if(!seasonal){
+    drain_area <- drainArea_tab %>%
+      filter(site_no == site_num) %>%
+      pull(drainArea)
+  }
   
   #Get the non-exceedance flow values (mh15 style metrics)
   NE_flows <- quantile(data$discharge, probs = NE_probs, type = 6, names = F)

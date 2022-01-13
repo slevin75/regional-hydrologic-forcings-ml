@@ -51,7 +51,7 @@ NE_quants <- c(seq(0.5, 0.95, 0.05), 0.98, 0.99, 0.995)
 season_months <- c(10, 11, 12, seq(1, 9, 1))
 season_year_start <- season_months[1]
 # suggested by Ken for high flows
-season_months_high = c(12, seq(1, 11, 1))
+season_months_high <- c(12, seq(1, 11, 1))
 season_year_start_high <- season_months_high[1]
 
 ###gages2.1 ref site list - not sure how to get this right from sharepoint, so the

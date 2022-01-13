@@ -426,7 +426,7 @@ calc_fhfdc_metrics <- function(data, NE_flow, stat_type = 'POR', seasonal = FALS
       fhfdc[1:4] <- seasonal_mean(seasonal_counts)
     }else{
       #Computes seasonal average duration over all years, then fraction per season.
-      seasonal_counts = dplyr::summarize(group_by(seasonal_counts, season),
+      seasonal_counts <- dplyr::summarize(group_by(seasonal_counts, season),
                                          avg=mean(numEvents, na.rm=TRUE)) %>%
         arrange(season) %>%
         pull(avg)

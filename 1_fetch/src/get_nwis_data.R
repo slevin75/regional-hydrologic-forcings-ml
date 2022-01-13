@@ -122,8 +122,8 @@ clean_daily_data <- function(site, filenames, screen_daily_flow, yearType, year_
 validate_data_yr_start <- function(x, year_start){
   #based on EflowStats::validate_data()
   x <- x[, 1:2]
-  col1_class = class(x[, 1])
-  col2_class = class(x[, 2])
+  col1_class <- class(x[, 1])
+  col2_class <- class(x[, 2])
   if (col1_class != "Date" && col2_class != "numeric") {
     warning("First column of x must contain a vector of class date.\nSecond column of x must contain a vector of class numeric.")
     return(FALSE)
@@ -145,7 +145,7 @@ validate_data_yr_start <- function(x, year_start){
     return(FALSE)
   }
   names(x) <- c("date", "discharge")
-  x = dplyr::arrange(x, date)
+  x <- dplyr::arrange(x, date)
   if (year_start != 1) {
     x$year_val <- calc_water_year(x$date, year_start)
     x$day <- calc_water_day(x$date, year_start)

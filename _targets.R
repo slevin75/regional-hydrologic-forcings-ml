@@ -47,11 +47,12 @@ metrics_med_DA <- c('mh15', 'mh16', 'mh17', 'mh21', 'mh24', 'mh27')
 #non-exceedance quantiles for additional metrics - daily flows
 NE_quants <- c(seq(0.5, 0.95, 0.05), 0.98, 0.99, 0.995)
 #Seasons to use in season analysis
-# suggested by Ken for high flows
-#season_months = c(12, seq(1, 11, 1))
 # matches water year
 season_months <- c(10, 11, 12, seq(1, 9, 1))
 season_year_start <- season_months[1]
+# suggested by Ken for high flows
+season_months_high = c(12, seq(1, 11, 1))
+season_year_start_high <- season_months_high[1]
 
 ###gages2.1 ref site list - not sure how to get this right from sharepoint, so the
 ##filepath is currently to onedrive.
@@ -97,6 +98,9 @@ list(
   tar_target(p1_screen_daily_flow_season,
              screen_daily_data(p1_daily_flow_csv, season_year_start),
              map(p1_daily_flow_csv)),
+  tar_target(p1_screen_daily_flow_season_high,
+             screen_daily_data(p1_daily_flow_csv, season_year_start_high),
+             map(p1_daily_flow_csv)),
   
   ##select sites with enough complete years
   tar_target(p1_screened_site_list,
@@ -104,6 +108,8 @@ list(
   ##seasonal
   tar_target(p1_screened_site_list_season,
              filter_complete_years(p1_screen_daily_flow_season, complete_years)),
+  tar_target(p1_screened_site_list_season_high,
+             filter_complete_years(p1_screen_daily_flow_season_high, complete_years)),
   
   ##clean and format daily data so it can be used in EflowStats 
   tar_target(p1_clean_daily_flow,
@@ -115,16 +121,16 @@ list(
              clean_daily_data(p1_screened_site_list_season, p1_daily_flow_csv, 
                               p1_screen_daily_flow_season, yearType, season_year_start),
              map(p1_screened_site_list_season)),
+  tar_target(p1_clean_daily_flow_season_high,
+             clean_daily_data(p1_screened_site_list_season_high, p1_daily_flow_csv, 
+                              p1_screen_daily_flow_season_high, yearType, 
+                              season_year_start_high),
+             map(p1_screened_site_list_season_high)),
   
   #get drainage area from NWIS
   tar_target(p1_drainage_area,
              get_NWIS_drainArea(p1_screened_site_list),
              map(p1_screened_site_list)),
-  #seasonal
-  #[Jared] keeping for now so that function can run, but DA is not needed for seasonal calcs.
-  tar_target(p1_drainage_area_season,
-             get_NWIS_drainArea(p1_screened_site_list_season),
-             map(p1_screened_site_list_season)),
   
   ##get and save as file peak flow from NWIS
   tar_target(p1_peak_flow_csv,
@@ -179,17 +185,30 @@ list(
   # dh17 = dhfdc_q0.5
   # dh20 = dhfdc_q0.75
   
-  ##compute seasonal FDC-based metrics
+  ##compute seasonal FDC-based metrics using water year seasons
   tar_target(p1_FDC_metrics_season,
              calc_FDCmetrics(site_num = p1_screened_site_list_season, 
                              clean_daily_flow = p1_clean_daily_flow_season, 
                              yearType = yearType,
-                             drainArea_tab = p1_drainage_area_season,
+                             drainArea_tab = NULL,
                              NE_probs = NE_quants,
                              seasonal = TRUE,
                              season_months = season_months,
                              stat_type = 'POR',
                              year_start = season_year_start),
-             map(p1_screened_site_list_season))
+             map(p1_screened_site_list_season)),
+  
+  ##compute seasonal FDC-based metrics using high flow seasons
+  tar_target(p1_FDC_metrics_season_high,
+             calc_FDCmetrics(site_num = p1_screened_site_list_season_high, 
+                             clean_daily_flow = p1_clean_daily_flow_season_high, 
+                             yearType = yearType,
+                             drainArea_tab = NULL,
+                             NE_probs = NE_quants,
+                             seasonal = TRUE,
+                             season_months = season_months_high,
+                             stat_type = 'POR',
+                             year_start = season_year_start_high),
+             map(p1_screened_site_list_season_high))
   
 ) #end list

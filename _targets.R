@@ -65,18 +65,18 @@ gagesii$ID <- substr(gagesii$ID, start=2, stop=nchar(gagesii$ID))
 ##since there is no state attribution in the gagesii list, for East River, I am taking 
 ##AggEco==WestMnts and LON > -117 which cuts off the pacific northwest and cA areas
 
-p1_sites_list <- gagesii %>%
-  filter(AggEco == "WestMnts") %>%
-  filter(LON > -117) %>%
-  filter(LAT > 36) %>%
-  pull(ID)
+#p1_sites_list <- gagesii %>%
+#  filter(AggEco == "WestMnts") %>%
+#  filter(LON > -117) %>%
+#  filter(LAT > 36) %>%
+#  pull(ID)
 
 #DE - just pulling a bounding box of sites here
-#p1_sites_list <- gagesii %>%
-#  filter(LAT < 42) %>%
-#  filter(LON > -76) %>%
-#  pull(ID)
-#p1_sites_list<-c("01194500")
+p1_sites_list <- gagesii %>%
+  filter(LAT < 42) %>%
+  filter(LON > -76) %>%
+  pull(ID)
+
 
 
 
@@ -193,6 +193,10 @@ list(
                                 moving_window_metrics=p1_moving_window_metrics,
                                 outdir="./1_fetch/out"),
              map(p1_screened_plot_sites),
+             format="file"),
+  tar_target(p1_moving_window_summary_plots,
+             plot_trend_summary(moving_window_metrics=p1_moving_window_metrics,
+                                outdir="./1_fetch/out"),
              format="file")
   
 ) #end list

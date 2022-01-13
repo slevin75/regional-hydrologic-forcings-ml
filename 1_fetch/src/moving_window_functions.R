@@ -28,6 +28,42 @@ calc_moving_window_metrics<-function(site_num, window_length,increment, min_yrs_
 }
 
 
+plot_trend_summary<-function(moving_window_metrics,outdir){
+  #normalize metrics and remove NAs (when there is only 1 moving window
+  #for a site,the sd will be 0)
+  df_norm<-moving_window_metrics %>%
+    group_by(site_num,indice) %>%
+    mutate(norm = (statistic - mean(statistic))/sd(statistic))%>%
+    mutate(indice_grp=word(indice,start=1,sep="_") )%>%
+    filter(!is.na(norm))
+  
+  indice_grp<-unique(df_norm$indice_grp) 
+  ##map over indice_grp and produce a plot file for each group, with all the quantiles 
+  map_out<-map(indice_grp,make_summary_plot,
+          data=df_norm,
+          outdir= outdir)%>%
+    unlist()
+
+  return(map_out)
+}#end function
+
+
+make_summary_plot<- function(grp,data, outdir){
+  df_plot<-data %>%
+    filter(indice_grp ==grp)
+  
+  p1<-ggplot(df_plot,aes(start_Year,norm)) +geom_point(size = .7,alpha = .2)+
+    geom_smooth()+
+    facet_wrap(~indice, ncol=3)
+  
+  filepath <- file.path(outdir, paste0("moving_window_summary_", grp, ".png"))
+  
+  ggsave(filename=filepath,
+         plot= p1)
+  return(filepath)
+}
+
+
 
 
 calc_FDC_subset<- function(start_yr, window_length,site_num, clean_daily_flow, yearType, 

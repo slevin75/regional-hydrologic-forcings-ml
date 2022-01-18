@@ -33,6 +33,7 @@ plot_trend_summary<-function(moving_window_metrics,outdir){
   #for a site,the sd will be 0)
   df_norm<-moving_window_metrics %>%
     group_by(site_num,indice) %>%
+    filter(site_num %in% screened_plot_sites)%>%
     mutate(norm = (statistic - mean(statistic))/sd(statistic))%>%
     mutate(indice_grp=word(indice,start=1,sep="_") ) 
 

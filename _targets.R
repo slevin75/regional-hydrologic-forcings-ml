@@ -10,6 +10,7 @@ tar_option_set(packages = c("fasstr", "EflowStats", "dataRetrieval",
 
 ##Create output file directories
 dir.create('1_fetch/out', showWarnings=FALSE)
+dir.create('./1_fetch/out/stationarity_plots',showWarnings=FALSE)
 
 ##Load user defined functions
 source("./1_fetch/src/get_nwis_data.R")
@@ -51,6 +52,10 @@ NE_quants = c(seq(0.5, 0.95, 0.05), 0.98, 0.99, 0.995)
 ###moving window parameters
 window_length <- 20  ##needs to be <= complete_years
 increment <- 1
+min_yrs_in_window<- 15  ##minimum number of years of data required within a window
+min_windows <- 10  ##Must have this many windows available in order to plot 
+
+
 
 
 ###gages2.1 ref site list - not sure how to get this right from sharepoint, so the
@@ -65,17 +70,17 @@ gagesii$ID <- substr(gagesii$ID, start=2, stop=nchar(gagesii$ID))
 ##since there is no state attribution in the gagesii list, for East River, I am taking 
 ##AggEco==WestMnts and LON > -117 which cuts off the pacific northwest and cA areas
 
-#p1_sites_list <- gagesii %>%
-#  filter(AggEco == "WestMnts") %>%
-#  filter(LON > -117) %>%
-#  filter(LAT > 36) %>%
-#  pull(ID)
+p1_sites_list <- gagesii %>%
+  filter(AggEco == "WestMnts") %>%
+  filter(LON > -117) %>%
+  filter(LAT > 36) %>%
+  pull(ID)
 
 #DE - just pulling a bounding box of sites here
-p1_sites_list <- gagesii %>%
-  filter(LAT < 42) %>%
-  filter(LON > -76) %>%
-  pull(ID)
+#p1_sites_list <- gagesii %>%
+#  filter(LAT < 42) %>%
+#  filter(LON > -76) %>%
+#  pull(ID)
 
 
 
@@ -174,7 +179,7 @@ list(
               calc_moving_window_metrics(site_num = p1_screened_site_list,
                                          window_length = window_length,
                                          increment = increment,
-                                         min_yrs_in_window = 15,  
+                                         min_yrs_in_window = min_yrs_in_window,  
                                          clean_daily_flow = p1_clean_daily_flow,
                                          yearType = yearType,
                                          drainArea_tab = p1_drainage_area,
@@ -186,17 +191,18 @@ list(
   ##using 10 for a default
   tar_target(p1_screened_plot_sites,
              screen_plot_sites(moving_window_metrics=p1_moving_window_metrics,
-                               min_windows = 10)),
+                               min_windows = min_windows)),
   
   tar_target(p1_moving_window_plots,
              make_plots_by_site(site = p1_screened_plot_sites,
                                 moving_window_metrics=p1_moving_window_metrics,
-                                outdir="./1_fetch/out"),
+                                window_length=window_length,
+                                outdir="./1_fetch/out/stationarity_plots"),
              map(p1_screened_plot_sites),
              format="file"),
   tar_target(p1_moving_window_summary_plots,
              plot_trend_summary(moving_window_metrics=p1_moving_window_metrics,
-                                outdir="./1_fetch/out"),
+                                outdir="./1_fetch/out/stationarity_plots"),
              format="file")
   
 ) #end list

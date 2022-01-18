@@ -12,7 +12,7 @@ calc_moving_window_metrics<-function(site_num, window_length,increment, min_yrs_
                   by = increment)
 
   ##remove any starting years which would result in a window with no data (if there are large data gaps). 
-  df_screen<-bind_rows(map(start_yrs,window_screen,data))
+  df_screen<-bind_rows(map(start_yrs,window_screen,data,window_length))
   start_yrs<-start_yrs[start_yrs %in% df_screen$start_yr[which(df_screen$years_in_window > min_yrs_in_window)]==TRUE]
   
   
@@ -34,11 +34,11 @@ plot_trend_summary<-function(moving_window_metrics,outdir){
   df_norm<-moving_window_metrics %>%
     group_by(site_num,indice) %>%
     mutate(norm = (statistic - mean(statistic))/sd(statistic))%>%
-    mutate(indice_grp=word(indice,start=1,sep="_") )%>%
-    filter(!is.na(norm))
+    mutate(indice_grp=word(indice,start=1,sep="_") ) 
+
   
   indice_grp<-unique(df_norm$indice_grp) 
-  ##map over indice_grp and produce a plot file for each group, with all the quantiles 
+ ##map over indice_grp and produce a plot file for each group, with all the quantiles 
   map_out<-map(indice_grp,make_summary_plot,
           data=df_norm,
           outdir= outdir)%>%
@@ -56,6 +56,7 @@ make_summary_plot<- function(grp,data, outdir){
     geom_smooth()+
     facet_wrap(~indice, ncol=3)
   
+
   filepath <- file.path(outdir, paste0("moving_window_summary_", grp, ".png"))
   
   ggsave(filename=filepath,
@@ -94,7 +95,7 @@ screen_plot_sites<-function(moving_window_metrics, min_windows){
   metrics_screen<-moving_window_metrics %>% 
     group_by(site_num,indice) %>%
     count()
-  "ok1"
+
   plot_sites<-metrics_screen %>%
     filter(n> min_windows) %>%
     pull(site_num)
@@ -105,21 +106,20 @@ screen_plot_sites<-function(moving_window_metrics, min_windows){
 
 
 
-make_plots_by_site<-function(site, moving_window_metrics, outdir){
-  print(site)
+make_plots_by_site<-function(site, moving_window_metrics, window_length,outdir){
+  message(site)
   metrics<-moving_window_metrics %>%
     filter(site_num==site)
   if(nrow(metrics)> 0){
     metrics$index_grp<-word(metrics$indice,start=1,sep="_")
     metrics$quantile<-as.factor(word(metrics$indice,start=-1,sep="_q"))
   
-    ##I tried a line plot here too but the loess plots were just easier to look at and
-    ##get a general idea of the trend.  The line plots got very messy looking but sometimes
-    ##the loessdoes weird things if there are lots of gaps in the data, so idk which is better.
     p1<-ggplot(metrics,aes(start_Year,statistic,color=quantile))+
       geom_point(size= .5) + facet_wrap(~index_grp,scales="free")+
       geom_smooth(se=FALSE)+
+      ggtitle(paste("USGS gage", site))+
       theme(legend.position="bottom")
+
     filepath <- file.path(outdir, paste0(site, "_",window_length,"yr_moving_window_plots.png"))
     ggsave(filename=filepath,
            plot= p1)
@@ -127,7 +127,7 @@ make_plots_by_site<-function(site, moving_window_metrics, outdir){
   }
 }
 
-window_screen<-function(start_yr, data){
+window_screen<-function(start_yr, data, window_length){
   ##screener to count the number years of data within a window.
   ##using this to select out any starting years that result in a window with 
   #no data or with too few years of data to be reliable

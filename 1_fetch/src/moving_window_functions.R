@@ -28,7 +28,7 @@ calc_moving_window_metrics<-function(site_num, window_length,increment, min_yrs_
 }
 
 
-plot_trend_summary<-function(moving_window_metrics,outdir){
+plot_trend_summary<-function(moving_window_metrics,screened_plot_sites,outdir){
   #normalize metrics and remove NAs (when there is only 1 moving window
   #for a site,the sd will be 0)
   df_norm<-moving_window_metrics %>%

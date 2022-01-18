@@ -202,6 +202,7 @@ list(
              format="file"),
   tar_target(p1_moving_window_summary_plots,
              plot_trend_summary(moving_window_metrics=p1_moving_window_metrics,
+                                screened_plot_sites=p1_screened_plot_sites,
                                 outdir="./1_fetch/out/stationarity_plots"),
              format="file")
   

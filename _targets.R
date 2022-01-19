@@ -63,7 +63,7 @@ min_windows <- 10  ##Must have this many windows available in order to plot
 
 ###gages2.1 ref site list - not sure how to get this right from sharepoint, so the
 ##filepath is currently to onedrive.
-gagesii_path <- "C:/Users/slevin/OneDrive - DOI/FWA_bridgeScour/Data/Gages2.1_RefSiteList.xlsx"
+gagesii_path <- "C:/Users/jsmith/OneDrive - DOI/Shared Documents - FHWA/General/Data/Gages2.1_RefSiteList.xlsx"
 gagesii <- read_xlsx(gagesii_path)
 gagesii$ID <- substr(gagesii$ID, start=2, stop=nchar(gagesii$ID))
 
@@ -164,7 +164,8 @@ list(
                              save_metrics = metrics,
                              norm_DA = metrics_DA,
                              norm_med_DA = metrics_med_DA,
-                             norm_ml17 = metrics_ml17),
+                             norm_ml17 = metrics_ml17,
+                             out_format = 'pivot'),
              map(p1_screened_site_list)),
   
   ##compute additional FDC-based metrics for screened sites list
@@ -175,7 +176,8 @@ list(
                              drainArea_tab = p1_drainage_area,
                              NE_probs = NE_quants,
                              seasonal = FALSE,
-                             year_start = year_start),
+                             year_start = year_start,
+                             out_format = 'pivot'),
              map(p1_screened_site_list)),
   
   #Noting metrics that are the same in both (some different in last decimal place).
@@ -203,7 +205,8 @@ list(
                              seasonal = TRUE,
                              season_months = season_months,
                              stat_type = 'POR',
-                             year_start = season_year_start),
+                             year_start = season_year_start,
+                             out_format = 'pivot'),
              map(p1_screened_site_list_season)),
   
   ##compute seasonal FDC-based metrics using high flow seasons
@@ -216,8 +219,9 @@ list(
                              seasonal = TRUE,
                              season_months = season_months_high,
                              stat_type = 'POR',
-                             year_start = season_year_start_high),
-             map(p1_screened_site_list_season_high))
+                             year_start = season_year_start_high,
+                             out_format = 'pivot'),
+             map(p1_screened_site_list_season_high)),
 
   ########moving window nonstationarity stuff
    ##table with all the FDC metrics computed on a moving window. The parameter min_yrs_in_window
@@ -233,28 +237,29 @@ list(
                                          clean_daily_flow = p1_clean_daily_flow,
                                          yearType = yearType,
                                          drainArea_tab = p1_drainage_area,
-                                         NE_probs= NE_quants,
-                                         digits=3),
+                                         NE_probs = NE_quants,
+                                         digits = 3, seasonal = FALSE,
+                                         year_start = year_start),
              map(p1_screened_site_list)),
   
   ##screen out any sites that don't have enough moving windows to plot (min_windows)
   ##using 10 for a default
   tar_target(p1_screened_plot_sites,
-             screen_plot_sites(moving_window_metrics=p1_moving_window_metrics,
+             screen_plot_sites(moving_window_metrics = p1_moving_window_metrics,
                                min_windows = min_windows)),
   
   tar_target(p1_moving_window_plots,
              make_plots_by_site(site = p1_screened_plot_sites,
-                                moving_window_metrics=p1_moving_window_metrics,
-                                window_length=window_length,
-                                outdir="1_fetch/out/stationarity_plots"),
+                                moving_window_metrics = p1_moving_window_metrics,
+                                window_length = window_length,
+                                outdir = "1_fetch/out/stationarity_plots"),
              map(p1_screened_plot_sites),
-             format="file"),
+             format = "file"),
   
   tar_target(p1_moving_window_summary_plots,
-             plot_trend_summary(moving_window_metrics=p1_moving_window_metrics,
-                                screened_plot_sites=p1_screened_plot_sites,
-                                outdir="1_fetch/out/stationarity_plots"),
-             format="file")
+             plot_trend_summary(moving_window_metrics = p1_moving_window_metrics,
+                                screened_plot_sites = p1_screened_plot_sites,
+                                outdir = "1_fetch/out/stationarity_plots"),
+             format = "file")
   
 ) #end list

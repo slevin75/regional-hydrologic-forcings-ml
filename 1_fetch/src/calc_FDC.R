@@ -3,10 +3,11 @@
 #seasonal = TRUE will compute each of the metrics annually and seasonally for the months specified in the season_months vector
 #season_months is a numeric vector of months. Every 3 months are a season.
 #stat_type is a character equal to 'POR' for period of record metrics or 'ATS' for annual timeseries metrics.
+#out_format by default is the EflowStats format. 'pivot' can be specified to create a simpler table
 calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType, 
                             drainArea_tab, NE_probs, digits = 3,
                             seasonal = FALSE, season_months = NULL,
-                            stat_type = 'POR', year_start){
+                            stat_type = 'POR', year_start, out_format = 'EflowStats'){
   message(paste('starting site', site_num))
   data <- clean_daily_flow %>%
     filter(site_no == site_num)
@@ -117,7 +118,9 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
                            site_num = site_num)
   }
   
-  out_data <- pivot_wider(out_data, names_from = 'indice', values_from = 'statistic')
+  if (out_format == 'pivot'){
+    out_data <- pivot_wider(out_data, names_from = 'indice', values_from = 'statistic')
+  }
   
   return(out_data)
 }

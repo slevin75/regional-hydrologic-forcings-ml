@@ -10,11 +10,13 @@ tar_option_set(packages = c("fasstr", "EflowStats", "dataRetrieval",
 
 ##Create output file directories
 dir.create('1_fetch/out', showWarnings=FALSE)
+dir.create('1_fetch/out/stationarity_plots',showWarnings=FALSE)
 
 ##Load user defined functions
-source("./1_fetch/src/get_nwis_data.R")
-source("./1_fetch/src/calc_HIT.R")
-source("./1_fetch/src/calc_FDC.R")
+source("1_fetch/src/get_nwis_data.R")
+source("1_fetch/src/calc_HIT.R")
+source("1_fetch/src/calc_FDC.R")
+source("1_fetch/src/moving_window_functions.R")
 
 ###Define parameters
 NWIS_parameter <- '00060'
@@ -53,10 +55,15 @@ season_year_start <- season_months[1]
 # suggested by Ken for high flows
 season_months_high <- c(12, seq(1, 11, 1))
 season_year_start_high <- season_months_high[1]
+###moving window parameters
+window_length <- 20  ##needs to be <= complete_years
+increment <- 1
+min_yrs_in_window<- 15  ##minimum number of years of data required within a window
+min_windows <- 10  ##Must have this many windows available in order to plot 
 
 ###gages2.1 ref site list - not sure how to get this right from sharepoint, so the
 ##filepath is currently to onedrive.
-gagesii_path <- "C:/Users/jsmith/OneDrive - DOI/Shared Documents - FHWA/General/Data/Gages2.1_RefSiteList.xlsx"
+gagesii_path <- "C:/Users/slevin/OneDrive - DOI/FWA_bridgeScour/Data/Gages2.1_RefSiteList.xlsx"
 gagesii <- read_xlsx(gagesii_path)
 gagesii$ID <- substr(gagesii$ID, start=2, stop=nchar(gagesii$ID))
 
@@ -68,9 +75,10 @@ gagesii$ID <- substr(gagesii$ID, start=2, stop=nchar(gagesii$ID))
 #p1_sites_list <- gagesii %>%
 #  filter(AggEco == "WestMnts") %>%
 #  filter(LON > -117) %>%
+#  filter(LAT > 36) %>%
 #  pull(ID)
 
-##DE - just pulling a bounding box of sites here
+#DE - just pulling a bounding box of sites here
 p1_sites_list <- gagesii %>%
   filter(LAT < 42) %>%
   filter(LON > -76) %>%
@@ -210,5 +218,43 @@ list(
                              stat_type = 'POR',
                              year_start = season_year_start_high),
              map(p1_screened_site_list_season_high))
+
+  ########moving window nonstationarity stuff
+   ##table with all the FDC metrics computed on a moving window. The parameter min_yrs_in_window
+  ##screens out any moving windows for which there are too few years to be reliable. Can be an issue 
+  ##when there are large gaps in the data record because a 20 year window might only have a few years of 
+  ##actual data.The yr_ct column indicates how many complete years were in the window just to keep track of it.
+
+   tar_target(p1_moving_window_metrics,
+              calc_moving_window_metrics(site_num = p1_screened_site_list,
+                                         window_length = window_length,
+                                         increment = increment,
+                                         min_yrs_in_window = min_yrs_in_window,  
+                                         clean_daily_flow = p1_clean_daily_flow,
+                                         yearType = yearType,
+                                         drainArea_tab = p1_drainage_area,
+                                         NE_probs= NE_quants,
+                                         digits=3),
+             map(p1_screened_site_list)),
+  
+  ##screen out any sites that don't have enough moving windows to plot (min_windows)
+  ##using 10 for a default
+  tar_target(p1_screened_plot_sites,
+             screen_plot_sites(moving_window_metrics=p1_moving_window_metrics,
+                               min_windows = min_windows)),
+  
+  tar_target(p1_moving_window_plots,
+             make_plots_by_site(site = p1_screened_plot_sites,
+                                moving_window_metrics=p1_moving_window_metrics,
+                                window_length=window_length,
+                                outdir="1_fetch/out/stationarity_plots"),
+             map(p1_screened_plot_sites),
+             format="file"),
+  
+  tar_target(p1_moving_window_summary_plots,
+             plot_trend_summary(moving_window_metrics=p1_moving_window_metrics,
+                                screened_plot_sites=p1_screened_plot_sites,
+                                outdir="1_fetch/out/stationarity_plots"),
+             format="file")
   
 ) #end list

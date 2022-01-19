@@ -14,7 +14,7 @@ filter_complete_years <- function(screen_daily_flow, complete_years){
     filter(!is.na(complete_yrs)) %>%  
     group_by(site_no) %>%
     count()
-  print("complete yr ok")
+  message("complete yr ok")
   
   keep_sites <- complete_yr_count %>%
     filter(n >= complete_years) %>%

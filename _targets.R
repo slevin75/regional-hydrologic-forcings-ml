@@ -10,13 +10,13 @@ tar_option_set(packages = c("fasstr", "EflowStats", "dataRetrieval",
 
 ##Create output file directories
 dir.create('1_fetch/out', showWarnings=FALSE)
-dir.create('./1_fetch/out/stationarity_plots',showWarnings=FALSE)
+dir.create('1_fetch/out/stationarity_plots',showWarnings=FALSE)
 
 ##Load user defined functions
-source("./1_fetch/src/get_nwis_data.R")
-source("./1_fetch/src/calc_HIT.R")
-source("./1_fetch/src/calc_FDC.R")
-source("./1_fetch/src/moving_window_functions.R")
+source("1_fetch/src/get_nwis_data.R")
+source("1_fetch/src/calc_HIT.R")
+source("1_fetch/src/calc_FDC.R")
+source("1_fetch/src/moving_window_functions.R")
 
 ###Define parameters
 NWIS_parameter <- '00060'
@@ -24,6 +24,7 @@ startDate <- as.Date("1900-10-01")
 endDate <- as.Date("2020-09-30")
 ##water year or calendar year.
 yearType <- "water"
+year_start <- 10
 ##number of complete years we require for a site to be used
 complete_years <- 20
 ##percentile for flood threshold in EflowStats. 0.6 is the default
@@ -34,9 +35,9 @@ stats_HIT <- c("calc_magAverage", "calc_magLow", "calc_magHigh",
 ##EflowStats metrics to use
 metrics <- c('ma1', 'ma2', 
              'ml17', 'ml18', 
-             'mh15', 'mh16', 'mh17', 'mh20', 'mh21', 'mh24', 'mh27', 
+             'mh15', 'mh16', 'mh17', 'mh20', 'mh24', 'mh27', 
              'fh1', 'fh2', 'fh5', 
-             'dh1', 'dh6', 'dh15', 'dh16', 'dh17', 'dh20',
+             'dh1', 'dh6', 'dh15', 'dh16', 'dh17', 'dh20', 'dh23',
              'ra1', 'ra2', 'ra3', 'ra4'
 )
 ##metrics to normalize by drainage area
@@ -46,24 +47,25 @@ metrics_ml17 <- c('ml17')
 ##metrics to normalize by *median/drainage area
 metrics_med_DA <- c('mh15', 'mh16', 'mh17', 'mh21', 'mh24', 'mh27')
 #non-exceedance quantiles for additional metrics - daily flows
-NE_quants = c(seq(0.5, 0.95, 0.05), 0.98, 0.99, 0.995)
-
-
+NE_quants <- c(seq(0.5, 0.95, 0.05), 0.98, 0.99, 0.995)
+#Seasons to use in season analysis
+# matches water year
+season_months <- c(10, 11, 12, seq(1, 9, 1))
+season_year_start <- season_months[1]
+# suggested by Ken for high flows
+season_months_high <- c(12, seq(1, 11, 1))
+season_year_start_high <- season_months_high[1]
 ###moving window parameters
 window_length <- 20  ##needs to be <= complete_years
 increment <- 1
 min_yrs_in_window<- 15  ##minimum number of years of data required within a window
 min_windows <- 10  ##Must have this many windows available in order to plot 
 
-
-
-
 ###gages2.1 ref site list - not sure how to get this right from sharepoint, so the
 ##filepath is currently to onedrive.
-gagesii_path <- "C:/Users/slevin/OneDrive - DOI/FWA_bridgeScour/Data/Gages2.1_RefSiteList.xlsx"
+gagesii_path <- "C:/Users/jsmith/OneDrive - DOI/Shared Documents - FHWA/General/Data/Gages2.1_RefSiteList.xlsx"
 gagesii <- read_xlsx(gagesii_path)
 gagesii$ID <- substr(gagesii$ID, start=2, stop=nchar(gagesii$ID))
-
 
 
 ## not sure yet how we'll be selecting gages so I'm not putting this in a function yet.
@@ -83,8 +85,6 @@ p1_sites_list <- gagesii %>%
   pull(ID)
 
 
-
-
 ##targets
 list(
   ##check to make sure peak and daily flow are actually available for all sites
@@ -102,16 +102,38 @@ list(
   tar_target(p1_screen_daily_flow,
              screen_daily_data(p1_daily_flow_csv, yearType),
              map(p1_daily_flow_csv)),
+  ##For seasonal analysis
+  tar_target(p1_screen_daily_flow_season,
+             screen_daily_data(p1_daily_flow_csv, season_year_start),
+             map(p1_daily_flow_csv)),
+  tar_target(p1_screen_daily_flow_season_high,
+             screen_daily_data(p1_daily_flow_csv, season_year_start_high),
+             map(p1_daily_flow_csv)),
   
-  ##select out sites with enough complete years
+  ##select sites with enough complete years
   tar_target(p1_screened_site_list,
              filter_complete_years(p1_screen_daily_flow, complete_years)),
+  ##seasonal
+  tar_target(p1_screened_site_list_season,
+             filter_complete_years(p1_screen_daily_flow_season, complete_years)),
+  tar_target(p1_screened_site_list_season_high,
+             filter_complete_years(p1_screen_daily_flow_season_high, complete_years)),
   
   ##clean and format daily data so it can be used in EflowStats 
   tar_target(p1_clean_daily_flow,
              clean_daily_data(p1_screened_site_list, p1_daily_flow_csv, 
-                              p1_screen_daily_flow, yearType),
+                              p1_screen_daily_flow, yearType, year_start),
              map(p1_screened_site_list)),
+  ##seasonal
+  tar_target(p1_clean_daily_flow_season,
+             clean_daily_data(p1_screened_site_list_season, p1_daily_flow_csv, 
+                              p1_screen_daily_flow_season, yearType, season_year_start),
+             map(p1_screened_site_list_season)),
+  tar_target(p1_clean_daily_flow_season_high,
+             clean_daily_data(p1_screened_site_list_season_high, p1_daily_flow_csv, 
+                              p1_screen_daily_flow_season_high, yearType, 
+                              season_year_start_high),
+             map(p1_screened_site_list_season_high)),
   
   #get drainage area from NWIS
   tar_target(p1_drainage_area,
@@ -142,7 +164,8 @@ list(
                              save_metrics = metrics,
                              norm_DA = metrics_DA,
                              norm_med_DA = metrics_med_DA,
-                             norm_ml17 = metrics_ml17),
+                             norm_ml17 = metrics_ml17,
+                             out_format = 'pivot'),
              map(p1_screened_site_list)),
   
   ##compute additional FDC-based metrics for screened sites list
@@ -151,7 +174,10 @@ list(
                              clean_daily_flow = p1_clean_daily_flow, 
                              yearType = yearType,
                              drainArea_tab = p1_drainage_area,
-                             NE_probs = NE_quants),
+                             NE_probs = NE_quants,
+                             seasonal = FALSE,
+                             year_start = year_start,
+                             out_format = 'pivot'),
              map(p1_screened_site_list)),
   
   #Noting metrics that are the same in both (some different in last decimal place).
@@ -169,6 +195,34 @@ list(
   # dh17 = dhfdc_q0.5
   # dh20 = dhfdc_q0.75
   
+  ##compute seasonal FDC-based metrics using water year seasons
+  tar_target(p1_FDC_metrics_season,
+             calc_FDCmetrics(site_num = p1_screened_site_list_season, 
+                             clean_daily_flow = p1_clean_daily_flow_season, 
+                             yearType = yearType,
+                             drainArea_tab = NULL,
+                             NE_probs = NE_quants,
+                             seasonal = TRUE,
+                             season_months = season_months,
+                             stat_type = 'POR',
+                             year_start = season_year_start,
+                             out_format = 'pivot'),
+             map(p1_screened_site_list_season)),
+  
+  ##compute seasonal FDC-based metrics using high flow seasons
+  tar_target(p1_FDC_metrics_season_high,
+             calc_FDCmetrics(site_num = p1_screened_site_list_season_high, 
+                             clean_daily_flow = p1_clean_daily_flow_season_high, 
+                             yearType = yearType,
+                             drainArea_tab = NULL,
+                             NE_probs = NE_quants,
+                             seasonal = TRUE,
+                             season_months = season_months_high,
+                             stat_type = 'POR',
+                             year_start = season_year_start_high,
+                             out_format = 'pivot'),
+             map(p1_screened_site_list_season_high)),
+
   ########moving window nonstationarity stuff
    ##table with all the FDC metrics computed on a moving window. The parameter min_yrs_in_window
   ##screens out any moving windows for which there are too few years to be reliable. Can be an issue 
@@ -183,27 +237,29 @@ list(
                                          clean_daily_flow = p1_clean_daily_flow,
                                          yearType = yearType,
                                          drainArea_tab = p1_drainage_area,
-                                         NE_probs= NE_quants,
-                                         digits=3),
+                                         NE_probs = NE_quants,
+                                         digits = 3, seasonal = FALSE,
+                                         year_start = year_start),
              map(p1_screened_site_list)),
   
   ##screen out any sites that don't have enough moving windows to plot (min_windows)
   ##using 10 for a default
   tar_target(p1_screened_plot_sites,
-             screen_plot_sites(moving_window_metrics=p1_moving_window_metrics,
+             screen_plot_sites(moving_window_metrics = p1_moving_window_metrics,
                                min_windows = min_windows)),
   
   tar_target(p1_moving_window_plots,
              make_plots_by_site(site = p1_screened_plot_sites,
-                                moving_window_metrics=p1_moving_window_metrics,
-                                window_length=window_length,
-                                outdir="./1_fetch/out/stationarity_plots"),
+                                moving_window_metrics = p1_moving_window_metrics,
+                                window_length = window_length,
+                                outdir = "1_fetch/out/stationarity_plots"),
              map(p1_screened_plot_sites),
-             format="file"),
+             format = "file"),
+  
   tar_target(p1_moving_window_summary_plots,
-             plot_trend_summary(moving_window_metrics=p1_moving_window_metrics,
-                                screened_plot_sites=p1_screened_plot_sites,
-                                outdir="./1_fetch/out/stationarity_plots"),
-             format="file")
+             plot_trend_summary(moving_window_metrics = p1_moving_window_metrics,
+                                screened_plot_sites = p1_screened_plot_sites,
+                                outdir = "1_fetch/out/stationarity_plots"),
+             format = "file")
   
 ) #end list

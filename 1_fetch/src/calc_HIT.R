@@ -3,8 +3,8 @@ calc_HITmetrics <- function(site_num, clean_daily_flow, yearType,
                             drainArea_tab, floodThreshold_tab, stat_vec,
                             save_metrics = NULL, norm_DA = NULL, 
                             norm_med_DA = NULL, norm_ml17 = NULL,
-                            digits = 3){
-  print(site_num)
+                            digits = 3, out_format = 'EflowStats'){
+  message(paste('starting site', site_num))
   data <- clean_daily_flow %>%
     filter(site_no == site_num)
 
@@ -60,5 +60,10 @@ calc_HITmetrics <- function(site_num, clean_daily_flow, yearType,
         TRUE ~ statistic))
     }
   }
+  
+  if (out_format == 'pivot'){
+    out_data <- pivot_wider(out_data, names_from = 'indice', values_from = 'statistic')
+  }
+  
   return(out_data)
 }

@@ -33,19 +33,19 @@ perc <- 0.6
 stats_HIT <- c("calc_magAverage", "calc_magLow", "calc_magHigh", 
                "calc_frequencyHigh", "calc_durationHigh", "calc_rateChange")
 ##EflowStats metrics to use
-metrics <- c('ma1', 'ma2', 
+metrics <- c('ma1', 
              'ml17', 'ml18', 
-             'mh15', 'mh16', 'mh17', 'mh20', 'mh24', 'mh27', 
-             'fh1', 'fh2', 'fh5', 
-             'dh1', 'dh6', 'dh15', 'dh16', 'dh17', 'dh20', 'dh23',
+             'mh20', 
+             'fh2', 
+             'dh1', 'dh6', 'dh15', 'dh16', 'dh23',
              'ra1', 'ra2', 'ra3', 'ra4'
 )
 ##metrics to normalize by drainage area
-metrics_DA <- c('ma1', 'ma2', 'dh1', 'ra1', 'ra3')
+metrics_DA <- c('ma1', 'dh1', 'ra1', 'ra3')
 ##metric ml17 to normalize by *annual mean/drainage area
 metrics_ml17 <- c('ml17')
 ##metrics to normalize by *median/drainage area
-metrics_med_DA <- c('mh15', 'mh16', 'mh17', 'mh21', 'mh24', 'mh27')
+metrics_med_DA <- NULL
 #non-exceedance quantiles for additional metrics - daily flows
 NE_quants <- c(seq(0.5, 0.95, 0.05), 0.98, 0.99, 0.995)
 #Seasons to use in season analysis
@@ -68,25 +68,36 @@ gagesii <- read_xlsx(gagesii_path)
 gagesii$ID <- substr(gagesii$ID, start=2, stop=nchar(gagesii$ID))
 
 
-## not sure yet how we'll be selecting gages so I'm not putting this in a function yet.
-##since there is no state attribution in the gagesii list, for East River, I am taking 
-##AggEco==WestMnts and LON > -117 which cuts off the pacific northwest and cA areas
-
-#p1_sites_list <- gagesii %>%
-#  filter(AggEco == "WestMnts") %>%
-#  filter(LON > -117) %>%
-#  filter(LAT > 36) %>%
-#  pull(ID)
-
-#DE - just pulling a bounding box of sites here
-p1_sites_list <- gagesii %>%
-  filter(LAT < 42) %>%
-  filter(LON > -76) %>%
-  pull(ID)
-
-
 ##targets
 list(
+  #all gagesii (g2) sites 
+  tar_target(p1_sites_g2,
+             {read_xlsx(gagesii_path) %>% 
+                 mutate(ID = substr(ID, start=2, stop=nchar(ID)))
+               }
+             ),
+  
+  #ID numbers for sites to use
+  tar_target(p1_sites_list,
+             {p1_sites_g2$ID
+               ## not sure yet how we'll be selecting gages so I'm not putting this in a function yet.
+               ##since there is no state attribution in the gagesii list, for East River, I am taking 
+               ##AggEco==WestMnts and LON > -117 which cuts off the pacific northwest and cA areas
+               
+               #p1_sites_g2 %>%
+               #  filter(AggEco == "WestMnts") %>%
+               #  filter(LON > -117) %>%
+               #  filter(LAT > 36) %>%
+               #  pull(ID)
+               
+               #DE - just pulling a bounding box of sites here
+               #p1_sites_g2 %>%
+               #  filter(LAT < 42) %>%
+               #  filter(LON > -76) %>%
+               #  pull(ID)
+             }
+  ),
+  
   ##check to make sure peak and daily flow are actually available for all sites
   tar_target(p1_has_data,
              has_data_check(p1_sites_list, NWIS_parameter)),
@@ -179,21 +190,6 @@ list(
                              year_start = year_start,
                              out_format = 'pivot'),
              map(p1_screened_site_list)),
-  
-  #Noting metrics that are the same in both (some different in last decimal place).
-  #I'm recommending that we drop the EflowStats equivalent metrics because names 
-  #are simpler to understand with the FDC quantile convention.
-  # ma2 = mhfdc_q0.5
-  # mh15 = mhfdc_q0.99
-  # mh16 = mhfdc_q0.9
-  # mh17 = mhfdc_q0.75
-  # mh21 = vhfdc1_q0.5
-  # mh24 = vhfdc2_q0.5
-  # mh27 = vhfdc2_q0.75
-  # fh1 = fhfdc_q0.75
-  # fh5 = fhfdc_q0.5
-  # dh17 = dhfdc_q0.5
-  # dh20 = dhfdc_q0.75
   
   ##compute seasonal FDC-based metrics using water year seasons
   tar_target(p1_FDC_metrics_season,

@@ -3,7 +3,9 @@ has_data_check <- function(site_nums, parameterCd){
   ##gages in gagesii that do not have one or the other, so screen these out before we try
   ##to download the data
   dv_screen <- whatNWISdata(siteNumber=site_nums, parameterCd=parameterCd, service="dv",
-                          convertType = FALSE)
+                          convertType = FALSE) %>%
+    #Check specifically that the stat_cd for mean flow is available
+    filter(stat_cd == '00003')
   pk_screen <- whatNWISdata(siteNumber=site_nums, service="pk", convertType = FALSE)
   sites_with_data <- intersect(dv_screen$site_no, pk_screen$site_no)
 }
@@ -51,7 +53,9 @@ get_nwis_peak_data <- function(site_num, outdir, startDate, endDate){
 screen_daily_data <- function(filename, year_start){
   message(filename)
   ##screen for years with missing data while handling sites with strange column names
-  if (length(grep(pattern = '01011500', filename)) > 0){
+  if (length(grep(pattern = '01011500', filename)) +
+      length(grep(pattern = '02196000', filename)) + 
+      length(grep(pattern = '03213000', filename)) > 0){
     #site has 2 columns named discharge and 2 named discharge_cd
     #Merge these columns because they are mutually exclusive
     d1 <- read_csv(filename,
@@ -71,6 +75,13 @@ screen_daily_data <- function(filename, year_start){
     
     data <- rbind(d1, d2)
     data <- data[order(data$Date),]
+    
+    #take only the unique records
+    data <- unique(data)
+    #check that each date has only one record
+    # some dates have multiple and it seems like that's because of rounding to the thenths place
+    # Keeping the hundredths place dataset
+    data <- data[which(duplicated(data$Date) == FALSE),]
     
   }else{
     data <- read_csv(filename,

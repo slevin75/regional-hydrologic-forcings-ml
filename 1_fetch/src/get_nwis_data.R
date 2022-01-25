@@ -49,11 +49,35 @@ get_nwis_peak_data <- function(site_num, outdir, startDate, endDate){
 }
 
 screen_daily_data <- function(filename, year_start){
-  ##screen for years with missing data
-  data <- read_csv(filename,
+  message(filename)
+  ##screen for years with missing data while handling sites with strange column names
+  if (length(grep(pattern = '01011500', filename)) > 0){
+    #site has 2 columns named discharge and 2 named discharge_cd
+    #Merge these columns because they are mutually exclusive
+    d1 <- read_csv(filename,
                    col_types=cols(agency_cd=col_character(),
                                   site_no=col_character(), Date=col_date(format="%Y-%m-%d"),
-                                  discharge=col_double(), discharge_cd=col_character()))
+                                  discharge=col_double(), discharge_cd=col_character()),
+                   col_select = 1:5) %>%
+      na.omit()
+    colnames(d1)[4:5] <- c('discharge', 'discharge_cd')
+    d2 <- read_csv(filename,
+                   col_types=cols(agency_cd=col_character(),
+                                  site_no=col_character(), Date=col_date(format="%Y-%m-%d"),
+                                  discharge=col_double(), discharge_cd=col_character()),
+                   col_select = c(1,2,3,6,7)) %>%
+      na.omit()
+    colnames(d2)[4:5] <- c('discharge', 'discharge_cd')
+    
+    data <- rbind(d1, d2)
+    data <- data[order(data$Date),]
+    
+  }else{
+    data <- read_csv(filename,
+                     col_types=cols(agency_cd=col_character(),
+                                    site_no=col_character(), Date=col_date(format="%Y-%m-%d"),
+                                    discharge=col_double(), discharge_cd=col_character()))
+  }
  
   ###prior to screening, remove any provisional data - this will be counted as 'no data'
   prov_data <- grep('P|e', data$discharge_cd)

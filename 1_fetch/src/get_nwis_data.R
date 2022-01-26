@@ -232,6 +232,9 @@ get_floodThreshold <- function(site_num, p1_clean_daily_flow, p1_peak_flow,
   peaks$site_no <- as.character(peaks$site_no)
   df_pk <- data.frame(date=as.Date(peaks$peak_dt),peak=peaks$peak_va)
   floodThreshold <- get_peakThreshold(df_dv, df_pk, perc=perc, yearType=yearType)
+  if(is.na(floodThreshold)){
+    floodThreshold <- quantile(x = df_dv$discharge, probs = 0.66)
+  }
   df_out <- data.frame(site_no=site_num, floodThreshold)
   return(df_out)
 }

@@ -50,14 +50,15 @@ get_nwis_peak_data <- function(site_num, outdir, startDate, endDate){
   return(filepath)
 }
 
-screen_daily_data <- function(filename, year_start){
+prescreen_daily_data <- function(filename, prov_rm = TRUE){
+  #loads data from file and removes provisional and estimated data if prov_rm = TRUE
   message(filename)
-  ##screen for years with missing data while handling sites with strange column names
+  ##Handle sites with strange column names
   if (length(grep(pattern = '01011500', filename)) +
       length(grep(pattern = '02196000', filename)) + 
-      length(grep(pattern = '03213000', filename)) > 0){
+      length(grep(pattern = '03213000', filename)) + 
+      length(grep(pattern = '12010000', filename)) > 0){
     #site has 2 columns named discharge and 2 named discharge_cd
-    #Merge these columns because they are mutually exclusive
     d1 <- read_csv(filename,
                    col_types=cols(agency_cd=col_character(),
                                   site_no=col_character(), Date=col_date(format="%Y-%m-%d"),
@@ -80,7 +81,7 @@ screen_daily_data <- function(filename, year_start){
     data <- unique(data)
     #check that each date has only one record
     # some dates have multiple and it seems like that's because of rounding to the thenths place
-    # Keeping the hundredths place dataset
+    # Keeping the first dataset
     data <- data[which(duplicated(data$Date) == FALSE),]
     
   }else{
@@ -89,16 +90,25 @@ screen_daily_data <- function(filename, year_start){
                                     site_no=col_character(), Date=col_date(format="%Y-%m-%d"),
                                     discharge=col_double(), discharge_cd=col_character()))
   }
- 
-  ###prior to screening, remove any provisional data - this will be counted as 'no data'
-  prov_data <- grep('P|e', data$discharge_cd)
-  if(length(prov_data) > 0){data <- data[-prov_data, ]}
   
+  if (prov_rm == TRUE){
+    ###remove any provisional data - this will be counted as 'no data'
+    prov_data <- grep('P|e', data$discharge_cd)
+    if(length(prov_data) > 0){data <- data[-prov_data, ]}
+  }
+  
+  return(data)
+}
+
+screen_daily_data <- function(site, prescreen_data, year_start = 'water'){
+  #screens data for complete years and outputs complete years by site
   if(year_start == 'water'){
     year_start <- 10
-  }else if(is.character(year_start)){
+  }else if(!is.numeric(year_start)){
     stop('year_start must be numeric or "water"')
   }
+  
+  data <- filter(prescreen_data, site_no == site)
   
   missing_data <- screen_flow_data(data.frame(site_no=data$site_no, 
                                               Date=data$Date,
@@ -107,7 +117,7 @@ screen_daily_data <- function(filename, year_start){
   complete_yrs <- missing_data %>%
     filter(n_missing_Q == 0) %>%
     select(Year)
-
+  
   if(nrow(complete_yrs) > 0){
     data_out <- data.frame(site_no=unique(data$site_no),
                            complete_yrs=complete_yrs$Year)
@@ -119,18 +129,13 @@ screen_daily_data <- function(filename, year_start){
   return(data_out)
 }
 
-clean_daily_data <- function(site, filenames, screen_daily_flow, yearType, year_start){
+clean_daily_data <- function(site, prescreen_data, screen_daily_flow, yearType, year_start){
   ##remove NAs from data and remove incomplete years of data
   ##EflowStats requires the cleaned data to have dates in the first column and 
   ##discharge in the second column.
   message(paste('starting site', site))
-  filepath <- filenames[grep(site, filenames)]
-  data <- read_csv(filepath,
-                   col_types=cols(agency_cd=col_character(),
-                                  site_no=col_character(),
-                                  Date=col_date(format="%Y-%m-%d"),
-                                  discharge=col_double(),
-                                  discharge_cd=col_character()))
+  data <- prescreen_data %>%
+    filter(site_no == site)
   
   #add a column for the water year based on year_start
   data$waterYear <- calc_water_year(data$Date, year_start)

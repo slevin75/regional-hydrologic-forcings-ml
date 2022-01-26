@@ -64,9 +64,9 @@ min_windows <- 10  ##Must have this many windows available in order to plot
 ###gages2.1 ref site list - not sure how to get this right from sharepoint, so the
 ##filepath is currently to onedrive.
 gagesii_path <- "C:/Users/jsmith/OneDrive - DOI/Shared Documents - FHWA/General/Data/Gages2.1_RefSiteList.xlsx"
-gagesii <- read_xlsx(gagesii_path)
-gagesii$ID <- substr(gagesii$ID, start=2, stop=nchar(gagesii$ID))
 
+#set random seed for project
+set.seed(12422)
 
 ##targets
 list(
@@ -109,17 +109,22 @@ list(
              map(p1_has_data),
              format="file"),
   
-  ##compute the number of complete years
-  tar_target(p1_screen_daily_flow,
-             screen_daily_data(p1_daily_flow_csv, yearType),
+  ##prescreen data to remove provisional data and handle odd column names
+  tar_target(p1_prescreen_daily_data, 
+             prescreen_daily_data(p1_daily_flow_csv, prov_rm = TRUE),
              map(p1_daily_flow_csv)),
+  
+  ##compute the number of complete years based on when the year starts
+  tar_target(p1_screen_daily_flow,
+             screen_daily_data(p1_has_data, p1_prescreen_daily_data, year_start),
+             map(p1_has_data)),
   ##For seasonal analysis
   tar_target(p1_screen_daily_flow_season,
-             screen_daily_data(p1_daily_flow_csv, season_year_start),
-             map(p1_daily_flow_csv)),
+             screen_daily_data(p1_has_data, p1_prescreen_daily_data, season_year_start),
+             map(p1_has_data)),
   tar_target(p1_screen_daily_flow_season_high,
-             screen_daily_data(p1_daily_flow_csv, season_year_start_high),
-             map(p1_daily_flow_csv)),
+             screen_daily_data(p1_has_data, p1_prescreen_daily_data, season_year_start_high),
+             map(p1_has_data)),
   
   ##select sites with enough complete years
   tar_target(p1_screened_site_list,
@@ -132,16 +137,16 @@ list(
   
   ##clean and format daily data so it can be used in EflowStats 
   tar_target(p1_clean_daily_flow,
-             clean_daily_data(p1_screened_site_list, p1_daily_flow_csv, 
+             clean_daily_data(p1_screened_site_list, p1_prescreen_daily_data, 
                               p1_screen_daily_flow, yearType, year_start),
              map(p1_screened_site_list)),
   ##seasonal
   tar_target(p1_clean_daily_flow_season,
-             clean_daily_data(p1_screened_site_list_season, p1_daily_flow_csv, 
+             clean_daily_data(p1_screened_site_list_season, p1_prescreen_daily_data, 
                               p1_screen_daily_flow_season, yearType, season_year_start),
              map(p1_screened_site_list_season)),
   tar_target(p1_clean_daily_flow_season_high,
-             clean_daily_data(p1_screened_site_list_season_high, p1_daily_flow_csv, 
+             clean_daily_data(p1_screened_site_list_season_high, p1_prescreen_daily_data, 
                               p1_screen_daily_flow_season_high, yearType, 
                               season_year_start_high),
              map(p1_screened_site_list_season_high)),
@@ -151,7 +156,7 @@ list(
              get_NWIS_drainArea(p1_screened_site_list),
              map(p1_screened_site_list)),
   
-  ##get and save as file peak flow from NWIS
+  ##get and save as file peak flow from NWIS for eflowstats
   tar_target(p1_peak_flow_csv,
              get_nwis_peak_data(p1_screened_site_list, outdir="./1_fetch/out",
                                 startDate, endDate),

@@ -34,6 +34,26 @@ get_nwis_daily_data <- function(site_num, outdir, parameterCd, startDate, endDat
   return(filepath)
 }
 
+get_daily_flow_log <- function(files_in, file_out) {
+  message(paste('generating log for dataRetrieval daily flow request'))
+  daily_flow_list <- map(files_in, read_csv, 
+              col_types = cols(agency_cd = col_skip(), 
+                               site_no = col_character(), 
+                               Date = col_date(format = "%Y-%m-%d"), 
+                               discharge = col_double(), 
+                               discharge_cd = col_character()))
+  daily_flow_df <- bind_rows(daily_flow_list)
+  daily_flow_log <- daily_flow_df %>%
+    group_by(site_no) %>%
+    summarize(num_days = n(), 
+              start_date = min(Date), 
+              end_date = max(Date), 
+              mean_flow = mean(discharge, na.rm = TRUE), 
+              sd_flow = sd(discharge, na.rm = TRUE))
+  write_csv(daily_flow_log, file_out)
+  return(file_out)
+}
+
 get_nwis_peak_data <- function(site_num, outdir, startDate, endDate){
   message(paste('starting site', site_num))
   ##read NWIS peak data, and save to csv file.
@@ -46,6 +66,36 @@ get_nwis_peak_data <- function(site_num, outdir, startDate, endDate){
   filepath <- file.path(outdir, paste0(site_num, "_pk.csv"))
   write_csv(data_out, file=filepath)
   return(filepath)
+}
+
+get_peak_flow_log <- function(files_in, file_out) {
+  message(paste('generating log for dataRetrieval peak flow request'))
+  peak_flow_list <- suppressWarnings(
+    map(files_in, read_csv, 
+        col_types = cols(agency_cd = col_skip(), 
+                         site_no = col_character(), 
+                         peak_dt = col_date(format = "%Y-%m-%d"), 
+                         peak_tm = col_skip(), 
+                         peak_va = col_double(), 
+                         peak_cd = col_skip(), 
+                         gage_ht = col_skip(), 
+                         gage_ht_cd = col_skip(), 
+                         year_last_pk = col_skip(), 
+                         ag_dt = col_skip(), 
+                         ag_tm = col_skip(), 
+                         ag_gage_ht = col_skip(), 
+                         ag_gage_ht_cd = col_skip(), 
+                         peak_dateTime = col_skip(), 
+                         ag_dateTime = col_skip())))
+  peak_flow_df <- bind_rows(peak_flow_list)
+  peak_flow_log <- peak_flow_df %>%
+    group_by(site_no) %>%
+    summarize(num_peaks = n(), 
+              first_date = min(peak_dt), 
+              last_date = max(peak_dt), 
+              max_peak = max(peak_va, na.rm = TRUE))
+  write_csv(peak_flow_log, file_out)
+  return(file_out)
 }
 
 screen_daily_data <- function(filename, year_start){

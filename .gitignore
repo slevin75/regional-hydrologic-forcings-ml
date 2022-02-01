@@ -3,7 +3,8 @@ _targets
 
 #All output except dataRetrieval logs
 */out/stationarity_plots
-*/out/*.csv
+*/out/*_dv.csv
+*/out/*_pk.csv
 
 # History files
 .Rhistory

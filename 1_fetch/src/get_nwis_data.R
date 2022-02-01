@@ -45,7 +45,8 @@ get_daily_flow_log <- function(files_in, file_out) {
   daily_flow_df <- bind_rows(daily_flow_list)
   daily_flow_log <- daily_flow_df %>%
     group_by(site_no) %>%
-    summarize(num_days = n(), 
+    summarize(total_days = n(),
+              approved_days = sum(discharge_cd == "A"),
               start_date = min(Date), 
               end_date = max(Date), 
               mean_flow = mean(discharge, na.rm = TRUE), 
@@ -93,7 +94,9 @@ get_peak_flow_log <- function(files_in, file_out) {
     summarize(num_peaks = n(), 
               first_date = min(peak_dt), 
               last_date = max(peak_dt), 
-              max_peak = max(peak_va, na.rm = TRUE))
+              max_peak = max(peak_va, na.rm = TRUE), 
+              mean_peak = mean(peak_va, na.rm = TRUE), 
+              sd_peak = sd(peak_va, na.rm = TRUE))
   write_csv(peak_flow_log, file_out)
   return(file_out)
 }
@@ -228,6 +231,12 @@ get_NWIS_drainArea <- function(site_num){
   data_out <- data.frame(site_no=as.character(site_num),
                          drainArea=readNWISsite(siteNumbers=site_num)$drain_area_va)
   return(data_out)
+}
+
+get_drainage_area_log <- function(file_in, file_out) {
+  message(paste('generating log for dataRetrieval drainage area request'))
+  write_csv(file_in, file_out)
+  return(file_out)
 }
 
 get_floodThreshold <- function(site_num, p1_clean_daily_flow, p1_peak_flow, 

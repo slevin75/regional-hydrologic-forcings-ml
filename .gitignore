@@ -1,8 +1,9 @@
 #Targets
 _targets
 
-#All output
+#All output except dataRetrieval logs
 */out/*
+!*/out/logs
 
 # History files
 .Rhistory

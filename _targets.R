@@ -10,6 +10,7 @@ tar_option_set(packages = c("fasstr", "EflowStats", "dataRetrieval",
 
 ##Create output file directories
 dir.create('1_fetch/out', showWarnings=FALSE)
+dir.create('1_fetch/out/logs', showWarnings = FALSE)
 dir.create('1_fetch/out/stationarity_plots',showWarnings=FALSE)
 
 ##Load user defined functions
@@ -63,7 +64,8 @@ min_windows <- 10  ##Must have this many windows available in order to plot
 
 ###gages2.1 ref site list - not sure how to get this right from sharepoint, so the
 ##filepath is currently to onedrive.
-gagesii_path <- "C:/Users/jsmith/OneDrive - DOI/Shared Documents - FHWA/General/Data/Gages2.1_RefSiteList.xlsx"
+gagesii_path <- "Gages2.1_RefSiteList.xlsx"
+#gagesii_path <- "C:/Users/jsmith/OneDrive - DOI/Shared Documents - FHWA/General/Data/Gages2.1_RefSiteList.xlsx"
 gagesii <- read_xlsx(gagesii_path)
 gagesii$ID <- substr(gagesii$ID, start=2, stop=nchar(gagesii$ID))
 
@@ -97,6 +99,11 @@ list(
                                  NWIS_parameter, startDate, endDate),
              map(p1_has_data),
              format="file"),
+  ##generate log file to track changes to dataRetrieval daily flow request
+  tar_target(p1_daily_flow_log, 
+             get_daily_flow_log(files_in = p1_daily_flow_csv, 
+                                file_out = "./1_fetch/out/logs/daily_flow_log.csv"),
+             format = "file"),
   
   ##compute the number of complete years
   tar_target(p1_screen_daily_flow,
@@ -139,6 +146,11 @@ list(
   tar_target(p1_drainage_area,
              get_NWIS_drainArea(p1_screened_site_list),
              map(p1_screened_site_list)),
+  ##generate log file to track changes to dataRetrieval drainage area request
+  tar_target(p1_drainage_area_log, 
+             get_drainage_area_log(file_in = p1_drainage_area, 
+                                   file_out = "./1_fetch/out/logs/drainage_area_log.csv"),
+             format = "file"),
   
   ##get and save as file peak flow from NWIS
   tar_target(p1_peak_flow_csv,
@@ -146,6 +158,11 @@ list(
                                 startDate, endDate),
              map(p1_screened_site_list),
              format="file"),
+  ##generate log file to track changes to dataRetrieval peak flow request
+  tar_target(p1_peak_flow_log, 
+             get_peak_flow_log(files_in = p1_peak_flow_csv, 
+                               file_out = "./1_fetch/out/logs/peak_flow_log.csv"),
+             format = "file"),
   
   ##get flood threshold for eflowstats
   tar_target(p1_flood_threshold,

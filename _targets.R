@@ -9,8 +9,10 @@ tar_option_set(packages = c("fasstr", "EflowStats", "dataRetrieval",
                             "lubridate"))
 
 ##Create output file directories
-dir.create('1_fetch/out', showWarnings=FALSE)
-dir.create('1_fetch/out/stationarity_plots',showWarnings=FALSE)
+dir.create('1_fetch/out', showWarnings = FALSE)
+dir.create('1_fetch/out/stationarity_plots', showWarnings = FALSE)
+dir.create('3_cluster/out', showWarnings = FALSE)
+dir.create('3_cluster/out/seasonal_plots', showWarnings = FALSE)
 
 ##Load user defined functions
 source("1_fetch/src/get_nwis_data.R")
@@ -252,7 +254,31 @@ list(
                              out_format = 'pivot'),
              map(p1_screened_site_list_season_high),
              deployment = 'worker'),
+  
+  ##Cluster analysis to make model regions from FDC metrics
+  tar_target(p3_metric_names,
+             {colnames(p1_FDC_metrics)[-c(1,grep(colnames(p1_FDC_metrics), pattern = 'mhfdc'))]
+               }),
+  
+  #barplot for all metrics, averaged over all gages
+  tar_target(p3_seasonal_barplot_COUNS_png,
+             plot_seasonal_barplot(metric_mat = p1_FDC_metrics_season,
+                                   metric = p3_metric_names, 
+                                   season_months = , 
+                                   by_cluster = FALSE, 
+                                   fileout = '3_cluster/out/seasonal_plots/'),
+             map(p3_metric_names),
+             format = 'file'),
+  
+  tar_target(p3_FDC_regions,
+             seasonal_metric_cluster(metric_mat = p1_FDC_metrics_season,
+                                     metric = p3_metric_names,
+                                     dist_method = 'euclidean',
+                                     clust_method = 'complete'),
+             map(p3_metric_names),
+             deployment = 'worker'),
 
+  
   ########moving window nonstationarity stuff
    ##table with all the FDC metrics computed on a moving window. The parameter min_yrs_in_window
   ##screens out any moving windows for which there are too few years to be reliable. Can be an issue 

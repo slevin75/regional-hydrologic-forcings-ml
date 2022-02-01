@@ -49,8 +49,10 @@ get_daily_flow_log <- function(files_in, file_out) {
               approved_days = sum(discharge_cd == "A"),
               start_date = min(Date), 
               end_date = max(Date), 
-              mean_flow = mean(discharge, na.rm = TRUE), 
-              sd_flow = sd(discharge, na.rm = TRUE))
+              mean_all_flow = mean(discharge, na.rm = TRUE), 
+              sd_all_flow = sd(discharge, na.rm = TRUE), 
+              mean_approved_flow = mean(discharge[discharge_cd == "A"], na.rm = TRUE), 
+              sd_approved_flow = sd(discharge[discharge_cd == "A"], na.rm = TRUE))
   write_csv(daily_flow_log, file_out)
   return(file_out)
 }

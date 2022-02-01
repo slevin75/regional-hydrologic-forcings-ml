@@ -11,6 +11,7 @@ tar_option_set(packages = c("fasstr", "EflowStats", "dataRetrieval",
 ##Create output file directories
 dir.create('1_fetch/out', showWarnings = FALSE)
 dir.create('1_fetch/out/stationarity_plots', showWarnings = FALSE)
+dir.create('1_fetch/out/logs', showWarnings = FALSE)
 dir.create('3_cluster/out', showWarnings = FALSE)
 dir.create('3_cluster/out/seasonal_plots', showWarnings = FALSE)
 
@@ -70,6 +71,7 @@ min_windows <- 10  ##Must have this many windows available in order to plot
 ###gages2.1 ref site list - not sure how to get this right from sharepoint, so the
 ##filepath is currently to onedrive.
 gagesii_path <- "C:/Users/jsmith/OneDrive - DOI/Shared Documents - FHWA/General/Data/Gages2.1_RefSiteList.xlsx"
+#gagesii_path <- "Gages2.1_RefSiteList.xlsx"
 
 #set random seed for project
 set.seed(12422)
@@ -119,6 +121,12 @@ list(
              map(p1_has_data),
              deployment = 'main',
              format="file"),
+  ##generate log file to track changes to dataRetrieval daily flow request
+  tar_target(p1_daily_flow_log, 
+             get_daily_flow_log(files_in = p1_daily_flow_csv, 
+                                file_out = "./1_fetch/out/logs/daily_flow_log.csv"),
+             deployment = 'main',
+             format = "file"),
   
   ##prescreen data to remove provisional data and handle odd column names
   tar_target(p1_prescreen_daily_data, 
@@ -178,6 +186,12 @@ list(
              get_NWIS_drainArea(p1_screened_site_list),
              map(p1_screened_site_list),
              deployment = 'main'),
+  ##generate log file to track changes to dataRetrieval drainage area request
+  tar_target(p1_drainage_area_log, 
+             get_drainage_area_log(file_in = p1_drainage_area, 
+                                   file_out = "./1_fetch/out/logs/drainage_area_log.csv"),
+             deployment = 'main',
+             format = "file"),
   
   ##get and save as file peak flow from NWIS for eflowstats
   #this is deployed on main to avoid overloading the NWIS server with download requests
@@ -187,6 +201,12 @@ list(
              map(p1_screened_site_list),
              deployment = 'main',
              format="file"),
+  ##generate log file to track changes to dataRetrieval peak flow request
+  tar_target(p1_peak_flow_log, 
+             get_peak_flow_log(files_in = p1_peak_flow_csv, 
+                               file_out = "./1_fetch/out/logs/peak_flow_log.csv"),
+             deployment = 'main',
+             format = "file"),
   
   ##get flood threshold from NWIS for eflowstats
   #this is deployed on main to avoid overloading the NWIS server with download requests
@@ -258,7 +278,8 @@ list(
   ##Cluster analysis to make model regions from FDC metrics
   tar_target(p3_metric_names,
              {colnames(p1_FDC_metrics)[-c(1,grep(colnames(p1_FDC_metrics), pattern = 'mhfdc'))]
-               }),
+               },
+             deployment = 'main'),
   
   #barplot for all metrics, averaged over all gages
   tar_target(p3_seasonal_barplot_COUNS_png,
@@ -268,6 +289,7 @@ list(
                                    by_cluster = FALSE, 
                                    fileout = '3_cluster/out/seasonal_plots/'),
              map(p3_metric_names),
+             deployment = 'worker',
              format = 'file'),
   
   tar_target(p3_FDC_regions,

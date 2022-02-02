@@ -34,19 +34,16 @@ complete_years <- 20
 perc <- 0.6
 ##statistics to compute within EflowStats
 stats_HIT <- c("calc_magAverage", "calc_magLow", "calc_magHigh", 
-               "calc_frequencyHigh", "calc_durationHigh" 
-#removing for now which an issue with EflowStats is corrected
-               #,"calc_rateChange"
+               "calc_frequencyHigh", "calc_durationHigh", "calc_rateChange"
                )
 ##EflowStats metrics to use
 metrics <- c('ma1', 
              'ml17', 'ml18', 
              'mh20', 
              'fh2', 
-             'dh1', 'dh6', 'dh15', 'dh16', 'dh23'
-             #removing for now which an issue with EflowStats is corrected
-             #,'ra1', 'ra2', 'ra3', 'ra4'
-)
+             'dh1', 'dh6', 'dh15', 'dh16', 'dh23',
+             'ra1', 'ra2', 'ra3', 'ra4'
+             )
 ##metrics to normalize by drainage area
 metrics_DA <- c('ma1', 'dh1', 'ra1', 'ra3')
 ##metric ml17 to normalize by *annual mean/drainage area
@@ -84,34 +81,36 @@ list(
                  mutate(ID = substr(ID, start=2, stop=nchar(ID)))
                },
              deployment = 'main'
-             ),
+  ),
   
   #ID numbers for sites to use
-  tar_target(p1_sites_list,
-             {p1_sites_g2$ID
-               ## not sure yet how we'll be selecting gages so I'm not putting this in a function yet.
-               ##since there is no state attribution in the gagesii list, for East River, I am taking 
-               ##AggEco==WestMnts and LON > -117 which cuts off the pacific northwest and cA areas
-               
-               #p1_sites_g2 %>%
-               #  filter(AggEco == "WestMnts") %>%
-               #  filter(LON > -117) %>%
-               #  filter(LAT > 36) %>%
-               #  pull(ID)
-               
-               #DE - just pulling a bounding box of sites here
-               #p1_sites_g2 %>%
-               #  filter(LAT < 42) %>%
-               #  filter(LON > -76) %>%
-               #  pull(ID)
-             },
-             deployment = 'main'
+  tar_target(
+    p1_sites_list,
+    {p1_sites_g2$ID
+     ## not sure yet how we'll be selecting gages so I'm not putting this in a function yet.
+     ##since there is no state attribution in the gagesii list, for East River, I am taking 
+     ##AggEco==WestMnts and LON > -117 which cuts off the pacific northwest and cA areas
+     
+     #p1_sites_g2 %>%
+     #  filter(AggEco == "WestMnts") %>%
+     #  filter(LON > -117) %>%
+     #  filter(LAT > 36) %>%
+     #  pull(ID)
+     
+     #DE - just pulling a bounding box of sites here
+     #p1_sites_g2 %>%
+     #  filter(LAT < 42) %>%
+     #  filter(LON > -76) %>%
+     #  pull(ID)
+   },
+   deployment = 'main'
   ),
   
   ##check to make sure peak and daily flow are actually available for all sites
   tar_target(p1_has_data,
              has_data_check(p1_sites_list, NWIS_parameter),
-             deployment = 'main'),
+             deployment = 'main'
+  ),
   
   ##fetch daily streamflow
   #this is deployed on main to avoid overloading the NWIS server with download requests
@@ -120,78 +119,92 @@ list(
                                  NWIS_parameter, startDate, endDate),
              map(p1_has_data),
              deployment = 'main',
-             format="file"),
+             format="file"
+  ),
   ##generate log file to track changes to dataRetrieval daily flow request
   tar_target(p1_daily_flow_log, 
              get_daily_flow_log(files_in = p1_daily_flow_csv, 
                                 file_out = "./1_fetch/out/logs/daily_flow_log.csv"),
              deployment = 'main',
-             format = "file"),
+             format = "file"
+  ),
   
   ##prescreen data to remove provisional data and handle odd column names
   tar_target(p1_prescreen_daily_data, 
              prescreen_daily_data(p1_daily_flow_csv, prov_rm = TRUE),
              map(p1_daily_flow_csv),
-             deployment = 'worker'),
+             deployment = 'worker'
+  ),
   
   ##compute the number of complete years based on when the year starts
   tar_target(p1_screen_daily_flow,
              screen_daily_data(p1_has_data, p1_prescreen_daily_data, year_start),
              map(p1_has_data),
-             deployment = 'worker'),
+             deployment = 'worker'
+  ),
   ##For seasonal analysis
   tar_target(p1_screen_daily_flow_season,
              screen_daily_data(p1_has_data, p1_prescreen_daily_data, season_year_start),
              map(p1_has_data),
-             deployment = 'worker'),
+             deployment = 'worker'
+  ),
   tar_target(p1_screen_daily_flow_season_high,
              screen_daily_data(p1_has_data, p1_prescreen_daily_data, season_year_start_high),
              map(p1_has_data),
-             deployment = 'worker'),
+             deployment = 'worker'
+  ),
   
   ##select sites with enough complete years
   tar_target(p1_screened_site_list,
              filter_complete_years(p1_screen_daily_flow, complete_years),
-             deployment = 'main'),
+             deployment = 'main'
+  ),
   ##seasonal
   tar_target(p1_screened_site_list_season,
              filter_complete_years(p1_screen_daily_flow_season, complete_years),
-             deployment = 'main'),
+             deployment = 'main'
+  ),
   tar_target(p1_screened_site_list_season_high,
              filter_complete_years(p1_screen_daily_flow_season_high, complete_years),
-             deployment = 'main'),
+             deployment = 'main'
+  ),
   
   ##clean and format daily data so it can be used in EflowStats 
   tar_target(p1_clean_daily_flow,
              clean_daily_data(p1_screened_site_list, p1_prescreen_daily_data, 
                               p1_screen_daily_flow, yearType, year_start),
              map(p1_screened_site_list),
-             deployment = 'worker'),
+             deployment = 'worker'
+  ),
   ##seasonal
   tar_target(p1_clean_daily_flow_season,
              clean_daily_data(p1_screened_site_list_season, p1_prescreen_daily_data, 
                               p1_screen_daily_flow_season, yearType, season_year_start),
              map(p1_screened_site_list_season),
-             deployment = 'worker'),
+             deployment = 'worker'
+  ),
   tar_target(p1_clean_daily_flow_season_high,
              clean_daily_data(p1_screened_site_list_season_high, p1_prescreen_daily_data, 
                               p1_screen_daily_flow_season_high, yearType, 
                               season_year_start_high),
              map(p1_screened_site_list_season_high),
-             deployment = 'worker'),
+             deployment = 'worker'
+  ),
   
   #get drainage area from NWIS
   #this is deployed on main to avoid overloading the NWIS server with download requests
   tar_target(p1_drainage_area,
              get_NWIS_drainArea(p1_screened_site_list),
              map(p1_screened_site_list),
-             deployment = 'main'),
+             deployment = 'main'
+  ),
   ##generate log file to track changes to dataRetrieval drainage area request
   tar_target(p1_drainage_area_log, 
              get_drainage_area_log(file_in = p1_drainage_area, 
                                    file_out = "./1_fetch/out/logs/drainage_area_log.csv"),
              deployment = 'main',
-             format = "file"),
+             format = "file"
+  ),
   
   ##get and save as file peak flow from NWIS for eflowstats
   #this is deployed on main to avoid overloading the NWIS server with download requests
@@ -200,13 +213,15 @@ list(
                                 startDate, endDate),
              map(p1_screened_site_list),
              deployment = 'main',
-             format="file"),
+             format="file"
+  ),
   ##generate log file to track changes to dataRetrieval peak flow request
   tar_target(p1_peak_flow_log, 
              get_peak_flow_log(files_in = p1_peak_flow_csv, 
                                file_out = "./1_fetch/out/logs/peak_flow_log.csv"),
              deployment = 'main',
-             format = "file"),
+             format = "file"
+  ),
   
   ##get flood threshold from NWIS for eflowstats
   #this is deployed on main to avoid overloading the NWIS server with download requests
@@ -214,7 +229,8 @@ list(
              get_floodThreshold(p1_screened_site_list, p1_clean_daily_flow,
                                 p1_peak_flow_csv, perc, yearType),
              map(p1_screened_site_list),
-             deployment = 'main'),
+             deployment = 'main'
+  ),
   
   ##compute all HIT metrics for screened sites list
   tar_target(p1_HIT_metrics,
@@ -230,7 +246,8 @@ list(
                              norm_ml17 = metrics_ml17,
                              out_format = 'pivot'),
              map(p1_screened_site_list),
-             deployment = 'worker'),
+             deployment = 'worker'
+  ),
   
   ##compute additional FDC-based metrics for screened sites list
   tar_target(p1_FDC_metrics,
@@ -243,7 +260,8 @@ list(
                              year_start = year_start,
                              out_format = 'pivot'),
              map(p1_screened_site_list),
-             deployment = 'worker'),
+             deployment = 'worker'
+  ),
   
   ##compute seasonal FDC-based metrics using water year seasons
   tar_target(p1_FDC_metrics_season,
@@ -258,7 +276,8 @@ list(
                              year_start = season_year_start,
                              out_format = 'pivot'),
              map(p1_screened_site_list_season),
-             deployment = 'worker'),
+             deployment = 'worker'
+  ),
   
   ##compute seasonal FDC-based metrics using high flow seasons
   tar_target(p1_FDC_metrics_season_high,
@@ -273,32 +292,34 @@ list(
                              year_start = season_year_start_high,
                              out_format = 'pivot'),
              map(p1_screened_site_list_season_high),
-             deployment = 'worker'),
+             deployment = 'worker'
+  ),
   
   ##Cluster analysis to make model regions from FDC metrics
   tar_target(p3_metric_names,
              {colnames(p1_FDC_metrics)[-c(1,grep(colnames(p1_FDC_metrics), pattern = 'mhfdc'))]
                },
-             deployment = 'main'),
+             deployment = 'main'
+  ),
   
   #barplot for all metrics, averaged over all gages
-  tar_target(p3_seasonal_barplot_COUNS_png,
-             plot_seasonal_barplot(metric_mat = p1_FDC_metrics_season,
-                                   metric = p3_metric_names, 
-                                   season_months = , 
-                                   by_cluster = FALSE, 
-                                   fileout = '3_cluster/out/seasonal_plots/'),
-             map(p3_metric_names),
-             deployment = 'worker',
-             format = 'file'),
-  
-  tar_target(p3_FDC_regions,
-             seasonal_metric_cluster(metric_mat = p1_FDC_metrics_season,
-                                     metric = p3_metric_names,
-                                     dist_method = 'euclidean',
-                                     clust_method = 'complete'),
-             map(p3_metric_names),
-             deployment = 'worker'),
+  # tar_target(p3_seasonal_barplot_COUNS_png,
+  #            plot_seasonal_barplot(metric_mat = p1_FDC_metrics_season,
+  #                                  metric = p3_metric_names, 
+  #                                  season_months = , 
+  #                                  by_cluster = FALSE, 
+  #                                  fileout = '3_cluster/out/seasonal_plots/'),
+  #            map(p3_metric_names),
+  #            deployment = 'worker',
+  #            format = 'file'),
+  # 
+  # tar_target(p3_FDC_regions,
+  #            seasonal_metric_cluster(metric_mat = p1_FDC_metrics_season,
+  #                                    metric = p3_metric_names,
+  #                                    dist_method = 'euclidean',
+  #                                    clust_method = 'complete'),
+  #            map(p3_metric_names),
+  #            deployment = 'worker'),
 
   
   ########moving window nonstationarity stuff
@@ -319,14 +340,16 @@ list(
                                          digits = 3, seasonal = FALSE,
                                          year_start = year_start),
              map(p1_screened_site_list),
-             deployment = 'worker'),
+             deployment = 'worker'
+  ),
   
   ##screen out any sites that don't have enough moving windows to plot (min_windows)
   ##using 10 for a default
   tar_target(p1_screened_plot_sites,
              screen_plot_sites(moving_window_metrics = p1_moving_window_metrics,
                                min_windows = min_windows),
-             deployment = 'main'),
+             deployment = 'main'
+  ),
   
   tar_target(p1_moving_window_plots,
              make_plots_by_site(site = p1_screened_plot_sites,
@@ -335,13 +358,15 @@ list(
                                 outdir = "1_fetch/out/stationarity_plots"),
              map(p1_screened_plot_sites),
              deployment = 'worker',
-             format = "file"),
+             format = "file"
+  ),
   
   tar_target(p1_moving_window_summary_plots,
              plot_trend_summary(moving_window_metrics = p1_moving_window_metrics,
                                 screened_plot_sites = p1_screened_plot_sites,
                                 outdir = "1_fetch/out/stationarity_plots"),
              deployment = 'worker',
-             format = "file")
+             format = "file"
+  )
   
 ) #end list

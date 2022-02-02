@@ -38,12 +38,7 @@ get_nwis_daily_data <- function(site_num, outdir, parameterCd, startDate, endDat
 
 get_daily_flow_log <- function(files_in, file_out) {
   message(paste('generating log for dataRetrieval daily flow request'))
-  daily_flow_list <- map(files_in, read_csv, 
-              col_types = cols(agency_cd = col_skip(), 
-                               site_no = col_character(), 
-                               Date = col_date(format = "%Y-%m-%d"), 
-                               discharge = col_double(), 
-                               discharge_cd = col_character()))
+  daily_flow_list <- map(files_in, prescreen_daily_data, prov_rm = FALSE)
   daily_flow_df <- bind_rows(daily_flow_list)
   daily_flow_log <- daily_flow_df %>%
     group_by(site_no) %>%
@@ -107,7 +102,7 @@ get_peak_flow_log <- function(files_in, file_out) {
 
 prescreen_daily_data <- function(filename, prov_rm = TRUE){
   #loads data from file and removes provisional and estimated data if prov_rm = TRUE
-  message(filename)
+  message('loading ', filename)
   ##Handle sites with strange column names
   if (length(grep(pattern = '01011500', filename)) +
       length(grep(pattern = '02196000', filename)) + 
@@ -120,7 +115,8 @@ prescreen_daily_data <- function(filename, prov_rm = TRUE){
                                   discharge=col_double(), discharge_cd=col_character()),
                    col_select = 1:5) %>%
       na.omit() %>%
-      suppressWarnings()
+      suppressWarnings() %>% 
+      suppressMessages()
     colnames(d1)[4:5] <- c('discharge', 'discharge_cd')
     d2 <- read_csv(filename,
                    col_types=cols(agency_cd=col_character(),
@@ -128,7 +124,8 @@ prescreen_daily_data <- function(filename, prov_rm = TRUE){
                                   discharge=col_double(), discharge_cd=col_character()),
                    col_select = c(1,2,3,6,7)) %>%
       na.omit() %>%
-      suppressWarnings()
+      suppressWarnings() %>% 
+      suppressMessages()
     colnames(d2)[4:5] <- c('discharge', 'discharge_cd')
     
     data <- rbind(d1, d2)

@@ -76,17 +76,17 @@ nav_distance_km<-9000
 ##since there is no state attribution in the gagesii list, for East River, I am taking 
 ##AggEco==WestMnts and LON > -117 which cuts off the pacific northwest and cA areas
 
-#p1_sites_list <- gagesii %>%
-#  filter(AggEco == "WestMnts") %>%
-#  filter(LON > -117) %>%
-#  filter(LAT > 36) %>%
-#  pull(ID)
+p1_sites_list <- gagesii %>%
+  filter(AggEco == "WestMnts") %>%
+  filter(LON > -117) %>%
+  filter(LAT > 36) %>%
+  pull(ID)
 
 #DE - just pulling a bounding box of sites here
-p1_sites_list <- gagesii %>%
-  filter(LAT < 42) %>%
-  filter(LON > -76) %>%
-  pull(ID)
+#p1_sites_list <- gagesii %>%
+#  filter(LAT < 42) %>%
+#  filter(LON > -76) %>%
+#  pull(ID)
 
 
 ##targets

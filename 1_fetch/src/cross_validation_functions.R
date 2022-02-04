@@ -3,7 +3,7 @@ get_nested_gages<-function(gagesii,nav_distance_km){
   gage_IDs <- as.character(gagesii$ID)
   COMIDs <- as.character(gagesii$COMID)
   
-   #assigns a 1 if the column name gage is upstream of the rowname gage
+   #assigns a 1 if the row name gage is upstream of the column name gage
   upstream_df <- data.frame(matrix(ncol = length(gage_IDs), nrow = length(gage_IDs)))
   colnames(upstream_df) <- gage_IDs; rownames(upstream_df) <- gage_IDs
   upstream_df[,]<-0

@@ -4,6 +4,11 @@ get_nested_gages<-function(gagesii,nav_distance_km){
   COMIDs <- as.character(gagesii$COMID)
   drainage_areas<-data.frame(gage_IDs=gage_IDs,
                              drainArea=readNWISsite(siteNumbers=gage_IDs)$drain_area_va)
+  ##remove any gages that do not have a drainage area in NWIS
+  rm_gages<-which(is.na(drainage_areas$drainArea))
+  gage_IDs<-gage_IDs[-rm_gages]
+  COMIDs<-COMIDs[-rm_gages]
+  drainage_areas<-drainage_areas[-rm_gages,]
   
    #column names are the downstream gages, rows with non-zero values are upstream gages
   upstream_df <- data.frame(matrix(ncol = length(gage_IDs), nrow = length(gage_IDs),data=0))
@@ -36,6 +41,8 @@ get_nested_gages<-function(gagesii,nav_distance_km){
     upstream_df[which(row.names(upstream_df) %in% upstream_gages), i] <- round(upstream_das$drainArea / downstream_da,3)
     message(gage_IDs[i])
   }
+  
+
   
   return(upstream_df)
 }

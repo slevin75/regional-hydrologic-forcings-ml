@@ -1,12 +1,16 @@
 library(targets)
 library(tarchetypes)
 library(readxl)
-suppressPackageStartupMessages(library(tidyverse))
+options(clustermq.scheduler = "multiprocess")
+library(clustermq)
 options(tidyverse.quiet = TRUE)
+library(tidyverse)
 
 ##Load libraries for use in computing targets
 tar_option_set(packages = c("fasstr", "EflowStats", "dataRetrieval",
-                            "lubridate"))
+                            "lubridate", "cluster", "factoextra",
+                            "sf", "cowplot", "gridGraphics", "stringi",
+                            "dendextend", "scico"))
 
 ##Create output file directories
 dir.create('1_fetch/out', showWarnings = FALSE)
@@ -14,12 +18,17 @@ dir.create('1_fetch/out/stationarity_plots', showWarnings = FALSE)
 dir.create('1_fetch/out/logs', showWarnings = FALSE)
 dir.create('3_cluster/out', showWarnings = FALSE)
 dir.create('3_cluster/out/seasonal_plots', showWarnings = FALSE)
+dir.create('3_cluster/out/seasonal_plots/barplots', showWarnings = FALSE)
+dir.create('3_cluster/out/seasonal_plots/barplots/CONUS', showWarnings = FALSE)
+dir.create('3_cluster/out/seasonal_plots/diagnostics', showWarnings = FALSE)
+dir.create('3_cluster/out/seasonal_plots/maps', showWarnings = FALSE)
 
 ##Load user defined functions
 source("1_fetch/src/get_nwis_data.R")
 source("1_fetch/src/calc_HIT.R")
 source("1_fetch/src/calc_FDC.R")
 source("1_fetch/src/moving_window_functions.R")
+source("3_cluster/src/seasonal_metric_cluster.R")
 
 ###Define parameters
 NWIS_parameter <- '00060'
@@ -80,6 +89,12 @@ list(
              {read_xlsx(gagesii_path) %>% 
                  mutate(ID = substr(ID, start=2, stop=nchar(ID)))
                },
+             deployment = 'main'
+  ),
+  #create a spatial object 
+  tar_target(p1_sites_g2_sf,
+             st_as_sf(x = p1_sites_g2, coords = c('LON', 'LAT'), 
+                      remove = FALSE, dim = 'XY', na.fail = TRUE),
              deployment = 'main'
   ),
   
@@ -303,23 +318,67 @@ list(
   ),
   
   #barplot for all metrics, averaged over all gages
-  # tar_target(p3_seasonal_barplot_COUNS_png,
+  tar_target(p3_seasonal_barplot_COUNS_png,
+             plot_seasonal_barplot(metric_mat = p1_FDC_metrics_season,
+                                   metric = p3_metric_names,
+                                   season_months = season_months,
+                                   by_cluster = FALSE,
+                                   dir_out = '3_cluster/out/seasonal_plots/barplots/CONUS/'),
+             map(p3_metric_names),
+             deployment = 'worker',
+             format = 'file'),
+
+  #Compute clusters
+  tar_target(p3_FDC_clusters,
+             seasonal_metric_cluster(metric_mat = p1_FDC_metrics_season,
+                                     metric = p3_metric_names,
+                                     dist_method = 'euclidean'),
+             map(p3_metric_names),
+             deployment = 'worker'),
+  
+  #Select only the best clustering method
+  tar_target(p3_FDC_best_cluster_method,
+             select_cluster_method(clusts = p3_FDC_clusters),
+             deployment = 'main'),
+  
+  #Plot diagnostics for clusters
+  tar_target(p3_FDC_cluster_diagnostics_png,
+             plot_cluster_diagnostics(clusts = p3_FDC_clusters,
+                                      metric_mat = p1_FDC_metrics_season,
+                                      dist_method = 'euclidean',
+                                      clust_method = 'ward.D2',
+                                      dir_out = '3_cluster/out/seasonal_plots/diagnostics/'),
+             map(p3_FDC_clusters),
+             deployment = 'worker',
+             format = 'file'),
+  
+  #Assign cluster numbers to gages
+  tar_target(p3_gages_clusters,
+             add_cluster_to_gages(gages = p1_sites_g2,
+                                  clusts = p3_FDC_clusters,
+                                  screened_sites = p1_screened_site_list_season,
+                                  best_clust = p3_FDC_best_cluster_method,
+                                  min_clusts = 3, max_clusts = 15, by_clusts = 4),
+             deployment = 'main'),
+  
+  #Plot maps of gages with clusters
+  tar_target(p3_cluster_map_png,
+             plot_cluster_map(gages = p1_sites_g2_sf,
+                              cluster_table = p3_gages_clusters,
+                              screened_sites = p1_screened_site_list_season,
+                              dir_out = '3_cluster/out/seasonal_plots/maps/'),
+             deployment = 'main'),
+  
+  #barplot for all metrics, averaged over cluster gages
+  # tar_target(p3_seasonal_barplot_clusters_png,
   #            plot_seasonal_barplot(metric_mat = p1_FDC_metrics_season,
-  #                                  metric = p3_metric_names, 
-  #                                  season_months = , 
-  #                                  by_cluster = FALSE, 
-  #                                  fileout = '3_cluster/out/seasonal_plots/'),
+  #                                  metric = p3_metric_names,
+  #                                  season_months = season_months,
+  #                                  by_cluster = TRUE,
+  #                                  dir_out = '3_cluster/out/seasonal_plots/barplots/CONUS/'),
   #            map(p3_metric_names),
   #            deployment = 'worker',
   #            format = 'file'),
-  # 
-  # tar_target(p3_FDC_regions,
-  #            seasonal_metric_cluster(metric_mat = p1_FDC_metrics_season,
-  #                                    metric = p3_metric_names,
-  #                                    dist_method = 'euclidean',
-  #                                    clust_method = 'complete'),
-  #            map(p3_metric_names),
-  #            deployment = 'worker'),
 
   
   ########moving window nonstationarity stuff

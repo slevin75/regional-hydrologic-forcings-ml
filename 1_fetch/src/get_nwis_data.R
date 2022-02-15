@@ -1,13 +1,19 @@
 has_data_check <- function(site_nums, parameterCd){
-  ##check to see if all sites actually have daily flow and peak flow data.  There are
+  ##check to see if all sites actually have daily flow, peak flow data, and a drainage area.  There are
   ##gages in gagesii that do not have one or the other, so screen these out before we try
   ##to download the data
-  dv_screen <- whatNWISdata(siteNumber=site_nums, parameterCd=parameterCd, service="dv",
+  dv_screen <- whatNWISdata(siteNumber = site_nums, parameterCd = parameterCd, service = "dv",
                           convertType = FALSE) %>%
     #Check specifically that the stat_cd for mean flow is available
     filter(stat_cd == '00003')
-  pk_screen <- whatNWISdata(siteNumber=site_nums, service="pk", convertType = FALSE)
+  pk_screen <- whatNWISdata(siteNumber = site_nums, service = "pk", convertType = FALSE)
   sites_with_data <- intersect(dv_screen$site_no, pk_screen$site_no)
+  
+  #remove sites that do not have a drainage area in NWIS
+  rm_sites <- which(is.na(readNWISsite(siteNumbers = sites_with_data)$drain_area_va))
+  sites_with_data <- sites_with_data[-rm_sites] 
+
+  return(sites_with_data)
 }
 
 filter_complete_years <- function(screen_daily_flow, complete_years){
@@ -110,18 +116,18 @@ prescreen_daily_data <- function(filename, prov_rm = TRUE){
       length(grep(pattern = '12010000', filename)) > 0){
     #site has 2 columns named discharge and 2 named discharge_cd
     d1 <- read_csv(filename,
-                   col_types=cols(agency_cd=col_character(),
-                                  site_no=col_character(), Date=col_date(format="%Y-%m-%d"),
-                                  discharge=col_double(), discharge_cd=col_character()),
+                   col_types = cols(agency_cd = col_character(),
+                                  site_no = col_character(), Date = col_date(format = "%Y-%m-%d"),
+                                  discharge = col_double(), discharge_cd = col_character()),
                    col_select = 1:5) %>%
       na.omit() %>%
       suppressWarnings() %>% 
       suppressMessages()
     colnames(d1)[4:5] <- c('discharge', 'discharge_cd')
     d2 <- read_csv(filename,
-                   col_types=cols(agency_cd=col_character(),
-                                  site_no=col_character(), Date=col_date(format="%Y-%m-%d"),
-                                  discharge=col_double(), discharge_cd=col_character()),
+                   col_types=cols(agency_cd = col_character(),
+                                  site_no = col_character(), Date = col_date(format = "%Y-%m-%d"),
+                                  discharge = col_double(), discharge_cd = col_character()),
                    col_select = c(1,2,3,6,7)) %>%
       na.omit() %>%
       suppressWarnings() %>% 
@@ -140,9 +146,9 @@ prescreen_daily_data <- function(filename, prov_rm = TRUE){
     
   }else{
     data <- read_csv(filename,
-                     col_types=cols(agency_cd=col_character(),
-                                    site_no=col_character(), Date=col_date(format="%Y-%m-%d"),
-                                    discharge=col_double(), discharge_cd=col_character()))
+                     col_types=cols(agency_cd = col_character(),
+                                    site_no = col_character(), Date = col_date(format = "%Y-%m-%d"),
+                                    discharge = col_double(), discharge_cd = col_character()))
   }
   
   if (prov_rm == TRUE){
@@ -164,19 +170,19 @@ screen_daily_data <- function(site, prescreen_data, year_start = 'water'){
   
   data <- filter(prescreen_data, site_no == site)
   
-  missing_data <- screen_flow_data(data.frame(site_no=data$site_no, 
-                                              Date=data$Date,
-                                              Value=data$discharge),
-                                   water_year_start=year_start)
+  missing_data <- screen_flow_data(data.frame(site_no = data$site_no, 
+                                              Date = data$Date,
+                                              Value = data$discharge),
+                                   water_year_start = year_start)
   complete_yrs <- missing_data %>%
     filter(n_missing_Q == 0) %>%
     select(Year)
   
   if(nrow(complete_yrs) > 0){
-    data_out <- data.frame(site_no=unique(data$site_no),
-                           complete_yrs=complete_yrs$Year)
+    data_out <- data.frame(site_no = unique(data$site_no),
+                           complete_yrs = complete_yrs$Year)
   }else{
-    data_out <- data.frame(site_no=unique(data$site_no),
+    data_out <- data.frame(site_no = unique(data$site_no),
                            complete_yrs=NA)
   }
   
@@ -200,7 +206,7 @@ clean_daily_data <- function(site, prescreen_data, screen_daily_flow, yearType, 
   #noting that waterYear could = calendar year when year_start = 1
   data_sc <- data[which(data$waterYear %in% keep_years), ]
   
-  df <- data.frame(date=as.Date(data_sc$Date), discharge=data_sc$discharge)
+  df <- data.frame(date = as.Date(data_sc$Date), discharge = data_sc$discharge)
   ###run EflowStats validation to produce clean, ready to process data
   if (yearType == 'water' & year_start == 10){
     #use the EflowStats validation function
@@ -269,8 +275,8 @@ validate_data_yr_start <- function(x, year_start){
 
 get_NWIS_drainArea <- function(site_num){
   message(paste('starting site', site_num))
-  data_out <- data.frame(site_no=as.character(site_num),
-                         drainArea=readNWISsite(siteNumbers=site_num)$drain_area_va)
+  data_out <- data.frame(site_no = as.character(site_num),
+                         drainArea = readNWISsite(siteNumbers = site_num)$drain_area_va)
   return(data_out)
 }
 

@@ -1,11 +1,15 @@
 has_data_check <- function(site_nums, parameterCd){
-  ##check to see if all sites actually have daily flow and peak flow data.  There are
+  ##check to see if all sites actually have daily flow, peak flow data, and a drainage area.  There are
   ##gages in gagesii that do not have one or the other, so screen these out before we try
   ##to download the data
   dv_screen <- whatNWISdata(siteNumber=site_nums, parameterCd=parameterCd, service="dv",
-                          convertType = FALSE)
+                    convertType = FALSE)
   pk_screen <- whatNWISdata(siteNumber=site_nums, service="pk", convertType = FALSE)
   sites_with_data <- intersect(dv_screen$site_no, pk_screen$site_no)
+  #remove sites that do not have a drainage area in NWIS
+  rm.sites<-which(is.na(readNWISsite(siteNumbers= sites_with_data)$drain_area_va))
+  sites_with_data<-sites_with_data[-rm.sites] 
+  return(sites_with_data)
 }
 
 filter_complete_years <- function(screen_daily_flow, complete_years){

@@ -81,6 +81,10 @@ gagesii_path <- "C:/Users/jsmith/OneDrive - DOI/Shared Documents - FHWA/General/
 #gagesii_path <- "C:/Users/slevin/OneDrive - DOI/FWA_bridgeScour/Data/Gages2.1_RefSiteList.xlsx"
 #gagesii_path <- "Gages2.1_RefSiteList.xlsx"
 
+#Drop the following gages from the dataset because they are not representative
+#pipeline, ditch, etc.
+drop_gages <- c('02084557', '09406300', '09512200', '10143500', '10172200')
+
 ##distance to search upstream for nested basins, in km.  note-the nhdplusTools function fails if this 
 ##value is 10000 or greater.
 nav_distance_km<-4500
@@ -94,7 +98,9 @@ list(
   #all gagesii (g2) sites 
   tar_target(p1_sites_g2,
              {read_xlsx(gagesii_path) %>% 
-                 mutate(ID = substr(ID, start=2, stop=nchar(ID)))
+                 mutate(ID = substr(ID, start=2, stop=nchar(ID))) %>%
+                 #drop 5 sites that are not representative (ditch, pipeline)
+                 filter(!(ID %in% drop_gages))
                },
              deployment = 'main'
   ),

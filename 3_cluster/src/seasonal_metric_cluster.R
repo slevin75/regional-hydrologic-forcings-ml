@@ -132,11 +132,18 @@ add_cluster_to_gages <- function(gages, screened_sites, clusts, best_clust,
 #Function to plot the average seasonal distribution for all sites, or
 #plot the average seasonal distribution for sites in the cluster
 plot_seasonal_barplot <- function(metric_mat, metric, 
-                               season_months,
-                               by_cluster = FALSE,
-                               dir_out){
+                                  season_months,
+                                  by_cluster = FALSE,
+                                  cluster_table = NULL,
+                                  dir_out)
+  {
+  if(by_cluster & is.null(cluster_table)){
+    stop('cluster_table must be supplied to plot by clusters.')
+  }
+  
   #Select all of the column names used for this metric
-  metric_mat <- metric_mat[, c(grep(x = colnames(metric_mat), pattern = paste0(metric,'_')))]
+  metric_mat <- metric_mat[, c(1,grep(x = colnames(metric_mat), 
+                                      pattern = paste0(metric,'_')))]
   
   #get the month labels
   month_chars <- c("J", "F", "M", "A", "M", "J", "J", "A", "S", "O", "N", "D")
@@ -145,44 +152,67 @@ plot_seasonal_barplot <- function(metric_mat, metric,
                                       month_chars[season_months][c(3,6,9,12)])
   
   if (by_cluster){
-    fileout <- vector('character', length = length(unique(metric_mat$cluster)))
+    #Select all of the column names used for this metric
+    cluster_table <- cluster_table[, c(1,grep(x = colnames(cluster_table), 
+                                              pattern = paste0(metric,'_')))]
     
-    for (i in 1:length(unique(metric_mat$cluster))){
-      cluster_mat <- filter(metric_mat, cluster == i)
-      
-      fileout[i] <- paste0(dir_out, 'SeasonalBarplot_', metric, '_c', i, '.png')
-      
-      png(filename = fileout[i], width = 5, height = 5, units = 'in', res = 200)
-      barplot(height = colMeans(cluster_mat), width = 1, 
-              names.arg = season_months, 
-              xlim = c(0,4), ylim = c(0,1),
-              space = 0, main = paste('Metric', metric, ', Cluster', i), 
-              xlab = 'Season Months', ylab = 'Seasonal Fraction')
-      #add error bars as 5th - 95th percentiles
-      arrows(x0 = c(0.5,1.5,2.5,3.5), 
-             y0 = as.numeric(apply(X = cluster_mat, MARGIN = 2, FUN = quantile, 
-                                   probs = 0.05)),
-             x1 = c(0.5,1.5,2.5,3.5), 
-             y1 = as.numeric(apply(X = cluster_mat, MARGIN = 2, FUN = quantile, 
-                                   probs = 0.95)),
-             angle = 90, length = 0.1, code = 3)
-      dev.off()
+    #Get the total number of clusters in all of the columns. 
+    #There will be 2 elements after splitting
+    k <- unlist(strsplit(colnames(cluster_table[,-1]), 
+                         split = '_k'))[seq(2,ncol(cluster_table[,-1])*2,2)] %>%
+      as.numeric()
+    
+    #get all directories to create based on the number of clusters
+    dir_out <- paste0(dir_out, 'cluster', k, '/')
+    
+    fileout <- vector('character', length = sum(k))
+    
+    for (i in 1:length(k)){
+      dir.create(dir_out[i], showWarnings = FALSE)
+      for (cl in 1:k[i]){
+        #metric matrix for gages in cluster
+        metric_mat_c <- filter(metric_mat, 
+                               site_num %in% cluster_table$ID[cluster_table[,i+1] == cl]) %>%
+          select(-site_num)
+        
+        #file index
+        ind_f <- ifelse(test = i > 1, cl + cumsum(k)[i-1], cl)
+        
+        fileout[ind_f] <- paste0(dir_out[i], 
+                                        'SeasonalBarplot_', colnames(cluster_table)[i+1], 
+                                        '_c', cl, '.png')
+        
+        png(filename = fileout[ind_f], width = 5, height = 5, units = 'in', res = 200)
+        barplot(height = colMeans(metric_mat_c), width = 1, 
+                names.arg = season_months, 
+                xlim = c(0,4), ylim = c(0,1),
+                space = 0, main = paste('Metric', metric, ', k = ', k[i], ', Cluster', cl), 
+                xlab = 'Season Months', ylab = 'Seasonal Fraction')
+        #add error bars as 5th - 95th percentiles
+        arrows(x0 = c(0.5,1.5,2.5,3.5), 
+               y0 = as.numeric(apply(X = metric_mat_c, MARGIN = 2, FUN = quantile, 
+                                     probs = 0.05)),
+               x1 = c(0.5,1.5,2.5,3.5), 
+               y1 = as.numeric(apply(X = metric_mat_c, MARGIN = 2, FUN = quantile, 
+                                     probs = 0.95)),
+               angle = 90, length = 0.1, code = 3)
+        dev.off()
+      }
     }
-    
   }else{
     fileout <- paste0(dir_out, 'SeasonalBarplot_', metric, '.png')
     png(filename = fileout, width = 5, height = 5, units = 'in', res = 200)
-    barplot(height = colMeans(metric_mat), width = 1, 
+    barplot(height = colMeans(metric_mat[,-1]), width = 1, 
             names.arg = season_months, 
             xlim = c(0,4), ylim = c(0,1),
             space = 0, main = metric, 
             xlab = 'Season Months', ylab = 'Seasonal Fraction')
     #add error bars as 5th - 95th percentiles
     arrows(x0 = c(0.5,1.5,2.5,3.5), 
-           y0 = as.numeric(apply(X = metric_mat, MARGIN = 2, FUN = quantile, 
+           y0 = as.numeric(apply(X = metric_mat[,-1], MARGIN = 2, FUN = quantile, 
                                  probs = 0.05)),
            x1 = c(0.5,1.5,2.5,3.5), 
-           y1 = as.numeric(apply(X = metric_mat, MARGIN = 2, FUN = quantile, 
+           y1 = as.numeric(apply(X = metric_mat[,-1], MARGIN = 2, FUN = quantile, 
                                  probs = 0.95)),
            angle = 90, length = 0.1, code = 3)
     dev.off()
@@ -226,13 +256,13 @@ plot_cluster_map <- function(gages, cluster_table, screened_sites, dir_out){
     fileout[i] <- paste0(dir_out, colnames(cluster_table)[i+1], '_map.png')
     
     #number of clusters fro the column name
-    k <- str_split(string = str_split(string = colnames(cluster_table)[i+1], 
+    k <- as.numeric(str_split(string = str_split(string = colnames(cluster_table)[i+1], 
                                       pattern = '_')[[1]] %>% last(), 
-                   pattern = 'k')[[1]] %>% last()
+                   pattern = 'k')[[1]] %>% last())
     
-    png(filename = fileout[i], width = 10, height = 5, units = 'in', res = 200)
+    png(filename = fileout[i], width = 8, height = 5, units = 'in', res = 200)
     #plot gage locations, colored by their cluster
-    plot(gages[ncol_gages+i], pch = 16, cex = 0.3, axes = TRUE,
+    plot(gages[ncol_gages+i], pch = 16, cex = 0.4, axes = TRUE,
          main = colnames(cluster_table)[i+1], 
          breaks = seq(0,k,1),
          pal = scico(n = k, palette = 'batlow'),

@@ -10,7 +10,7 @@ library(tidyverse)
 tar_option_set(packages = c("fasstr", "EflowStats", "dataRetrieval",
                             "lubridate", "cluster", "factoextra",
                             "sf", "cowplot", "gridGraphics", "stringi",
-                            "dendextend", "scico"))
+                            "dendextend", "scico", "dplyr"))
 
 ##Create output file directories
 dir.create('1_fetch/out', showWarnings = FALSE)
@@ -361,24 +361,31 @@ list(
                                   min_clusts = 3, max_clusts = 15, by_clusts = 4),
              deployment = 'main'),
   
+  #Assign coluster column names to a target for later branch iteration
+  tar_target(p3_cluster_cols,
+             colnames(p3_gages_clusters)[-1],
+             deployment = 'main'),
+  
   #Plot maps of gages with clusters
   tar_target(p3_cluster_map_png,
              plot_cluster_map(gages = p1_sites_g2_sf,
                               cluster_table = p3_gages_clusters,
                               screened_sites = p1_screened_site_list_season,
                               dir_out = '3_cluster/out/seasonal_plots/maps/'),
-             deployment = 'main'),
+             deployment = 'main',
+             format = 'file'),
   
   #barplot for all metrics, averaged over cluster gages
-  # tar_target(p3_seasonal_barplot_clusters_png,
-  #            plot_seasonal_barplot(metric_mat = p1_FDC_metrics_season,
-  #                                  metric = p3_metric_names,
-  #                                  season_months = season_months,
-  #                                  by_cluster = TRUE,
-  #                                  dir_out = '3_cluster/out/seasonal_plots/barplots/CONUS/'),
-  #            map(p3_metric_names),
-  #            deployment = 'worker',
-  #            format = 'file'),
+  tar_target(p3_seasonal_barplot_clusters_png,
+             plot_seasonal_barplot(metric_mat = p1_FDC_metrics_season,
+                                   metric = p3_metric_names,
+                                   season_months = season_months,
+                                   by_cluster = TRUE,
+                                   cluster_table = p3_gages_clusters,
+                                   dir_out = '3_cluster/out/seasonal_plots/barplots/'),
+             map(p3_metric_names),
+             deployment = 'worker',
+             format = 'file'),
 
   
   ########moving window nonstationarity stuff
@@ -410,7 +417,7 @@ list(
              deployment = 'main'
   ),
   
-  tar_target(p1_moving_window_plots,
+  tar_target(p1_moving_window_plots_png,
              make_plots_by_site(site = p1_screened_plot_sites,
                                 moving_window_metrics = p1_moving_window_metrics,
                                 window_length = window_length,
@@ -420,10 +427,25 @@ list(
              format = "file"
   ),
   
-  tar_target(p1_moving_window_summary_plots,
+  #CONUS average
+  tar_target(p1_moving_window_summary_plots_png,
              plot_trend_summary(moving_window_metrics = p1_moving_window_metrics,
                                 screened_plot_sites = p1_screened_plot_sites,
+                                by_cluster = FALSE,
                                 outdir = "1_fetch/out/stationarity_plots"),
+             deployment = 'worker',
+             format = "file"
+  ),
+  
+  #Cluster region average
+  tar_target(p1_moving_window_summary_plots_cluster_png,
+             plot_trend_summary(moving_window_metrics = p1_moving_window_metrics,
+                                screened_plot_sites = p1_screened_plot_sites,
+                                by_cluster = TRUE,
+                                cluster_table = p3_gages_clusters,
+                                cluster_column = p3_cluster_cols,
+                                outdir = "1_fetch/out/stationarity_plots"),
+             map(p3_cluster_cols),
              deployment = 'worker',
              format = "file"
   )

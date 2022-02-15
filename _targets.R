@@ -6,7 +6,7 @@ options(tidyverse.quiet = TRUE)
 
 ##Load libraries for use in computing targets
 tar_option_set(packages = c("fasstr", "EflowStats", "dataRetrieval",
-                            "lubridate"))
+                            "lubridate","nhdplusTools"))
 
 ##Create output file directories
 dir.create('1_fetch/out', showWarnings=FALSE)
@@ -18,6 +18,7 @@ source("1_fetch/src/get_nwis_data.R")
 source("1_fetch/src/calc_HIT.R")
 source("1_fetch/src/calc_FDC.R")
 source("1_fetch/src/moving_window_functions.R")
+source("4_setup_crossval/src/cross_validation_functions.R")
 
 ###Define parameters
 NWIS_parameter <- '00060'
@@ -64,27 +65,31 @@ min_windows <- 10  ##Must have this many windows available in order to plot
 
 ###gages2.1 ref site list - not sure how to get this right from sharepoint, so the
 ##filepath is currently to onedrive.
-gagesii_path <- "Gages2.1_RefSiteList.xlsx"
+gagesii_path <- "C:/Users/slevin/OneDrive - DOI/FWA_bridgeScour/Data/Gages2.1_RefSiteList.xlsx"
+#gagesii_path <- "Gages2.1_RefSiteList.xlsx"
 #gagesii_path <- "C:/Users/jsmith/OneDrive - DOI/Shared Documents - FHWA/General/Data/Gages2.1_RefSiteList.xlsx"
 gagesii <- read_xlsx(gagesii_path)
 gagesii$ID <- substr(gagesii$ID, start=2, stop=nchar(gagesii$ID))
 
+##distance to search upstream for nested basins, in km.  note-the nhdplusTools function fails if this 
+##value is 10000 or greater.
+nav_distance_km<-4500
 
 ## not sure yet how we'll be selecting gages so I'm not putting this in a function yet.
 ##since there is no state attribution in the gagesii list, for East River, I am taking 
 ##AggEco==WestMnts and LON > -117 which cuts off the pacific northwest and cA areas
 
-#p1_sites_list <- gagesii %>%
-#  filter(AggEco == "WestMnts") %>%
-#  filter(LON > -117) %>%
-#  filter(LAT > 36) %>%
-#  pull(ID)
+p1_sites_list <- gagesii %>%
+  filter(AggEco == "WestMnts") %>%
+  filter(LON > -117) %>%
+  filter(LAT > 36) %>%
+  pull(ID)
 
 #DE - just pulling a bounding box of sites here
-p1_sites_list <- gagesii %>%
-  filter(LAT < 42) %>%
-  filter(LON > -76) %>%
-  pull(ID)
+#p1_sites_list <- gagesii %>%
+#  filter(LAT < 42) %>%
+#  filter(LON > -76) %>%
+#  pull(ID)
 
 
 ##targets
@@ -277,6 +282,10 @@ list(
              plot_trend_summary(moving_window_metrics = p1_moving_window_metrics,
                                 screened_plot_sites = p1_screened_plot_sites,
                                 outdir = "1_fetch/out/stationarity_plots"),
-             format = "file")
+             format = "file"),
+  #matrix of nested gages - 1 if column name gage is upstream of the row name gage, 0 otherwise
+  tar_target(p4_nested_gages,
+             get_nested_gages(gagesii=gagesii,
+                              nav_distance_km=nav_distance_km))
   
 ) #end list

@@ -10,7 +10,7 @@ library(tidyverse)
 tar_option_set(packages = c("fasstr", "EflowStats", "dataRetrieval",
                             "lubridate", "cluster", "factoextra",
                             "sf", "cowplot", "gridGraphics", "stringi",
-                            "dendextend", "scico", "dplyr", "nhdplusTools"))
+                            "dendextend", "scico", "tidyverse", "nhdplusTools"))
 
 ##Create output file directories
 dir.create('1_fetch/out', showWarnings = FALSE)
@@ -165,21 +165,23 @@ list(
   ),
   
   ##compute the number of complete years based on when the year starts
+  #These are being run on main because parallel processing is taking too long.
+  #Likely because the mapped branches build quickly and the prescreen data are large
   tar_target(p1_screen_daily_flow,
              screen_daily_data(p1_has_data, p1_prescreen_daily_data, year_start),
              map(p1_has_data),
-             deployment = 'worker'
+             deployment = 'main'
   ),
   ##For seasonal analysis
   tar_target(p1_screen_daily_flow_season,
              screen_daily_data(p1_has_data, p1_prescreen_daily_data, season_year_start),
              map(p1_has_data),
-             deployment = 'worker'
+             deployment = 'main'
   ),
   tar_target(p1_screen_daily_flow_season_high,
              screen_daily_data(p1_has_data, p1_prescreen_daily_data, season_year_start_high),
              map(p1_has_data),
-             deployment = 'worker'
+             deployment = 'main'
   ),
   
   ##select sites with enough complete years
@@ -202,21 +204,21 @@ list(
              clean_daily_data(p1_screened_site_list, p1_prescreen_daily_data, 
                               p1_screen_daily_flow, yearType, year_start),
              map(p1_screened_site_list),
-             deployment = 'worker'
+             deployment = 'main'
   ),
   ##seasonal
   tar_target(p1_clean_daily_flow_season,
              clean_daily_data(p1_screened_site_list_season, p1_prescreen_daily_data, 
                               p1_screen_daily_flow_season, yearType, season_year_start),
              map(p1_screened_site_list_season),
-             deployment = 'worker'
+             deployment = 'main'
   ),
   tar_target(p1_clean_daily_flow_season_high,
              clean_daily_data(p1_screened_site_list_season_high, p1_prescreen_daily_data, 
                               p1_screen_daily_flow_season_high, yearType, 
                               season_year_start_high),
              map(p1_screened_site_list_season_high),
-             deployment = 'worker'
+             deployment = 'main'
   ),
   
   #get drainage area from NWIS
@@ -461,11 +463,12 @@ list(
              map(p3_cluster_cols),
              deployment = 'worker',
              format = "file"
-  ),
+  #),
   
   #matrix of nested gages - 1 if column name gage is upstream of the row name gage, 0 otherwise
-  tar_target(p4_nested_gages,
-             get_nested_gages(gagesii = p1_sites_g2,
-                              nav_distance_km = nav_distance_km)
+  #tar_target(p4_nested_gages,
+  #           get_nested_gages(gagesii = p1_sites_g2,
+  #                            nav_distance_km = nav_distance_km,
+  #            deployment = 'worker')
             )  
 ) #end list

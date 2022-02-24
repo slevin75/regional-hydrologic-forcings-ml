@@ -41,9 +41,9 @@ workdir <- "E://FHWA//Rarea//workdir"
 
 itemfails <- "1st"
 
-#for (row in 1:nrow(tabledl))
-#the line below this one is for testing a smaller amount of ids
-for (row in 20:21)
+for (row in 1:nrow(tabledl))
+  #the line below this one is for testing a smaller amount of ids
+  #for (row in 20:21)
 {
   item <- tabledl[row, 'id']
   print(row)
@@ -87,11 +87,11 @@ for (row in 20:21)
     }
     if (success == "yes")
     {
-    try(tempfile <- subset(tempfile, select =-c(NODATA)), silent = TRUE)
-    try(tempfile <- subset(tempfile, select =-c(CAT_NODATA)), silent = TRUE)
-    try(tempfile <- subset(tempfile, select =-c(ACC_NODATA)), silent = TRUE)
-    try(tempfile <- subset(tempfile, select =-c(TOT_NODATA)), silent = TRUE)
-    data_at_gages <- merge(data_at_gages, tempfile, by = "COMID", all.x = TRUE)
+      try(tempfile <- subset(tempfile, select =-c(NODATA)), silent = TRUE)
+      try(tempfile <- subset(tempfile, select =-c(CAT_NODATA)), silent = TRUE)
+      try(tempfile <- subset(tempfile, select =-c(ACC_NODATA)), silent = TRUE)
+      try(tempfile <- subset(tempfile, select =-c(TOT_NODATA)), silent = TRUE)
+      data_at_gages <- merge(data_at_gages, tempfile, by = "COMID", all.x = TRUE)
     }
     file.remove(filem)
   }
@@ -99,8 +99,12 @@ for (row in 20:21)
   unlink(file.path(workdir,f), recursive=TRUE)
 }
 
-colnames(itemfails) <- c('filename')
-itemfails <- itemfails[-1]
+if (length(itemfails) > 0)
+{
+  colnames(itemfails) <- c('filename')
+  rownames(itemfails) <- NULL
+  itemfails <- itemfails[-1]
+}
 
 endtime <- Sys.time()
 

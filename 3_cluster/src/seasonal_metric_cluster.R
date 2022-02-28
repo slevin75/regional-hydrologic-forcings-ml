@@ -83,7 +83,10 @@ compute_cluster_diagnostics <- function(clusts, metric_mat,
                                hc_func = 'hclust', hc_method = clust_method,
                                hc_metric = dist_method, verbose = FALSE)
   
-  return(list(nbclust_metrics = nbclust_metrics, gap_stat = gap_stat))
+  return(list(flow_metric = clusts$metric, 
+              #dropping the suggested best cluster partition to save space
+              nbclust_metrics = nbclust_metrics[-4], 
+              gap_stat = gap_stat))
 }
 
 #Function to make cluster diagnostic panel plot
@@ -114,7 +117,7 @@ plot_cluster_diagnostics <- function(clusts, metric_mat, nbclust_metrics,
                           ',\nCluster Method: ', clust_method))
     
     #histogram of optimal number of clusters
-    p3 <- ggplot(data = as.data.frame(t(nbclust_metrics$clusts$Best.nc)), 
+    p3 <- ggplot(data = as.data.frame(t(nbclust_metrics$nbclust_metrics$Best.nc)), 
                  aes(Number_clusters)) + 
       geom_histogram(bins = 20, binwidth = 0.5) +
       labs(title = paste0('Suggested Optimal Number of Clusters from 26 Metrics\nMetric: ', 

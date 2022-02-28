@@ -55,8 +55,39 @@ select_cluster_method <- function(clusts){
   return(df_max)
 }
 
+#Function to compute cluster diagnostics
+#kmin, kmax - min and max number of clusters to use
+#alpha - significance level
+#boot - number of bootstrap replicates
+#index - the NbClust index to compute. 'all' computes all except those with long compute times.
+compute_cluster_diagnostics <- function(clusts, metric_mat,
+                                        kmin, kmax, alpha, boot = 50,
+                                        index = 'all',
+                                        dist_method = 'euclidean',
+                                        clust_method = 'ward.D2'){
+  clusts <- clusts[[clust_method]]
+  
+  #Select all of the seasonal columns for this metric
+  metric_mat <- metric_mat[, grep(x = colnames(metric_mat), pattern = paste0(clusts$metric,'_'))]
+  
+  #Compute NbClust cluster diagnostics
+  nbclust_metrics <- NbClust::NbClust(data = metric_mat, diss = NULL, 
+                                      distance = dist_method, 
+                                      min.nc = kmin, max.nc = kmax, 
+                                      method = clust_method, index = index, 
+                                      alphaBeale = alpha)
+  
+  #Compute gap statistic
+  gap_stat <- cluster::clusGap(as.matrix(metric_mat), FUNcluster = hcut,
+                               K.max = kmax, B = boot, d.power = 2,
+                               hc_func = 'hclust', hc_method = clust_method,
+                               hc_metric = dist_method, verbose = FALSE)
+  
+  return(list(nbclust_metrics = nbclust_metrics, gap_stat = gap_stat))
+}
+
 #Function to make cluster diagnostic panel plot
-plot_cluster_diagnostics <- function(clusts, metric_mat, 
+plot_cluster_diagnostics <- function(clusts, metric_mat, nbclust_metrics,
                                      dist_method = 'euclidean',
                                      clust_method = 'ward.D2',
                                      dir_out){
@@ -65,7 +96,7 @@ plot_cluster_diagnostics <- function(clusts, metric_mat,
   fileout <- vector('character', length = length(clusts))
   
   for(cl in 1:length(clusts)){
-    fileout[cl] <- paste0(dir_out, clusts[[cl]]$metric, '_', clusts[[cl]]$method, '_diagnostics.png')
+    fileout[cl] <- paste0(dir_out, clusts[[cl]]$metric, '_', clust_method, '_diagnostics.png')
     
     #Select all of the seasonal columns for this metric
     metric_mat <- metric_mat[, c(1,grep(x = colnames(metric_mat), pattern = paste0(clusts[[cl]]$metric,'_')))]
@@ -73,29 +104,28 @@ plot_cluster_diagnostics <- function(clusts, metric_mat,
     #dendrogram
     p1 <- ggplot(dendextend::as.ggdend(as.dendrogram(clusts[[cl]]))) +
       labs(title = paste0("Dendrogram of ", clusts[[cl]]$metric, " with\n", 
-                          clusts[[cl]]$method, ' Clustering. AC = ', clusts[[cl]]$ac))
+                          clust_method, ' Clustering. AC = ', clusts[[cl]]$ac))
     
     #WSS
-    p2 <- fviz_nbclust(x = as.matrix(metric_mat[,-1]), FUNcluster = hcut, method = 'wss', k.max = 20,
-                       hc_func = 'hclust', hc_method = clusts[[cl]]$method, hc_metric = dist_method) +
-      labs(title = paste0('WSS for Metric: ', clusts[[cl]]$metric,
-                          ',\nCluster Method: ', clusts[[cl]]$method))
-    
-    #silhouette width
-    p3 <- fviz_nbclust(x = as.matrix(metric_mat[,-1]), FUNcluster = hcut, method = 'silhouette', 
-                       k.max = 20, hc_func = 'hclust', hc_method = clusts[[cl]]$method, 
+    p2 <- fviz_nbclust(x = as.matrix(metric_mat[,-1]), FUNcluster = hcut, method = 'wss', 
+                       k.max = 20, hc_func = 'hclust', hc_method = clust_method, 
                        hc_metric = dist_method) +
-      labs(title = paste0('Silhouette for Metric: ', 
-                          clusts[[cl]]$metric, ',\nCluster Method: ', clusts[[cl]]$method))
+      labs(title = paste0('WSS for Metric: ', clusts[[cl]]$metric,
+                          ',\nCluster Method: ', clust_method))
+    
+    #histogram of optimal number of clusters
+    p3 <- ggplot(data = as.data.frame(t(nbclust_metrics$clusts$Best.nc)), 
+                 aes(Number_clusters)) + 
+      geom_histogram(bins = 20, binwidth = 0.5) +
+      labs(title = paste0('Suggested Optimal Number of Clusters from 26 Metrics\nMetric: ', 
+                          clusts[[cl]]$metric, ', Cluster Method: ', clust_method)) +
+      xlab("Suggested Optimal Number of Clusters") +
+      ylab("Count")
     
     #gap statistic
-    gap_stat <- clusGap(as.matrix(metric_mat[,-1]), FUNcluster = hcut,
-                        K.max = 20, B = 50, d.power = 2,
-                        hc_func = 'hclust', hc_method = clusts[[cl]]$method,
-                        hc_metric = dist_method, verbose = FALSE)
-    p4 <- fviz_gap_stat(gap_stat, maxSE = list(method = 'globalmax')) +
+    p4 <- fviz_gap_stat(nbclust_metrics$gap_stat, maxSE = list(method = 'globalmax')) +
       labs(title = paste0('Gap Statistic for Metric: ', clusts[[cl]]$metric,
-                          ',\nCluster Method: ', clusts[[cl]]$method))
+                          ',\nCluster Method: ', clust_method))
     
     save_plot(filename = fileout[cl], base_height = 8, base_width = 8, 
               plot = plot_grid(p1, p2, p3, p4, nrow = 2, ncol = 2))

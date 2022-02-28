@@ -376,7 +376,7 @@ list(
                                       dist_method = 'euclidean',
                                       clust_method = 'ward.D2',
                                       dir_out = '3_cluster/out/seasonal_plots/diagnostics/'),
-             map(p3_FDC_clusters),
+             map(p3_FDC_clusters, p3_FDC_cluster_diagnostics),
              deployment = 'worker',
              format = 'file'),
   

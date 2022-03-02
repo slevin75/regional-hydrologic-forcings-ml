@@ -476,12 +476,12 @@ list(
              map(p3_cluster_cols),
              deployment = 'worker',
              format = "file"
-  #),
+  ),
   
-  #matrix of nested gages - 1 if column name gage is upstream of the row name gage, 0 otherwise
-  #tar_target(p4_nested_gages,
-  #           get_nested_gages(gagesii = p1_sites_g2,
-  #                            nav_distance_km = nav_distance_km,
-  #            deployment = 'worker')
+  #matrix of nested gages - proportion of overlapping area if column name gage is upstream of the row name gage, 0 otherwise
+  tar_target(p4_nested_gages,
+             get_nested_gages(gagesii = p1_sites_g2,
+                              nav_distance_km = nav_distance_km),
+             deployment = 'worker'
             )  
 ) #end list

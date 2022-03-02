@@ -8,7 +8,7 @@ library(tidyverse)
 
 ##Load libraries for use in computing targets
 tar_option_set(packages = c("fasstr", "EflowStats", "dataRetrieval",
-                            "lubridate", "cluster", "factoextra",
+                            "lubridate", "cluster", "factoextra", "NbClust",
                             "sf", "cowplot", "gridGraphics", "stringi",
                             "dendextend", "scico", "tidyverse", "nhdplusTools"))
 
@@ -356,14 +356,27 @@ list(
              select_cluster_method(clusts = p3_FDC_clusters),
              deployment = 'main'),
   
+  #Compute cluster diagnostics
+  tar_target(p3_FDC_cluster_diagnostics,
+             compute_cluster_diagnostics(clusts = p3_FDC_clusters,
+                                         metric_mat = p1_FDC_metrics_season,
+                                         kmin = 2, kmax = 20,
+                                         alpha = 0.05, boot = 50,
+                                         index = 'all', 
+                                         dist_method = 'euclidean',
+                                         clust_method = 'ward.D2'),
+             map(p3_FDC_clusters),
+             deployment = 'worker'),
+  
   #Plot diagnostics for clusters
   tar_target(p3_FDC_cluster_diagnostics_png,
              plot_cluster_diagnostics(clusts = p3_FDC_clusters,
                                       metric_mat = p1_FDC_metrics_season,
+                                      nbclust_metrics = p3_FDC_cluster_diagnostics,
                                       dist_method = 'euclidean',
                                       clust_method = 'ward.D2',
                                       dir_out = '3_cluster/out/seasonal_plots/diagnostics/'),
-             map(p3_FDC_clusters),
+             map(p3_FDC_clusters, p3_FDC_cluster_diagnostics),
              deployment = 'worker',
              format = 'file'),
   
@@ -376,7 +389,7 @@ list(
                                   min_clusts = 3, max_clusts = 15, by_clusts = 4),
              deployment = 'main'),
   
-  #Assign coluster column names to a target for later branch iteration
+  #Assign cluster column names to a target for later branch iteration
   tar_target(p3_cluster_cols,
              colnames(p3_gages_clusters)[-1],
              deployment = 'main'),
@@ -463,12 +476,12 @@ list(
              map(p3_cluster_cols),
              deployment = 'worker',
              format = "file"
-  #),
+  ),
   
-  #matrix of nested gages - 1 if column name gage is upstream of the row name gage, 0 otherwise
-  #tar_target(p4_nested_gages,
-  #           get_nested_gages(gagesii = p1_sites_g2,
-  #                            nav_distance_km = nav_distance_km,
-  #            deployment = 'worker')
+  #matrix of nested gages - proportion of overlapping area if column name gage is upstream of the row name gage, 0 otherwise
+  tar_target(p4_nested_gages,
+             get_nested_gages(gagesii = p1_sites_g2,
+                              nav_distance_km = nav_distance_km),
+             deployment = 'worker'
             )  
 ) #end list

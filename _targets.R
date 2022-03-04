@@ -6,15 +6,18 @@ options(tidyverse.quiet = TRUE)
 
 ##Load libraries for use in computing targets
 tar_option_set(packages = c("fasstr", "EflowStats", "dataRetrieval",
-                            "lubridate","nhdplusTools"))
+                            "lubridate","nhdplusTools","sbtools"))
 
 ##Create output file directories
 dir.create('1_fetch/out', showWarnings=FALSE)
 dir.create('1_fetch/out/logs', showWarnings = FALSE)
 dir.create('1_fetch/out/stationarity_plots',showWarnings=FALSE)
+dir.create('1_fetch/out/workdir', showWarnings = FALSE)
+dir.create('1_fetch/out/dldir', showWarnings = FALSE)
 
 ##Load user defined functions
 source("1_fetch/src/get_nwis_data.R")
+source("1_fetch/src/get_sb_data.R")
 source("1_fetch/src/calc_HIT.R")
 source("1_fetch/src/calc_FDC.R")
 source("1_fetch/src/moving_window_functions.R")
@@ -62,6 +65,9 @@ window_length <- 20  ##needs to be <= complete_years
 increment <- 1
 min_yrs_in_window<- 15  ##minimum number of years of data required within a window
 min_windows <- 10  ##Must have this many windows available in order to plot 
+
+#this is the top level Science Base ID of Mike's database
+idtostart <- '5669a79ee4b08895842a1d47'
 
 ###gages2.1 ref site list - not sure how to get this right from sharepoint, so the
 ##filepath is currently to onedrive.
@@ -167,6 +173,19 @@ list(
   tar_target(p1_peak_flow_log, 
              get_peak_flow_log(files_in = p1_peak_flow_csv, 
                                file_out = "./1_fetch/out/logs/peak_flow_log.csv"),
+             format = "file"),
+  
+  ##generate table of data to download from sciencebase
+  tar_target(p1_make_sb_dl_table,
+             makedltable(idtostart, outdir = "./1_fetch/out"),
+             format = "file"),
+  
+  ##generate table of landscape data for gages list  
+  tar_target(p1_make_sb_landscapedata,
+             downloadchildren(gages=gagesii, dldir = "./1_fetch/out/dldir", 
+                              workdir = "./1_fetch/out/workdir",
+                              outdir = "./1_fetch/out",
+                              table_sb_dl = p1_make_sb_dl_table),
              format = "file"),
   
   ##get flood threshold for eflowstats

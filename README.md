@@ -1,9 +1,20 @@
 # regional-hydrologic-forcings-ml
-Repo for machine learning models for regional prediction of hydrologic forcing functions. FY22 regions: Delaware River Basin (DRB) region, and Upper Colorado River Basin (UCOL) region.
+The repository contains the code pipeline used to develop machine learning models for regional prediction of hydrologic forcing functions, specifically for flood flow metrics. The FY22 focus is a rainfall-dominated flood region within and surrounding the Delaware River Basin (DRB), and a snowmelt-dominated region within and surrounding the Upper Colorado River Basin (UCOL). The steps of the pipeline are as follows: 
 
-The package EflowStats can be installed from github using the following lines in R:
-install.packages("remotes")
+1. Fetch gage data and site characteristics for minimally altered catchments in the Conterminous United States (CONUS) from the National Water Information System (NWIS), and download watershed attributes for those sites from ScienceBase. Process the gage data and site characteristics to prepare them for use in modeling.
+2. Compute daily flow quantile-based flood flow metrics: magnitude, duration, frequency, volume, and maximum daily flow. Computed for period of record and seasonally.
+3. Use hierarchical agglomerative cluster analysis of seasonal flood metrics to estimate regions with similar flood response characteristics across CONUS.
+4. Predict flood flow metrics using machine learning models.
+
+## Dependencies not on CRAN
+The EflowStats package can be installed from github using R:
 remotes::install_github("USGS-R/EflowStats")
 
-note: gages2.1 is currently (As of 12-16-21) being stored in a private repo until it is released to the public.
+## Running in Parallel
+This pipeline is built to run in parallel. Use the `tar_make_clustermq` function with your desired number of workers (cores) to run in parallel. Please check that the available RAM on your computing resources is at least 3 GB / worker.
 
+## Notes 
+- The GAGES2.1 database is currently (as of 2-28-22) being stored in a private repo until it is released to the public.
+
+## Disclaimer
+This information is preliminary or provisional and is subject to revision. It is being provided to meet the need for timely best science. The information has not received final approval by the U.S. Geological Survey (USGS) and is provided on the condition that neither the USGS nor the U.S. Government shall be held liable for any damages resulting from the authorized or unauthorized use of the information.

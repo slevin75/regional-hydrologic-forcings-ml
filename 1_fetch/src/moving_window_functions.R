@@ -30,35 +30,85 @@ calc_moving_window_metrics <- function(site_num, window_length, increment,
   return(data_out)
 }
 
-plot_trend_summary <- function(moving_window_metrics, screened_plot_sites, outdir){
-  #normalize metrics and remove NAs (when there is only 1 moving window
-  #for a site,the sd will be 0)
-  df_norm <- moving_window_metrics %>%
-    group_by(site_num,indice) %>%
-    filter(site_num %in% screened_plot_sites)%>%
-    mutate(norm = (statistic - mean(statistic))/sd(statistic))%>%
-    mutate(indice_grp=word(indice, start = 1, sep="_") ) 
-  
-  indice_grp <- unique(df_norm$indice_grp) 
- ##map over indice_grp and produce a plot file for each group, with all the quantiles 
-  map_out <- map(indice_grp, make_summary_plot,
-          data = df_norm,
-          outdir = outdir)%>%
-    unlist()
+plot_trend_summary <- function(moving_window_metrics, screened_plot_sites, 
+                               by_cluster = FALSE, 
+                               cluster_table = NULL, cluster_column = NULL,
+                               outdir){
+  if(by_cluster){
+    if(is.null(cluster_table) | is.null(cluster_column)){
+      stop('cluster_table and cluster_column must be specified to plot by cluster')
+    }
+    
+    #make directory for saving the files
+    outdir <- paste0(outdir, '/cluster', strsplit(cluster_column, split = 'k')[[1]] %>% last())
+    dir.create(outdir, showWarnings = FALSE)
+    
+    #Select the specified column name
+    cluster_table <- cluster_table[, c("ID", cluster_column)]
+    colnames(cluster_table)[1] <- 'site_num'
+    
+    #Join the cluster info to the gages in the metric table
+    moving_window_metrics <- dplyr::inner_join(x = moving_window_metrics, 
+                                        y = cluster_table, by = 'site_num')
+    colnames(moving_window_metrics)[ncol(moving_window_metrics)] <- 'cluster'
+    
+    #get the index from the cluster column name
+    index <- strsplit(x = cluster_column, split = '_k')[[1]][1]
+    
+    #normalize metrics and remove NAs (when there is only 1 moving window
+    #for a site,the sd will be 0)
+    df_norm <- moving_window_metrics %>%
+      filter(indice == index) %>%
+      group_by(site_num, cluster) %>%
+      filter(site_num %in% screened_plot_sites) %>%
+      mutate(norm = (statistic - mean(statistic))/sd(statistic)) %>%
+      mutate(indice_grp = paste0(indice, '_', cluster))
+    
+    ##map over indice_grp and produce a plot file for each group, with all the quantiles 
+    map_out <- make_summary_plot_cluster(index = index, data = df_norm, outdir = outdir)
+  }else{
+    #normalize metrics and remove NAs (when there is only 1 moving window
+    #for a site,the sd will be 0)
+    df_norm <- moving_window_metrics %>%
+      group_by(site_num,indice) %>%
+      filter(site_num %in% screened_plot_sites) %>%
+      mutate(norm = (statistic - mean(statistic))/sd(statistic)) %>%
+      mutate(indice_grp=word(indice, start = 1, sep="_") ) 
+    
+    indice_grp <- unique(df_norm$indice_grp) 
+    ##map over indice_grp and produce a plot file for each group, with all the quantiles 
+    map_out <- map(indice_grp, make_summary_plot,
+                   data = df_norm,
+                   outdir = outdir) %>%
+      unlist()
+  }
 
   return(map_out)
 }#end function
 
-make_summary_plot <- function(grp,data, outdir){
+make_summary_plot <- function(grp, data, outdir){
   df_plot <- data %>%
     filter(indice_grp == grp)
   
-  p1 <- ggplot(df_plot, aes(start_Year,norm)) + geom_point(size = .7,alpha = .2) +
+  p1 <- ggplot(df_plot, aes(start_Year, norm)) + geom_point(size = .7, alpha = .2) +
     geom_smooth() +
     facet_wrap(~indice, ncol = 3)
   
 
   filepath <- file.path(outdir, paste0("moving_window_summary_", grp, ".png"))
+  
+  ggsave(filename = filepath,
+         plot = p1)
+  return(filepath)
+}
+
+make_summary_plot_cluster <- function(index, data, outdir){
+  p1 <- ggplot(data, aes(start_Year, norm)) + geom_point(size = .7, alpha = .2) +
+    geom_smooth() +
+    facet_wrap(~indice_grp, ncol = 3)
+  
+  
+  filepath <- file.path(outdir, paste0("moving_window_summary_", index, ".png"))
   
   ggsave(filename = filepath,
          plot = p1)

@@ -5,6 +5,12 @@ _targets
 */out/*
 !*/out/logs
 
+#Clustermq worker log files
+*.log
+
+#R plots
+Rplots.pdf
+
 # History files
 .Rhistory
 .Rapp.history

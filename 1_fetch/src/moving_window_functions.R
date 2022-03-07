@@ -115,6 +115,9 @@ make_summary_plot_cluster <- function(index, data, outdir){
     count() %>% 
     pull(n)
   
+  #add the cluster number as the label order
+  data$label_order <- 0
+  
   #add these numbers to the label
   for (i in 1:length(num_obs)){
     #metric label_cluster number
@@ -126,7 +129,7 @@ make_summary_plot_cluster <- function(index, data, outdir){
     lab <- paste0('Cluster ', clust_ind, ': ', num_sites[clust_ind], ' sites, ',
                   num_obs[clust_ind], ' obs')
     data$indice_grp[data$indice_grp == metric_lab] <- lab
-    data$label_order <- clust_ind
+    data$label_order[data$indice_grp == lab] <- clust_ind
   }
   
   

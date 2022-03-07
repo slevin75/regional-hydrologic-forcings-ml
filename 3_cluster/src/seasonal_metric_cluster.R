@@ -168,6 +168,7 @@ plot_seasonal_barplot <- function(metric_mat, metric,
                                   season_months,
                                   by_cluster = FALSE,
                                   cluster_table = NULL,
+                                  panel_plot = NULL,
                                   dir_out)
   {
   if(by_cluster & is.null(cluster_table)){
@@ -198,39 +199,84 @@ plot_seasonal_barplot <- function(metric_mat, metric,
     #get all directories to create based on the number of clusters
     dir_out <- paste0(dir_out, 'cluster', k, '/')
     
-    fileout <- vector('character', length = sum(k))
+    if(panel_plot){
+      fileout <- vector('character', length = length(k))
+    }else{
+      fileout <- vector('character', length = sum(k))
+    }
     
     for (i in 1:length(k)){
       dir.create(dir_out[i], showWarnings = FALSE)
-      for (cl in 1:k[i]){
-        #metric matrix for gages in cluster
-        metric_mat_c <- filter(metric_mat, 
-                               site_num %in% cluster_table$ID[cluster_table[,i+1] == cl]) %>%
-          select(-site_num)
+      if(panel_plot){
+        #create matrix of colmeans as rows to plot with facet_wrap
+        metric_mat_c <- as.data.frame(matrix(nrow = k[i]*4, ncol = 5))
+        num_sites <- vector('numeric', length = k[i])
+        for (cl in 1:k[i]){
+          full_mat <- filter(metric_mat, 
+                             site_num %in% cluster_table$ID[cluster_table[,i+1] == cl]) %>%
+            select(-site_num)
+          
+          num_sites[cl] <- nrow(full_mat)
+          
+          metric_mat_c[(1+(cl-1)*4):(4*cl), ] <- data.frame(data = full_mat %>% colMeans(), 
+                                           season = season_months, 
+                                           cluster = paste0('Cluster ', cl, ', ', num_sites[cl], ' sites'), 
+                                           ymin = as.numeric(apply(X = full_mat, MARGIN = 2, 
+                                                                   FUN = quantile, probs = 0.05)), 
+                                           ymax = as.numeric(apply(X = full_mat, MARGIN = 2, 
+                                                                   FUN = quantile, probs = 0.95))
+                                           )
+        }
+        colnames(metric_mat_c) <- c('data', 'season', 'cluster', 'ymin', 'ymax')
         
         #file index
-        ind_f <- ifelse(test = i > 1, cl + cumsum(k)[i-1], cl)
+        fileout[i] <- paste0('SeasonalBarplot_', 
+                             colnames(cluster_table)[i+1], '.png')
         
-        fileout[ind_f] <- paste0(dir_out[i], 
-                                        'SeasonalBarplot_', colnames(cluster_table)[i+1], 
-                                        '_c', cl, '.png')
-        
-        png(filename = fileout[ind_f], width = 5, height = 5, units = 'in', res = 200)
-        barplot(height = colMeans(metric_mat_c), width = 1, 
-                names.arg = season_months, 
-                xlim = c(0,4), ylim = c(0,1),
-                space = 0, main = paste0('Metric ', metric, ', k = ', k[i],
-                                        ',\nCluster ', cl, ', ', nrow(metric_mat_c), ' sites'), 
-                xlab = 'Season Months', ylab = 'Seasonal Fraction')
-        #add error bars as 5th - 95th percentiles
-        arrows(x0 = c(0.5,1.5,2.5,3.5), 
-               y0 = as.numeric(apply(X = metric_mat_c, MARGIN = 2, FUN = quantile, 
-                                     probs = 0.05)),
-               x1 = c(0.5,1.5,2.5,3.5), 
-               y1 = as.numeric(apply(X = metric_mat_c, MARGIN = 2, FUN = quantile, 
-                                     probs = 0.95)),
-               angle = 90, length = 0.1, code = 3)
-        dev.off()
+        plt <- ggplot(metric_mat_c) + 
+            ylim(0,1) +
+            xlab('Season Months') + 
+            ylab('Seasonal Fraction') +
+            ggtitle(paste0('Metric ', metric)) +
+            geom_col(aes(season, data)) + 
+            scale_x_discrete(limits=season_months) + 
+            geom_errorbar(aes(x = season, 
+                              ymin = ymin, 
+                              ymax = ymax),
+                          width = 0.4) +
+          facet_wrap(~cluster)
+        ggsave(filename = fileout[i], plot = plt, device = 'png', path = dir_out[i])
+      }else{
+        for (cl in 1:k[i]){
+          #metric matrix for gages in cluster
+          metric_mat_c <- filter(metric_mat, 
+                                 site_num %in% cluster_table$ID[cluster_table[,i+1] == cl]) %>%
+            select(-site_num)
+          
+          #file index
+          ind_f <- ifelse(test = i > 1, cl + cumsum(k)[i-1], cl)
+          
+          fileout[ind_f] <- paste0(dir_out[i], 
+                                   'SeasonalBarplot_', colnames(cluster_table)[i+1], 
+                                   '_c', cl, '.png')
+          
+          png(filename = fileout[ind_f], width = 5, height = 5, units = 'in', res = 200)
+          barplot(height = colMeans(metric_mat_c), width = 1, 
+                  names.arg = season_months, 
+                  xlim = c(0,4), ylim = c(0,1),
+                  space = 0, main = paste0('Metric ', metric, ', k = ', k[i],
+                                           ',\nCluster ', cl, ', ', nrow(metric_mat_c), ' sites'), 
+                  xlab = 'Season Months', ylab = 'Seasonal Fraction')
+          #add error bars as 5th - 95th percentiles
+          arrows(x0 = c(0.5,1.5,2.5,3.5), 
+                 y0 = as.numeric(apply(X = metric_mat_c, MARGIN = 2, FUN = quantile, 
+                                       probs = 0.05)),
+                 x1 = c(0.5,1.5,2.5,3.5), 
+                 y1 = as.numeric(apply(X = metric_mat_c, MARGIN = 2, FUN = quantile, 
+                                       probs = 0.95)),
+                 angle = 90, length = 0.1, code = 3)
+          dev.off()
+        }
       }
     }
   }else{

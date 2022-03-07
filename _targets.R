@@ -409,6 +409,7 @@ list(
                                    metric = p3_metric_names,
                                    season_months = season_months,
                                    by_cluster = TRUE,
+                                   panel_plot = TRUE,
                                    cluster_table = p3_gages_clusters,
                                    dir_out = '3_cluster/out/seasonal_plots/barplots/'),
              map(p3_metric_names),

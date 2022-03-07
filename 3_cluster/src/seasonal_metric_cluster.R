@@ -209,7 +209,7 @@ plot_seasonal_barplot <- function(metric_mat, metric,
       dir.create(dir_out[i], showWarnings = FALSE)
       if(panel_plot){
         #create matrix of colmeans as rows to plot with facet_wrap
-        metric_mat_c <- as.data.frame(matrix(nrow = k[i]*4, ncol = 5))
+        metric_mat_c <- as.data.frame(matrix(nrow = k[i]*4, ncol = 6))
         num_sites <- vector('numeric', length = k[i])
         for (cl in 1:k[i]){
           full_mat <- filter(metric_mat, 
@@ -224,14 +224,14 @@ plot_seasonal_barplot <- function(metric_mat, metric,
                                            ymin = as.numeric(apply(X = full_mat, MARGIN = 2, 
                                                                    FUN = quantile, probs = 0.05)), 
                                            ymax = as.numeric(apply(X = full_mat, MARGIN = 2, 
-                                                                   FUN = quantile, probs = 0.95))
-                                           )
+                                                                   FUN = quantile, probs = 0.95)),
+                                           label_order = cl)
         }
-        colnames(metric_mat_c) <- c('data', 'season', 'cluster', 'ymin', 'ymax')
+        colnames(metric_mat_c) <- c('data', 'season', 'cluster', 'ymin', 'ymax', 'label_order')
         
         #file index
-        fileout[i] <- paste0('SeasonalBarplot_', 
-                             colnames(cluster_table)[i+1], '.png')
+        fileout[i] <- file.path(dir_out[i], paste0('SeasonalBarplot_', 
+                             colnames(cluster_table)[i+1], '.png'))
         
         plt <- ggplot(metric_mat_c) + 
             ylim(0,1) +
@@ -244,8 +244,8 @@ plot_seasonal_barplot <- function(metric_mat, metric,
                               ymin = ymin, 
                               ymax = ymax),
                           width = 0.4) +
-          facet_wrap(~cluster)
-        ggsave(filename = fileout[i], plot = plt, device = 'png', path = dir_out[i])
+          facet_wrap(~reorder(cluster, label_order))
+        ggsave(filename = fileout[i], plot = plt, device = 'png')
       }else{
         for (cl in 1:k[i]){
           #metric matrix for gages in cluster

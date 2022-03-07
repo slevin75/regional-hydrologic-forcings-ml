@@ -126,6 +126,7 @@ make_summary_plot_cluster <- function(index, data, outdir){
     lab <- paste0('Cluster ', clust_ind, ': ', num_sites[clust_ind], ' sites, ',
                   num_obs[clust_ind], ' obs')
     data$indice_grp[data$indice_grp == metric_lab] <- lab
+    data$label_order <- clust_ind
   }
   
   
@@ -134,7 +135,7 @@ make_summary_plot_cluster <- function(index, data, outdir){
     xlab('Start Year') +
     ylab('Normalized Metric Value') +
     ggtitle(paste0('Metric: ', data$indice[1])) +
-    facet_wrap(~indice_grp)
+    facet_wrap(~reorder(indice_grp, label_order))
   
   
   filepath <- file.path(outdir, paste0("moving_window_summary_", index, ".png"))

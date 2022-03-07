@@ -7,7 +7,8 @@ seasonal_metric_cluster <- function(metric_mat, metric,
                                     dist_method = 'euclidean'
                                     ){
   #Select all of the seasonal columns for this metric
-  metric_mat <- metric_mat[, c(1,grep(x = colnames(metric_mat), pattern = paste0(metric,'_')))]
+  metric_mat <- metric_mat[, c(1,grep(x = colnames(metric_mat), 
+                                      pattern = paste0(metric,'_')))]
   
   #Scaling of metrics should not be necessary because the metrics are on [0,1]
   
@@ -64,11 +65,13 @@ compute_cluster_diagnostics <- function(clusts, metric_mat,
                                         kmin, kmax, alpha, boot = 50,
                                         index = 'all',
                                         dist_method = 'euclidean',
-                                        clust_method = 'ward.D2'){
+                                        clust_method = 'ward.D2'
+                                        ){
   clusts <- clusts[[clust_method]]
   
   #Select all of the seasonal columns for this metric
-  metric_mat <- metric_mat[, grep(x = colnames(metric_mat), pattern = paste0(clusts$metric,'_'))]
+  metric_mat <- metric_mat[, grep(x = colnames(metric_mat), 
+                                  pattern = paste0(clusts$metric,'_'))]
   
   #Compute NbClust cluster diagnostics
   nbclust_metrics <- NbClust::NbClust(data = metric_mat, diss = NULL, 
@@ -99,7 +102,9 @@ plot_cluster_diagnostics <- function(clusts, metric_mat, nbclust_metrics,
   fileout <- vector('character', length = length(clusts))
   
   for(cl in 1:length(clusts)){
-    fileout[cl] <- paste0(dir_out, clusts[[cl]]$metric, '_', clust_method, '_diagnostics.png')
+    fileout[cl] <- file.path(dir_out, 
+                             paste0(clusts[[cl]]$metric, '_', 
+                                    clust_method, '_diagnostics.png'))
     
     #Select all of the seasonal columns for this metric
     metric_mat <- metric_mat[, c(1,grep(x = colnames(metric_mat), pattern = paste0(clusts[[cl]]$metric,'_')))]
@@ -197,7 +202,7 @@ plot_seasonal_barplot <- function(metric_mat, metric,
       as.numeric()
     
     #get all directories to create based on the number of clusters
-    dir_out <- paste0(dir_out, 'cluster', k, '/')
+    dir_out <- file.path(dir_out, paste0('cluster', k))
     
     if(panel_plot){
       fileout <- vector('character', length = length(k))
@@ -256,9 +261,9 @@ plot_seasonal_barplot <- function(metric_mat, metric,
           #file index
           ind_f <- ifelse(test = i > 1, cl + cumsum(k)[i-1], cl)
           
-          fileout[ind_f] <- paste0(dir_out[i], 
-                                   'SeasonalBarplot_', colnames(cluster_table)[i+1], 
-                                   '_c', cl, '.png')
+          fileout[ind_f] <- file.path(dir_out[i], 
+                                   paste0('SeasonalBarplot_', colnames(cluster_table)[i+1], 
+                                   '_c', cl, '.png'))
           
           png(filename = fileout[ind_f], width = 5, height = 5, units = 'in', res = 200)
           barplot(height = colMeans(metric_mat_c), width = 1, 
@@ -280,7 +285,7 @@ plot_seasonal_barplot <- function(metric_mat, metric,
       }
     }
   }else{
-    fileout <- paste0(dir_out, 'SeasonalBarplot_', metric, '.png')
+    fileout <- file.path(dir_out, paste0('SeasonalBarplot_', metric, '.png'))
     png(filename = fileout, width = 5, height = 5, units = 'in', res = 200)
     barplot(height = colMeans(metric_mat[,-1]), width = 1, 
             names.arg = season_months, 
@@ -306,12 +311,12 @@ plot_seasonal_barplot <- function(metric_mat, metric,
 #clusts is the output from hclust
 plot_cuttree <- function(clusts, kmin, kmax, seq_by, dir_out){
   for (k in seq(kmin, kmax, seq_by)){
-    fileout <- paste0(dir_out, '/', clusts$metric, '_', clusts$method, '_', k,'.png')
+    fileout <- file.path(dir_out, paste0(clusts$metric, '_', clusts$method, '_', k,'.png'))
     png(fileout, res = 300, units = 'in', width = 7, height = 5)
     plot(clusts, cex = 0.6, hang = -1, 
          main = paste0("Dendrogram of ", clusts$metric, " with ", clusts$method,
                        ' Clustering,\nCut at ', k, ' Clusters'))
-    rect.hclust(clusts, k = k, border = rainbow(45))
+    rect.hclust(clusts, k = k, border = rainbow(45, alpha = 1))
     dev.off()
   }
   
@@ -333,7 +338,7 @@ plot_cluster_map <- function(gages, cluster_table, screened_sites, dir_out){
   fileout <- vector('character', length = ncol(cluster_table)-1)
   
   for(i in 1:(ncol(cluster_table)-1)){
-    fileout[i] <- paste0(dir_out, colnames(cluster_table)[i+1], '_map.png')
+    fileout[i] <- file.path(dir_out, paste0(colnames(cluster_table)[i+1], '_map.png'))
     
     #number of clusters fro the column name
     k <- as.numeric(str_split(string = str_split(string = colnames(cluster_table)[i+1], 

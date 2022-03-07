@@ -219,7 +219,8 @@ plot_seasonal_barplot <- function(metric_mat, metric,
         barplot(height = colMeans(metric_mat_c), width = 1, 
                 names.arg = season_months, 
                 xlim = c(0,4), ylim = c(0,1),
-                space = 0, main = paste('Metric', metric, ', k = ', k[i], ', Cluster', cl), 
+                space = 0, main = paste0('Metric ', metric, ', k = ', k[i],
+                                        ',\nCluster ', cl, ', ', nrow(metric_mat_c), ' sites'), 
                 xlab = 'Season Months', ylab = 'Seasonal Fraction')
         #add error bars as 5th - 95th percentiles
         arrows(x0 = c(0.5,1.5,2.5,3.5), 
@@ -238,7 +239,7 @@ plot_seasonal_barplot <- function(metric_mat, metric,
     barplot(height = colMeans(metric_mat[,-1]), width = 1, 
             names.arg = season_months, 
             xlim = c(0,4), ylim = c(0,1),
-            space = 0, main = metric, 
+            space = 0, main = paste0('Metric ', metric, ', ', nrow(metric_mat), ' sites'),
             xlab = 'Season Months', ylab = 'Seasonal Fraction')
     #add error bars as 5th - 95th percentiles
     arrows(x0 = c(0.5,1.5,2.5,3.5), 

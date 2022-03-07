@@ -15,13 +15,17 @@ tar_option_set(packages = c("fasstr", "EflowStats", "dataRetrieval",
 ##Create output file directories
 dir.create('1_fetch/out', showWarnings = FALSE)
 dir.create('1_fetch/out/stationarity_plots', showWarnings = FALSE)
+dir.create('1_fetch/out/stationarity_plots/by_quantiles', showWarnings = FALSE)
 dir.create('1_fetch/out/logs', showWarnings = FALSE)
 dir.create('3_cluster/out', showWarnings = FALSE)
 dir.create('3_cluster/out/seasonal_plots', showWarnings = FALSE)
 dir.create('3_cluster/out/seasonal_plots/barplots', showWarnings = FALSE)
+dir.create('3_cluster/out/seasonal_plots/barplots/by_quantiles', showWarnings = FALSE)
 dir.create('3_cluster/out/seasonal_plots/barplots/CONUS', showWarnings = FALSE)
 dir.create('3_cluster/out/seasonal_plots/diagnostics', showWarnings = FALSE)
+dir.create('3_cluster/out/seasonal_plots/diagnostics/by_quantiles', showWarnings = FALSE)
 dir.create('3_cluster/out/seasonal_plots/maps', showWarnings = FALSE)
+dir.create('3_cluster/out/seasonal_plots/maps/by_quantiles', showWarnings = FALSE)
 
 ##Load user defined functions
 source("1_fetch/src/get_nwis_data.R")
@@ -331,6 +335,10 @@ list(
                },
              deployment = 'main'
   ),
+  tar_target(p3_metric_names_quants,
+             {as.character(NE_quants)},
+             deployment = 'main'
+  ),
   
   #barplot for all metrics, averaged over all gages
   tar_target(p3_seasonal_barplot_COUNS_png,
@@ -350,10 +358,19 @@ list(
                                      dist_method = 'euclidean'),
              map(p3_metric_names),
              deployment = 'worker'),
+  tar_target(p3_FDC_clusters_quants,
+             seasonal_metric_cluster(metric_mat = p1_FDC_metrics_season,
+                                     metric = p3_metric_names_quants,
+                                     dist_method = 'euclidean'),
+             map(p3_metric_names_quants),
+             deployment = 'worker'),
   
   #Select only the best clustering method
   tar_target(p3_FDC_best_cluster_method,
              select_cluster_method(clusts = p3_FDC_clusters),
+             deployment = 'main'),
+  tar_target(p3_FDC_best_cluster_method_quants,
+             select_cluster_method(clusts = p3_FDC_clusters_quants),
              deployment = 'main'),
   
   #Compute cluster diagnostics
@@ -367,6 +384,16 @@ list(
                                          clust_method = 'ward.D2'),
              map(p3_FDC_clusters),
              deployment = 'worker'),
+  tar_target(p3_FDC_cluster_diagnostics_quants,
+             compute_cluster_diagnostics(clusts = p3_FDC_clusters_quants,
+                                         metric_mat = p1_FDC_metrics_season,
+                                         kmin = 2, kmax = 20,
+                                         alpha = 0.05, boot = 50,
+                                         index = 'all', 
+                                         dist_method = 'euclidean',
+                                         clust_method = 'ward.D2'),
+             map(p3_FDC_clusters_quants),
+             deployment = 'worker'),
   
   #Plot diagnostics for clusters
   tar_target(p3_FDC_cluster_diagnostics_png,
@@ -379,6 +406,16 @@ list(
              map(p3_FDC_clusters, p3_FDC_cluster_diagnostics),
              deployment = 'worker',
              format = 'file'),
+  tar_target(p3_FDC_cluster_diagnostics_quants_png,
+             plot_cluster_diagnostics(clusts = p3_FDC_clusters_quants,
+                                      metric_mat = p1_FDC_metrics_season,
+                                      nbclust_metrics = p3_FDC_cluster_diagnostics_quants,
+                                      dist_method = 'euclidean',
+                                      clust_method = 'ward.D2',
+                                      dir_out = '3_cluster/out/seasonal_plots/diagnostics/by_quantiles'),
+             map(p3_FDC_clusters_quants, p3_FDC_cluster_diagnostics_quants),
+             deployment = 'worker',
+             format = 'file'),
   
   #Assign cluster numbers to gages
   tar_target(p3_gages_clusters,
@@ -388,10 +425,20 @@ list(
                                   best_clust = p3_FDC_best_cluster_method,
                                   min_clusts = 3, max_clusts = 15, by_clusts = 4),
              deployment = 'main'),
+  tar_target(p3_gages_clusters_quants,
+             add_cluster_to_gages(gages = p1_sites_g2,
+                                  clusts = p3_FDC_clusters_quants,
+                                  screened_sites = p1_screened_site_list_season,
+                                  best_clust = p3_FDC_best_cluster_method_quants,
+                                  min_clusts = 3, max_clusts = 15, by_clusts = 4),
+             deployment = 'main'),
   
   #Assign cluster column names to a target for later branch iteration
   tar_target(p3_cluster_cols,
              colnames(p3_gages_clusters)[-1],
+             deployment = 'main'),
+  tar_target(p3_cluster_cols_quants,
+             colnames(p3_gages_clusters_quants)[-1],
              deployment = 'main'),
   
   #Plot maps of gages with clusters
@@ -400,6 +447,13 @@ list(
                               cluster_table = p3_gages_clusters,
                               screened_sites = p1_screened_site_list_season,
                               dir_out = '3_cluster/out/seasonal_plots/maps/'),
+             deployment = 'main',
+             format = 'file'),
+  tar_target(p3_cluster_map_quants_png,
+             plot_cluster_map(gages = p1_sites_g2_sf,
+                              cluster_table = p3_gages_clusters_quants,
+                              screened_sites = p1_screened_site_list_season,
+                              dir_out = '3_cluster/out/seasonal_plots/maps/by_quantiles'),
              deployment = 'main',
              format = 'file'),
   
@@ -413,6 +467,17 @@ list(
                                    cluster_table = p3_gages_clusters,
                                    dir_out = '3_cluster/out/seasonal_plots/barplots/'),
              map(p3_metric_names),
+             deployment = 'worker',
+             format = 'file'),
+  tar_target(p3_seasonal_barplot_clusters_quants_png,
+             plot_seasonal_barplot(metric_mat = p1_FDC_metrics_season,
+                                   metric = p3_metric_names_quants,
+                                   season_months = season_months,
+                                   by_cluster = TRUE,
+                                   panel_plot = TRUE,
+                                   cluster_table = p3_gages_clusters_quants,
+                                   dir_out = '3_cluster/out/seasonal_plots/barplots/by_quantiles'),
+             map(p3_metric_names_quants),
              deployment = 'worker',
              format = 'file'),
 
@@ -475,6 +540,18 @@ list(
                                 cluster_column = p3_cluster_cols,
                                 outdir = "1_fetch/out/stationarity_plots"),
              map(p3_cluster_cols),
+             deployment = 'worker',
+             format = "file"
+  ),
+  #This will not work because it doesn't know to split by quantile
+  tar_target(p1_moving_window_summary_plots_cluster_quants_png,
+             plot_trend_summary(moving_window_metrics = p1_moving_window_metrics,
+                                screened_plot_sites = p1_screened_plot_sites,
+                                by_cluster = TRUE,
+                                cluster_table = p3_gages_clusters_quants,
+                                cluster_column = p3_cluster_cols_quants,
+                                outdir = "1_fetch/out/stationarity_plots/by_quantiles"),
+             map(p3_cluster_cols_quants),
              deployment = 'worker',
              format = "file"
   ),

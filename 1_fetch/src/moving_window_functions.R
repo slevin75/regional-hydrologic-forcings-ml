@@ -58,6 +58,7 @@ plot_trend_summary <- function(moving_window_metrics, screened_plot_sites,
     #normalize metrics and remove NAs (when there is only 1 moving window
     #for a site,the sd will be 0)
     df_norm <- moving_window_metrics %>%
+      #filter(indice %in% unique(grep(paste0(index,'$'), indice, value = T))) %>%
       filter(indice == index) %>%
       group_by(site_num, cluster) %>%
       filter(site_num %in% screened_plot_sites) %>%

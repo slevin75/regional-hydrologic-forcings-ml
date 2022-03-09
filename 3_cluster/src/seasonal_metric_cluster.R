@@ -257,120 +257,29 @@ plot_seasonal_barplot <- function(metric_mat, metric,
     #Determine the number of files to be created
     if(panel_plot){
       if(by_quantile){
-        #Also determine the streamflow metric names
+        #one panel per streamflow metric within each analysis
         metric_names <- unique(apply(str_split(string = colnames(metric_mat)[-1], 
                                                pattern = '_', simplify = T), 
                                      MARGIN = 1, FUN = first))
         fileout <- vector('character', length = length(k)*length(metric_names))
       }else{
+        #one panel plot per analysis
         fileout <- vector('character', length = length(k))
       }
     }else{
+      #one plot per cluster
       fileout <- vector('character', length = sum(k))
     }
     
+    #loop over the analyses to make plots
     for (i in 1:length(k)){
       dir.create(dir_out[i], showWarnings = FALSE)
       if(panel_plot){
         #create matrix of colmeans as rows to plot with facet_wrap
-        if(by_quantile){
-          #Add a column for the streamflow metric name
-          metric_mat_c <- as.data.frame(matrix(nrow = k[i]*4*length(metric_names), 
-                                               ncol = 7))
-        }else{
-          metric_mat_c <- as.data.frame(matrix(nrow = k[i]*4, ncol = 6))
-        }
-        num_sites <- vector('numeric', length = k[i])
-        #loop over clusters
-        for (cl in 1:k[i]){
-          full_mat <- filter(metric_mat, 
-                             site_num %in% cluster_table$ID[cluster_table[,i+1] == cl]) %>%
-            select(-site_num)
-          
-          num_sites[cl] <- nrow(full_mat)
-          
-          if(by_quantile){
-            if(quantile_agg){
-              #make columns for each metric name and season from the full_mat
-              metric_names_full_mat <- unlist(lapply(paste0(metric_names, '_s'), 
-                                                     FUN = paste0, seq(1,4,1)))
-              full_mat_names <- matrix(nrow = nrow(full_mat)*ncol(full_mat)/length(metric_names)/4, 
-                                       ncol = length(metric_names_full_mat))
-              cols_first <- apply(str_split(colnames(full_mat), '_', simplify = TRUE), 1, first)
-              cols_last <- apply(str_split(colnames(full_mat), '_', simplify = TRUE), 1, last)
-              for(s in 1:length(metric_names_full_mat)){
-                first_s <- str_split(metric_names_full_mat[s], '_', simplify = TRUE) %>% first()
-                last_s <- str_split(metric_names_full_mat[s], '_', simplify = TRUE) %>% last()
-                full_mat_names[,s] <- stack(full_mat[, (cols_first == first_s) & (cols_last == last_s)])$value
-              }
-              full_mat_names <- as.data.frame(full_mat_names)
-              colnames(full_mat_names) <- metric_names_full_mat
-              
-              metric_mat_c[(1+(cl-1)*4*length(metric_names)):(4*cl*length(metric_names)), ] <- data.frame(data = full_mat_names %>% colMeans(), 
-                                                                season = season_months, 
-                                                                cluster = paste0('Cluster ', 
-                                                                                 cl, ', ',
-                                                                                 num_sites[cl], 
-                                                                                 ' sites'), 
-                                                                ymin = as.numeric(apply(full_mat_names,
-                                                                                        MARGIN = 2,
-                                                                                        FUN = quantile, 
-                                                                                        probs = 0.05)), 
-                                                                ymax = as.numeric(apply(full_mat_names, 
-                                                                                        MARGIN = 2, 
-                                                                                        FUN = quantile,
-                                                                                        probs = 0.95)),
-                                                                label_order = cl, 
-                                                                metric = apply(str_split(metric_names_full_mat, '_', simplify = TRUE), 1, first))
-            }else{
-              #get metric names
-              metric_names_full_mat <- apply(str_split(colnames(full_mat), '_', simplify = TRUE), 
-                                             1, first)
-              
-              metric_mat_c[(1+(cl-1)*4*length(metric_names)):(4*cl*length(metric_names)), ] <- data.frame(data = full_mat %>% colMeans(), 
-                                                                season = season_months, 
-                                                                cluster = paste0('Cluster ', 
-                                                                                 cl, ', ',
-                                                                                 num_sites[cl], 
-                                                                                 ' sites'), 
-                                                                ymin = as.numeric(apply(full_mat,
-                                                                                        MARGIN = 2,
-                                                                                        FUN = quantile, 
-                                                                                        probs = 0.05)), 
-                                                                ymax = as.numeric(apply(full_mat, 
-                                                                                        MARGIN = 2, 
-                                                                                        FUN = quantile,
-                                                                                        probs = 0.95)),
-                                                                label_order = cl,
-                                                                metric = metric_names_full_mat)
-            }
-          }else{
-            metric_mat_c[(1+(cl-1)*4):(4*cl), ] <- data.frame(data = full_mat %>% colMeans(), 
-                                                              season = season_months, 
-                                                              cluster = paste0('Cluster ', 
-                                                                               cl, ', ', 
-                                                                               num_sites[cl], 
-                                                                               ' sites'), 
-                                                              ymin = as.numeric(apply(full_mat, 
-                                                                                      MARGIN = 2, 
-                                                                                      FUN = quantile,
-                                                                                      probs = 0.05)), 
-                                                              ymax = as.numeric(apply(full_mat, 
-                                                                                      MARGIN = 2, 
-                                                                                      FUN = quantile,
-                                                                                      probs = 0.95)),
-                                                              label_order = cl)
-          }
-        }
-        if(by_quantile){
-          colnames(metric_mat_c) <- c('data', 'season', 'cluster', 'ymin', 'ymax', 
-                                      'label_order', 'metric')
-        }else{
-          colnames(metric_mat_c) <- c('data', 'season', 'cluster', 'ymin', 'ymax', 
-                                      'label_order')
-        }
+        metric_mat_c <- get_colmeans_panel_plt(metric_names, metric_mat, by_quantile, 
+                               quantile_agg, cluster_table, ki = k[i])
         
-        #file index
+        #make panel plots
         if(by_quantile){
           #need to loop over metric names to create plots
           for (j in 1:length(metric_names)){
@@ -444,6 +353,7 @@ plot_seasonal_barplot <- function(metric_mat, metric,
       }
     }
   }else{
+    #plots not made by cluster
     fileout <- file.path(dir_out, paste0('SeasonalBarplot_', metric, '.png'))
     png(filename = fileout, width = 5, height = 5, units = 'in', res = 200)
     barplot(height = colMeans(metric_mat[,-1]), width = 1, 
@@ -528,3 +438,110 @@ get_column_inds <- function(metric, metric_mat){
   }
   return(col_inds)
 }
+
+#get column means for use in the panel plot
+get_colmeans_panel_plt <- function(metric_names, metric_mat, by_quantile, 
+                                   quantile_agg, cluster_table, ki
+){
+  #Determine the dimensions of the data frame based on what kind of plot is being made
+  if(by_quantile){
+    #panel plots are made for each streamflow metric name in each analysis, ki
+    metric_mat_c <- as.data.frame(matrix(nrow = ki*4*length(metric_names), 
+                                         ncol = 7))
+  }else{
+    #panel plot is specific to the analysis, ki
+    metric_mat_c <- as.data.frame(matrix(nrow = ki*4, ncol = 6))
+  }
+  
+  #track the number of sites in each cluster within analysis ki
+  num_sites <- vector('numeric', length = ki)
+  
+  #loop over clusters to get data for that cluster
+  for (cl in 1:ki){
+    #full matrix of all sites within that cluster 
+    full_mat <- filter(metric_mat, 
+                       site_num %in% cluster_table$ID[cluster_table[,i+1] == cl]) %>%
+      select(-site_num)
+    
+    num_sites[cl] <- nrow(full_mat)
+    
+    if(by_quantile){
+      #by quantile, so metric contains quantile names instead of streamflow metric names
+      if(quantile_agg){
+        #make new columns for each metric name_season
+        metric_names_full_mat <- unlist(lapply(paste0(metric_names, '_s'), 
+                                               FUN = paste0, seq(1,4,1)))
+        
+        #Get dimensions of the matrix with those new columns
+        full_mat_names <- matrix(nrow = nrow(full_mat)*ncol(full_mat)/length(metric_names)/4, 
+                                 ncol = length(metric_names_full_mat))
+        
+        #determine the streamflow metric represented in each column 
+        cols_first <- apply(str_split(colnames(full_mat), '_', simplify = TRUE), 1, first)
+        #determine the season represented in each column
+        cols_last <- apply(str_split(colnames(full_mat), '_', simplify = TRUE), 1, last)
+        
+        #fill in full_mat_names with data from full_mat
+        for(s in 1:length(metric_names_full_mat)){
+          first_s <- str_split(metric_names_full_mat[s], '_', simplify = TRUE) %>% first()
+          last_s <- str_split(metric_names_full_mat[s], '_', simplify = TRUE) %>% last()
+          full_mat_names[,s] <- stack(full_mat[, (cols_first == first_s) & 
+                                                 (cols_last == last_s)])$value
+        }
+        full_mat_names <- as.data.frame(full_mat_names)
+        colnames(full_mat_names) <- metric_names_full_mat
+        
+        #Use the new matrix to compute mean and error bars for each season and each streamflow metric
+        metric_mat_c[(1+(cl-1)*4*length(metric_names)):(4*cl*length(metric_names)), ] <- 
+          data.frame(data = full_mat_names %>% colMeans(),
+                     season = season_months, 
+                     cluster = paste0('Cluster ', cl, ', ', num_sites[cl], ' sites'),
+                     ymin = as.numeric(apply(full_mat_names, MARGIN = 2,
+                                             FUN = quantile, probs = 0.05)), 
+                     ymax = as.numeric(apply(full_mat_names, MARGIN = 2, 
+                                             FUN = quantile, probs = 0.95)),
+                     #used so that the panel plot orders clusters from 1:n
+                     label_order = cl,
+                     #used to get only the streamflow metric name
+                     metric = apply(str_split(metric_names_full_mat, '_', 
+                                              simplify = TRUE), 1, first))
+      }else{
+        #get streamflow metric names for each column in full_mat
+        metric_names_full_mat <- apply(str_split(colnames(full_mat), '_', simplify = TRUE), 
+                                       1, first)
+        #Use full_mat to compute mean and error bars for each season and each streamflow metric
+        metric_mat_c[(1+(cl-1)*4*length(metric_names)):(4*cl*length(metric_names)), ] <- 
+          data.frame(data = full_mat %>% colMeans(),
+                     season = season_months, 
+                     cluster = paste0('Cluster ', cl, ', ', num_sites[cl], ' sites'),
+                     ymin = as.numeric(apply(full_mat, MARGIN = 2, 
+                                             FUN = quantile, probs = 0.05)),
+                     ymax = as.numeric(apply(full_mat, MARGIN = 2, 
+                                             FUN = quantile, probs = 0.95)),
+                     label_order = cl,
+                     metric = metric_names_full_mat)
+      }
+    }else{
+      #not by quantile, so metric contains streamflow metric names instead of quantiles
+      metric_mat_c[(1+(cl-1)*4):(4*cl), ] <- 
+        data.frame(data = full_mat %>% colMeans(),
+                   season = season_months, 
+                   cluster = paste0('Cluster ', cl, ', ', num_sites[cl], ' sites'), 
+                   ymin = as.numeric(apply(full_mat, MARGIN = 2,
+                                           FUN = quantile, probs = 0.05)), 
+                   ymax = as.numeric(apply(full_mat, MARGIN = 2, 
+                                           FUN = quantile, probs = 0.95)),
+                   label_order = cl)
+    }
+  }
+  if(by_quantile){
+    colnames(metric_mat_c) <- c('data', 'season', 'cluster', 'ymin', 'ymax', 
+                                'label_order', 'metric')
+  }else{
+    colnames(metric_mat_c) <- c('data', 'season', 'cluster', 'ymin', 'ymax', 
+                                'label_order')
+  }
+  
+  return(metric_mat_c)
+}
+

@@ -277,7 +277,8 @@ plot_seasonal_barplot <- function(metric_mat, metric,
       if(panel_plot){
         #create matrix of colmeans as rows to plot with facet_wrap
         metric_mat_c <- get_colmeans_panel_plt(metric_names, metric_mat, by_quantile, 
-                               quantile_agg, cluster_table, ki = k[i])
+                               quantile_agg, cluster_table, ki = k[i], i,
+                               season_months)
         
         #make panel plots
         if(by_quantile){
@@ -441,7 +442,8 @@ get_column_inds <- function(metric, metric_mat){
 
 #get column means for use in the panel plot
 get_colmeans_panel_plt <- function(metric_names, metric_mat, by_quantile, 
-                                   quantile_agg, cluster_table, ki
+                                   quantile_agg, cluster_table, ki, i,
+                                   season_months
 ){
   #Determine the dimensions of the data frame based on what kind of plot is being made
   if(by_quantile){
@@ -494,7 +496,7 @@ get_colmeans_panel_plt <- function(metric_names, metric_mat, by_quantile,
         #Use the new matrix to compute mean and error bars for each season and each streamflow metric
         metric_mat_c[(1+(cl-1)*4*length(metric_names)):(4*cl*length(metric_names)), ] <- 
           data.frame(data = full_mat_names %>% colMeans(),
-                     season = season_months, 
+                     season = rep(season_months, length(metric_names)), 
                      cluster = paste0('Cluster ', cl, ', ', num_sites[cl], ' sites'),
                      ymin = as.numeric(apply(full_mat_names, MARGIN = 2,
                                              FUN = quantile, probs = 0.05)), 
@@ -512,7 +514,7 @@ get_colmeans_panel_plt <- function(metric_names, metric_mat, by_quantile,
         #Use full_mat to compute mean and error bars for each season and each streamflow metric
         metric_mat_c[(1+(cl-1)*4*length(metric_names)):(4*cl*length(metric_names)), ] <- 
           data.frame(data = full_mat %>% colMeans(),
-                     season = season_months, 
+                     season = rep(season_months, length(metric_names)), 
                      cluster = paste0('Cluster ', cl, ', ', num_sites[cl], ' sites'),
                      ymin = as.numeric(apply(full_mat, MARGIN = 2, 
                                              FUN = quantile, probs = 0.05)),

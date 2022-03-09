@@ -619,17 +619,17 @@ list(
              format = "file"
   ),
   #This will not work because it doesn't know to split by quantile
-  tar_target(p1_moving_window_summary_plots_cluster_quants_png,
-             plot_trend_summary(moving_window_metrics = p1_moving_window_metrics,
-                                screened_plot_sites = p1_screened_plot_sites,
-                                by_cluster = TRUE,
-                                cluster_table = p3_gages_clusters_quants,
-                                cluster_column = p3_cluster_cols_quants,
-                                outdir = "1_fetch/out/stationarity_plots/by_quantiles"),
-             map(p3_cluster_cols_quants),
-             deployment = 'worker',
-             format = "file"
-  ),
+  # tar_target(p1_moving_window_summary_plots_cluster_quants_png,
+  #            plot_trend_summary(moving_window_metrics = p1_moving_window_metrics,
+  #                               screened_plot_sites = p1_screened_plot_sites,
+  #                               by_cluster = TRUE,
+  #                               cluster_table = p3_gages_clusters_quants,
+  #                               cluster_column = p3_cluster_cols_quants,
+  #                               outdir = "1_fetch/out/stationarity_plots/by_quantiles"),
+  #            map(p3_cluster_cols_quants),
+  #            deployment = 'worker',
+  #            format = "file"
+  # ),
   
   #matrix of nested gages - proportion of overlapping area if column name gage is upstream of the row name gage, 0 otherwise
   tar_target(p4_nested_gages,

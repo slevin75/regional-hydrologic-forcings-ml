@@ -262,14 +262,14 @@ list(
   
   ##generate table of data to download from sciencebase
   tar_target(p1_make_sb_dl_table,
-             makedltable(idtostart, outdir = "./1_fetch/out"),
+             make_dl_table(idtostart, outdir = "./1_fetch/out"),
              deployment = 'main',
              format = "file"
              ),
   
   ##generate table of landscape data for gages list  
   tar_target(p1_make_sb_landscapedata,
-             downloadchildren(gages=gagesII, dldir = "./1_fetch/out/dldir", 
+             download_children(gages=gagesII, dldir = "./1_fetch/out/dldir", 
                               workdir = "./1_fetch/out/workdir",
                               outdir = "./1_fetch/out",
                               table_sb_dl = p1_make_sb_dl_table),

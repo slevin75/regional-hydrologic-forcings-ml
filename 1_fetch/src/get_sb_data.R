@@ -1,4 +1,4 @@
-getbabies <- function(idin) 
+get_babies <- function(idin) 
 {
   listall <- item_list_children(idin, limit = 999)
   listall2 <- lapply(listall, `[`, c('id'))
@@ -6,93 +6,93 @@ getbabies <- function(idin)
   return(ids)
 }
 
-makedltable <- function(idtostart, outdir)
+make_dl_table <- function(idtostart, outdir)
 {
-
-#start with doing the top level id so we have something to work with.
-idlist <- getbabies(idtostart)
-
-#these are our 2 working lists for our loop
-#the = "blank" thing is maybe a little lazy, but i take care of it later.
-parlist <- idlist
-dllist <- "blank"
-
-#getting ready for our loop
-end <- FALSE
-count <- 1
-
-#the main stuff
-#the first if just ends the loop when you go past the end of the parlist
-#otherwise, we test the id in parlist. We use item_get_fields to check if the id has children.
-#if yes, we get the ids of those children with our getbabies function
-#and we add them to the end of parlist so we can check those ids later in our loop
-#if the id has no children, that means its an id with download links.
-#and we add them to our dllist.
-while (end == FALSE)
-{
-  if (is.na(parlist[count]) == TRUE)
+  
+  #start with doing the top level id so we have something to work with.
+  idlist <- get_babies(idtostart)
+  
+  #these are our 2 working lists for our loop
+  #the = "blank" thing is maybe a little lazy, but i take care of it later.
+  parlist <- idlist
+  dllist <- "blank"
+  
+  #getting ready for our loop
+  end <- FALSE
+  count <- 1
+  
+  #the main stuff
+  #the first if just ends the loop when you go past the end of the parlist
+  #otherwise, we test the id in parlist. We use item_get_fields to check if the id has children.
+  #if yes, we get the ids of those children with our get_babies function
+  #and we add them to the end of parlist so we can check those ids later in our loop
+  #if the id has no children, that means its an id with download links.
+  #and we add them to our dllist.
+  while (end == FALSE)
   {
-    end <- TRUE
-    print("we are done")
-  }
-  if (is.na(parlist[count]) == FALSE)
-  {
-    idN <- parlist[count]
-    print(paste("trying", idN))
-    test <- item_get_fields(idN,'hasChildren')
-    if (test == TRUE)
+    if (is.na(parlist[count]) == TRUE)
     {
-      templist <- getbabies(idN)
-      parlist <- c(parlist, templist)
-      print("adding to parlist")
+      end <- TRUE
+      print("we are done")
     }
-    if (test == FALSE)
+    if (is.na(parlist[count]) == FALSE)
     {
-      print("adding one to dllist")
-      dllist <- c(dllist, idN)
+      idN <- parlist[count]
+      print(paste("trying", idN))
+      test <- item_get_fields(idN,'hasChildren')
+      if (test == TRUE)
+      {
+        templist <- get_babies(idN)
+        parlist <- c(parlist, templist)
+        print("adding to parlist")
+      }
+      if (test == FALSE)
+      {
+        print("adding one to dllist")
+        dllist <- c(dllist, idN)
+      }
+      count <- count + 1
     }
-    count <- count + 1
   }
-}
-
-#this gets rid of our first "blank" entry
-dllist <- dllist[-1]
-
-#resetting count for the next loop
-count <- 1
-
-#this loop just gets a parentid, title, and last modified date for each download id to add back to our dllist
-#just uses item_get_fields
-#i made this loop in a way that did not need my lazy "blank" first entry
-for (x in dllist)
-{
-  parentid <- item_get_fields(x, 'parentId')
-  parenttitle <- item_get_fields(parentid, 'title')
-  dllisttitle <- item_get_fields(x, 'title')
-  dllistdate <- item_get_fields(x, 'provenance')
-  if (count == 1)
+  
+  #this gets rid of our first "blank" entry
+  dllist <- dllist[-1]
+  
+  #resetting count for the next loop
+  count <- 1
+  
+  #this loop just gets a parentid, title, and last modified date for each download id to add back to our dllist
+  #just uses item_get_fields
+  #i made this loop in a way that did not need my lazy "blank" first entry
+  for (x in dllist)
   {
-    tabledl <- c(x, parenttitle, dllisttitle, dllistdate$lastUpdated)
+    parentid <- item_get_fields(x, 'parentId')
+    parenttitle <- item_get_fields(parentid, 'title')
+    dllisttitle <- item_get_fields(x, 'title')
+    dllistdate <- item_get_fields(x, 'provenance')
+    if (count == 1)
+    {
+      tabledl <- c(x, parenttitle, dllisttitle, dllistdate$lastUpdated)
+    }
+    if (count == 2)
+    {
+      tableadd <- c(x, parenttitle, dllisttitle, dllistdate$lastUpdated)
+      tabledl <- rbind(tabledl, tableadd)
+    }
+    count <- 2
   }
-  if (count == 2)
-  {
-    tableadd <- c(x, parenttitle, dllisttitle, dllistdate$lastUpdated)
-    tabledl <- rbind(tabledl, tableadd)
-  }
-  count <- 2
+  
+  #renaming some columns and getting rid of that ugly first column
+  colnames(tabledl) <- c('id', 'parent_title', 'title', 'lastUpdated')
+  rownames(tabledl) <- NULL
+  
+  #if you would like to export the table as csv
+  filepath <- file.path(outdir, paste0("_sb_dltable.csv"))
+  write.csv(tabledl,filepath, row.names = FALSE)
+  return(filepath)
 }
 
-#renaming some columns and getting rid of that ugly first column
-colnames(tabledl) <- c('id', 'parent_title', 'title', 'lastUpdated')
-rownames(tabledl) <- NULL
-
-#if you would like to export the table as csv
-filepath <- file.path(outdir, paste0("_sb_dltable.csv"))
-write.csv(tabledl,filepath, row.names = FALSE)
-return(filepath)
-}
-
-downloadchildren <-function(gages, dldir, workdir, outdir, table_sb_dl)
+download_children <-function(gages, dldir, workdir, outdir, table_sb_dl)
 {
   #making a copy to work with
   data_at_gages <- gages

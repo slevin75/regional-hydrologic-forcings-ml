@@ -269,9 +269,10 @@ list(
   
   ##generate table of landscape data for gages list  
   tar_target(p1_make_sb_landscapedata,
-             download_children(gages=gagesII, dldir = "./1_fetch/out/dldir", 
+             download_children(sites=gagesII, dldir = "./1_fetch/out/dldir", 
                               workdir = "./1_fetch/out/workdir",
                               outdir = "./1_fetch/out",
+                              out_file_name = "gagesII.csv",
                               table_sb_dl = p1_make_sb_dl_table),
              deployment = 'main',
              format = "file"

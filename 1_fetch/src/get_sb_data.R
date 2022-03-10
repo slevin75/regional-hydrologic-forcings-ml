@@ -92,10 +92,10 @@ make_dl_table <- function(idtostart, outdir)
   return(filepath)
 }
 
-download_children <-function(gages, dldir, workdir, outdir, table_sb_dl)
+download_children <-function(sites, dldir, workdir, outdir, out_file_name, table_sb_dl)
 {
   #making a copy to work with
-  data_at_gages <- gages
+  data_at_sites <- sites
   
   itemfails <- "1st"
   
@@ -148,7 +148,7 @@ download_children <-function(gages, dldir, workdir, outdir, table_sb_dl)
         try(tempfile <- subset(tempfile, select =-c(CAT_NODATA)), silent = TRUE)
         try(tempfile <- subset(tempfile, select =-c(ACC_NODATA)), silent = TRUE)
         try(tempfile <- subset(tempfile, select =-c(TOT_NODATA)), silent = TRUE)
-        data_at_gages <- merge(data_at_gages, tempfile, by = "COMID", all.x = TRUE)
+        data_at_sites <- merge(data_at_sites, tempfile, by = "COMID", all.x = TRUE)
       }
       file.remove(filem)
     }
@@ -162,9 +162,10 @@ download_children <-function(gages, dldir, workdir, outdir, table_sb_dl)
     colnames(failist) <- c('filename')
     rownames(failist) <- NULL
   }
-  filepath1 <- file.path(outdir, paste0("_sb_landscapedata.csv"))
-  write.csv(data_at_gages,filepath1, row.names = FALSE)
-  filepath2 <- file.path(outdir, paste0("_sb_itemfails.csv"))
+  filepath1 <- file.path(outdir, paste0("sb_landscapedata_"), out_file_name)
+  write.csv(data_at_sites,filepath1, row.names = FALSE)
+  filepath2 <- file.path(outdir, paste0("sb_itemfails_"), out_file_name)
   write.csv(itemfails,filepath2, row.names = FALSE)
-  return(filepath1, filepath2)
+  return_df = c(filepath1, filepath2)
+  return(return_df)
 }

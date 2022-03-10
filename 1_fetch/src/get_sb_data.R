@@ -101,7 +101,7 @@ download_children <-function(gages, dldir, workdir, outdir, table_sb_dl)
   
   for (row in 1:nrow(table_sb_dl))
   {
-    item <- table_sb_dl[row, 'id']
+    item <- as.character(table_sb_dl[row, 'id'])
     print(row)
     print(item)
     item_file_download(item, dest_dir = dldir, overwrite_file = TRUE)

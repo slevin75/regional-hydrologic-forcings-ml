@@ -83,13 +83,19 @@ idtostart <- '5669a79ee4b08895842a1d47'
 
 ###gages2.1 ref site list - not sure how to get this right from sharepoint, so the
 ##filepath is currently to onedrive.
-gagesii_path <- "C:/Users/jsmith/OneDrive - DOI/Shared Documents - FHWA/General/Data/Gages2.1_RefSiteList.xlsx"
+#gagesii_path <- "C:/Users/jsmith/OneDrive - DOI/Shared Documents - FHWA/General/Data/Gages2.1_RefSiteList.xlsx"
 #gagesii_path <- "C:/Users/slevin/OneDrive - DOI/FWA_bridgeScour/Data/Gages2.1_RefSiteList.xlsx"
-#gagesii_path <- "Gages2.1_RefSiteList.xlsx"
+gagesii_path <- "Gages2.1_RefSiteList.xlsx"
 
 #Drop the following gages from the dataset because they are not representative
 #pipeline, ditch, etc.
 drop_gages <- c('02084557', '09406300', '09512200', '10143500', '10172200')
+
+#read in gagesII excel file for use in functions
+gagesII <- read_xlsx(gagesii_path) %>% 
+  mutate(ID = substr(ID, start=2, stop=nchar(ID))) %>%
+  #drop 5 sites that are not representative (ditch, pipeline)
+  filter(!(ID %in% drop_gages))
 
 ##distance to search upstream for nested basins, in km.  note-the nhdplusTools function fails if this 
 ##value is 10000 or greater.
@@ -102,12 +108,7 @@ set.seed(12422)
 ##targets
 list(
   #all gagesii (g2) sites 
-  tar_target(p1_sites_g2,
-             {read_xlsx(gagesii_path) %>% 
-                 mutate(ID = substr(ID, start=2, stop=nchar(ID))) %>%
-                 #drop 5 sites that are not representative (ditch, pipeline)
-                 filter(!(ID %in% drop_gages))
-               },
+  tar_target(p1_sites_g2,gagesII,
              deployment = 'main'
   ),
   #create a spatial object 
@@ -266,7 +267,7 @@ list(
   
   ##generate table of landscape data for gages list  
   tar_target(p1_make_sb_landscapedata,
-             downloadchildren(gages=gagesii, dldir = "./1_fetch/out/dldir", 
+             downloadchildren(gages=gagesII, dldir = "./1_fetch/out/dldir", 
                               workdir = "./1_fetch/out/workdir",
                               outdir = "./1_fetch/out",
                               table_sb_dl = p1_make_sb_dl_table),

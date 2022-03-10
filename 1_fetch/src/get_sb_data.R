@@ -1,13 +1,11 @@
-get_babies <- function(idin) 
-{
+get_babies <- function(idin) {
   listall <- item_list_children(idin, limit = 999)
   listall2 <- lapply(listall, `[`, c('id'))
   ids <- unlist(listall2)
   return(ids)
 }
 
-make_dl_table <- function(idtostart, outdir)
-{
+make_dl_table <- function(idtostart, outdir) {
   
   #start with doing the top level id so we have something to work with.
   idlist <- get_babies(idtostart)
@@ -87,17 +85,20 @@ make_dl_table <- function(idtostart, outdir)
   rownames(tabledl) <- NULL
   
   #if you would like to export the table as csv
-  filepath <- file.path(outdir, paste0("_sb_dltable.csv"))
+  filepath <- file.path(outdir, paste0("sb_dl_table.csv"))
   write.csv(tabledl,filepath, row.names = FALSE)
   return(filepath)
 }
 
-download_children <-function(sites, dldir, workdir, outdir, out_file_name, table_sb_dl)
-{
+download_children <-function(sites, dldir, workdir, outdir, out_file_name, table_sb_dl) {
   #making a copy to work with
   data_at_sites <- sites
-  
   itemfails <- "1st"
+  table_sb_dl <- read_csv(table_sb_dl, 
+                          col_types = cols(id = col_character(), 
+                                           parent_title = col_character(), 
+                                           title = col_character(), 
+                                           lastUpdated = col_character()))
   
   for (row in 1:nrow(table_sb_dl))
   {
@@ -162,10 +163,10 @@ download_children <-function(sites, dldir, workdir, outdir, out_file_name, table
     colnames(failist) <- c('filename')
     rownames(failist) <- NULL
   }
-  filepath1 <- file.path(outdir, paste0("sb_landscapedata_"), out_file_name)
-  write.csv(data_at_sites,filepath1, row.names = FALSE)
-  filepath2 <- file.path(outdir, paste0("sb_itemfails_"), out_file_name)
-  write.csv(itemfails,filepath2, row.names = FALSE)
+  filepath1 <- file.path(outdir, paste0("sb_landscapedata_", out_file_name))
+  write.csv(data_at_sites, filepath1, row.names = FALSE)
+  filepath2 <- file.path(outdir, paste0("sb_itemfails_", out_file_name))
+  write.csv(itemfails, filepath2, row.names = FALSE)
   return_df = c(filepath1, filepath2)
   return(return_df)
 }

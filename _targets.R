@@ -263,7 +263,9 @@ list(
   ##generate table of data to download from sciencebase
   tar_target(p1_make_sb_dl_table,
              makedltable(idtostart, outdir = "./1_fetch/out"),
-             format = "file"),
+             deployment = 'main',
+             format = "file"
+             ),
   
   ##generate table of landscape data for gages list  
   tar_target(p1_make_sb_landscapedata,
@@ -271,7 +273,9 @@ list(
                               workdir = "./1_fetch/out/workdir",
                               outdir = "./1_fetch/out",
                               table_sb_dl = p1_make_sb_dl_table),
-             format = "file"),
+             deployment = 'main',
+             format = "file"
+             ),
   
   ##get flood threshold from NWIS for eflowstats
   #this is deployed on main to avoid overloading the NWIS server with download requests

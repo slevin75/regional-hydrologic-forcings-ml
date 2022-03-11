@@ -77,9 +77,9 @@ min_windows <- 10  ##Must have this many windows available in order to plot
 
 ###gages2.1 ref site list - not sure how to get this right from sharepoint, so the
 ##filepath is currently to onedrive.
-gagesii_path <- "C:/Users/jsmith/OneDrive - DOI/Shared Documents - FHWA/General/Data/Gages2.1_RefSiteList.xlsx"
+#gagesii_path <- "C:/Users/jsmith/OneDrive - DOI/Shared Documents - FHWA/General/Data/Gages2.1_RefSiteList.xlsx"
 #gagesii_path <- "C:/Users/slevin/OneDrive - DOI/FWA_bridgeScour/Data/Gages2.1_RefSiteList.xlsx"
-#gagesii_path <- "Gages2.1_RefSiteList.xlsx"
+gagesii_path <- "Gages2.1_RefSiteList.xlsx"
 
 #Drop the following gages from the dataset because they are not representative
 #pipeline, ditch, etc.

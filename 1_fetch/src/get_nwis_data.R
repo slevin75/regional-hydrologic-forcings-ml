@@ -118,21 +118,22 @@ prescreen_daily_data <- function(filename, prov_rm = TRUE){
     d1 <- read_csv(filename,
                    col_types = cols(agency_cd = col_character(),
                                   site_no = col_character(), Date = col_date(format = "%Y-%m-%d"),
-                                  discharge = col_double(), discharge_cd = col_character()),
-                   col_select = 1:5) %>%
+                                  discharge = col_double(), discharge_cd = col_character(), 
+                                  discharge_1 = col_double(), discharge_cd_1 = col_character())) %>%
+      select(1:5) %>%
       na.omit() %>%
       suppressWarnings() %>% 
       suppressMessages()
-    colnames(d1)[4:5] <- c('discharge', 'discharge_cd')
     d2 <- read_csv(filename,
-                   col_types=cols(agency_cd = col_character(),
-                                  site_no = col_character(), Date = col_date(format = "%Y-%m-%d"),
-                                  discharge = col_double(), discharge_cd = col_character()),
-                   col_select = c(1,2,3,6,7)) %>%
+                   col_types = cols(agency_cd = col_character(),
+                                    site_no = col_character(), Date = col_date(format = "%Y-%m-%d"),
+                                    discharge = col_double(), discharge_cd = col_character(), 
+                                    discharge_1 = col_double(), discharge_cd_1 = col_character())) %>%
+      select(1:3, 6:7) %>%
       na.omit() %>%
       suppressWarnings() %>% 
-      suppressMessages()
-    colnames(d2)[4:5] <- c('discharge', 'discharge_cd')
+      suppressMessages() %>%
+      rename(discharge = discharge_1, discharge_cd = discharge_cd_1)
     
     data <- rbind(d1, d2)
     data <- data[order(data$Date),]

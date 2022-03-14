@@ -10,12 +10,14 @@ library(tidyverse)
 tar_option_set(packages = c("fasstr", "EflowStats", "dataRetrieval",
                             "lubridate", "cluster", "factoextra", "NbClust",
                             "sf", "cowplot", "gridGraphics", "stringi",
-                            "dendextend", "scico", "tidyverse", "nhdplusTools"))
+                            "dendextend", "scico", "tidyverse", "nhdplusTools","sbtools"))
 
 ##Create output file directories
 dir.create('1_fetch/out', showWarnings = FALSE)
 dir.create('1_fetch/out/stationarity_plots', showWarnings = FALSE)
 dir.create('1_fetch/out/logs', showWarnings = FALSE)
+dir.create('1_fetch/out/workdir', showWarnings = FALSE)
+dir.create('1_fetch/out/dldir', showWarnings = FALSE)
 dir.create('3_cluster/out', showWarnings = FALSE)
 dir.create('3_cluster/out/seasonal_plots', showWarnings = FALSE)
 dir.create('3_cluster/out/seasonal_plots/barplots', showWarnings = FALSE)
@@ -25,6 +27,7 @@ dir.create('3_cluster/out/seasonal_plots/maps', showWarnings = FALSE)
 
 ##Load user defined functions
 source("1_fetch/src/get_nwis_data.R")
+source("1_fetch/src/get_sb_data.R")
 source("1_fetch/src/calc_HIT.R")
 source("1_fetch/src/calc_FDC.R")
 source("1_fetch/src/moving_window_functions.R")
@@ -75,6 +78,9 @@ increment <- 1
 min_yrs_in_window<- 15  ##minimum number of years of data required within a window
 min_windows <- 10  ##Must have this many windows available in order to plot 
 
+#this is the top level Science Base ID of Mike's database
+idtostart <- '5669a79ee4b08895842a1d47'
+
 ###gages2.1 ref site list - not sure how to get this right from sharepoint, so the
 ##filepath is currently to onedrive.
 #gagesii_path <- "C:/Users/jsmith/OneDrive - DOI/Shared Documents - FHWA/General/Data/Gages2.1_RefSiteList.xlsx"
@@ -84,6 +90,12 @@ gagesii_path <- "Gages2.1_RefSiteList.xlsx"
 #Drop the following gages from the dataset because they are not representative
 #pipeline, ditch, etc.
 drop_gages <- c('02084557', '09406300', '09512200', '10143500', '10172200')
+
+#read in gagesII excel file for use in functions
+gagesII <- read_xlsx(gagesii_path) %>% 
+  mutate(ID = substr(ID, start=2, stop=nchar(ID))) %>%
+  #drop 5 sites that are not representative (ditch, pipeline)
+  filter(!(ID %in% drop_gages))
 
 ##distance to search upstream for nested basins, in km.  note-the nhdplusTools function fails if this 
 ##value is 10000 or greater.
@@ -96,12 +108,7 @@ set.seed(12422)
 ##targets
 list(
   #all gagesii (g2) sites 
-  tar_target(p1_sites_g2,
-             {read_xlsx(gagesii_path) %>% 
-                 mutate(ID = substr(ID, start=2, stop=nchar(ID))) %>%
-                 #drop 5 sites that are not representative (ditch, pipeline)
-                 filter(!(ID %in% drop_gages))
-               },
+  tar_target(p1_sites_g2,gagesII,
              deployment = 'main'
   ),
   #create a spatial object 
@@ -252,6 +259,25 @@ list(
              deployment = 'main',
              format = "file"
   ),
+  
+  ##generate table of data to download from sciencebase
+  tar_target(p1_make_sb_dl_table,
+             make_dl_table(idtostart, outdir = "./1_fetch/out"),
+             deployment = 'main',
+             format = "file"
+             ),
+  
+  ##generate table of landscape data for gages list  
+  tar_target(p1_make_sb_landscapedata,
+             download_children(sites = gagesII, 
+                               dldir = "./1_fetch/out/dldir", 
+                               workdir = "./1_fetch/out/workdir",
+                               outdir = "./1_fetch/out",
+                               out_file_name = "gagesII.csv",
+                               table_sb_dl = p1_make_sb_dl_table),
+             deployment = 'main',
+             format = "file"
+             ),
   
   ##get flood threshold from NWIS for eflowstats
   #this is deployed on main to avoid overloading the NWIS server with download requests

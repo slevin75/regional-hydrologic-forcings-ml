@@ -160,20 +160,25 @@ screen_daily_data <- function(site, prescreen_data, year_start = 'water'){
   
   data <- filter(prescreen_data, site_no == site)
   
-  missing_data <- screen_flow_data(data.frame(site_no = data$site_no, 
-                                              Date = data$Date,
-                                              Value = data$discharge),
-                                   water_year_start = year_start)
-  complete_yrs <- missing_data %>%
-    filter(n_missing_Q == 0) %>%
-    select(Year)
-  
-  if(nrow(complete_yrs) > 0){
-    data_out <- data.frame(site_no = unique(data$site_no),
-                           complete_yrs = complete_yrs$Year)
-  }else{
-    data_out <- data.frame(site_no = unique(data$site_no),
-                           complete_yrs=NA)
+  if (nrow(data) > 0) {
+    missing_data <- screen_flow_data(data.frame(site_no = data$site_no, 
+                                                Date = data$Date,
+                                                Value = data$discharge),
+                                     water_year_start = year_start)
+    complete_yrs <- missing_data %>%
+      filter(n_missing_Q == 0) %>%
+      select(Year)
+    
+    if(nrow(complete_yrs) > 0){
+      data_out <- data.frame(site_no = unique(data$site_no),
+                             complete_yrs = complete_yrs$Year)
+    }else{
+      data_out <- data.frame(site_no = unique(data$site_no),
+                             complete_yrs=NA)
+    } 
+  }else {
+    data_out <- data.frame(site_no = character(), 
+                           complete_yrs = numeric())
   }
   
   return(data_out)

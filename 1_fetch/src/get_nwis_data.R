@@ -109,31 +109,20 @@ get_peak_flow_log <- function(files_in, file_out) {
 prescreen_daily_data <- function(filename, prov_rm = TRUE){
   #loads data from file and removes provisional and estimated data if prov_rm = TRUE
   message('loading ', filename)
-  ##Handle sites with strange column names
-  if (length(grep(pattern = '01011500', filename)) +
-      length(grep(pattern = '02196000', filename)) + 
-      length(grep(pattern = '03213000', filename)) + 
-      length(grep(pattern = '12010000', filename)) > 0){
+  d0 <- read_csv(filename,
+                 name_repair = "minimal", 
+                 col_types = cols(agency_cd = col_character(), 
+                                  site_no = col_character(), Date = col_date(format = "%Y-%m-%d"), 
+                                  discharge = col_number(), discharge_cd = col_character(), 
+                                  dateTime = col_character(), tz_cd = col_character())) %>%
+    na.omit() %>%
+    suppressWarnings() %>% 
+    suppressMessages()
+  ##Handle sites with unexpected number of columns ( != 5 )
+  if (ncol(d0) == 7) {
     #site has 2 columns named discharge and 2 named discharge_cd
-    d1 <- read_csv(filename,
-                   col_types = cols(agency_cd = col_character(),
-                                  site_no = col_character(), Date = col_date(format = "%Y-%m-%d"),
-                                  discharge = col_double(), discharge_cd = col_character(), 
-                                  discharge_1 = col_double(), discharge_cd_1 = col_character())) %>%
-      select(1:5) %>%
-      na.omit() %>%
-      suppressWarnings() %>% 
-      suppressMessages()
-    d2 <- read_csv(filename,
-                   col_types = cols(agency_cd = col_character(),
-                                    site_no = col_character(), Date = col_date(format = "%Y-%m-%d"),
-                                    discharge = col_double(), discharge_cd = col_character(), 
-                                    discharge_1 = col_double(), discharge_cd_1 = col_character())) %>%
-      select(1:3, 6:7) %>%
-      na.omit() %>%
-      suppressWarnings() %>% 
-      suppressMessages() %>%
-      rename(discharge = discharge_1, discharge_cd = discharge_cd_1)
+    d1 <- d0 %>% select(1:5) 
+    d2 <- d0 %>% select(1:3, 6:7)
     
     data <- rbind(d1, d2)
     data <- data[order(data$Date),]
@@ -141,15 +130,15 @@ prescreen_daily_data <- function(filename, prov_rm = TRUE){
     #take only the unique records
     data <- unique(data)
     #check that each date has only one record
-    # some dates have multiple and it seems like that's because of rounding to the thenths place
+    # some dates have multiple and it seems like that's because of rounding to the tenths place
     # Keeping the first dataset
     data <- data[which(duplicated(data$Date) == FALSE),]
     
-  }else{
-    data <- read_csv(filename,
-                     col_types=cols(agency_cd = col_character(),
-                                    site_no = col_character(), Date = col_date(format = "%Y-%m-%d"),
-                                    discharge = col_double(), discharge_cd = col_character()))
+  }else if (ncol(d0) == 5) {
+    data <- d0
+  }else {
+    data <- tibble(agency_cd = character(), site_no = character(), Date = Date(), 
+                   discharge = numeric(), discharge_cd = character())
   }
   
   if (prov_rm == TRUE){

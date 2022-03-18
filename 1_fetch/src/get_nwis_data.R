@@ -114,15 +114,12 @@ prescreen_daily_data <- function(filename, prov_rm = TRUE){
                  col_types = cols(agency_cd = col_character(), 
                                   site_no = col_character(), Date = col_date(format = "%Y-%m-%d"), 
                                   discharge = col_number(), discharge_cd = col_character(), 
-                                  dateTime = col_character(), tz_cd = col_character())) %>%
-    na.omit() %>%
-    suppressWarnings() %>% 
-    suppressMessages()
+                                  dateTime = col_character(), tz_cd = col_character()))
   ##Handle sites with unexpected number of columns ( != 5 )
   if (ncol(d0) == 7) {
     #site has 2 columns named discharge and 2 named discharge_cd
-    d1 <- d0 %>% select(1:5) 
-    d2 <- d0 %>% select(1:3, 6:7)
+    d1 <- d0 %>% select(1:5) %>% na.omit()
+    d2 <- d0 %>% select(1:3, 6:7) %>% na.omit()
     
     data <- rbind(d1, d2)
     data <- data[order(data$Date),]
@@ -135,7 +132,9 @@ prescreen_daily_data <- function(filename, prov_rm = TRUE){
     data <- data[which(duplicated(data$Date) == FALSE),]
     
   }else if (ncol(d0) == 5) {
-    data <- d0
+    data <- d0 %>% na.omit()
+  }else if (ncol(d0) > 7) {
+    stop(paste('A new site has > 2 discharge columns. Special handling is needed for file', filename))
   }else {
     data <- tibble(agency_cd = character(), site_no = character(), Date = Date(), 
                    discharge = numeric(), discharge_cd = character())

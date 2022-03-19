@@ -16,8 +16,9 @@ tar_option_set(packages = c("fasstr", "EflowStats", "dataRetrieval",
 dir.create('1_fetch/out', showWarnings = FALSE)
 dir.create('1_fetch/out/stationarity_plots', showWarnings = FALSE)
 dir.create('1_fetch/out/logs', showWarnings = FALSE)
-dir.create('1_fetch/out/workdir', showWarnings = FALSE)
-dir.create('1_fetch/out/dldir', showWarnings = FALSE)
+dir.create('1_fetch/out/sb', showWarnings = FALSE)
+dir.create('1_fetch/out/sb/workdir', showWarnings = FALSE)
+dir.create('1_fetch/out/sb/dldir', showWarnings = FALSE)
 dir.create('3_cluster/out', showWarnings = FALSE)
 dir.create('3_cluster/out/seasonal_plots', showWarnings = FALSE)
 dir.create('3_cluster/out/seasonal_plots/barplots', showWarnings = FALSE)
@@ -79,7 +80,10 @@ min_yrs_in_window<- 15  ##minimum number of years of data required within a wind
 min_windows <- 10  ##Must have this many windows available in order to plot 
 
 #this is the top level Science Base ID of Mike's database
-idtostart <- '5669a79ee4b08895842a1d47'
+sb_parent_id <- '5669a79ee4b08895842a1d47'
+
+#pre-defined variable list to reduce SB pull
+sb_var_list <- read_excel(path = 'FHWA-NHDVariableList.xlsx', sheet = 'FY22-FHWA')
 
 ###gages2.1 ref site list - not sure how to get this right from sharepoint, so the
 ##filepath is currently to onedrive.
@@ -91,8 +95,8 @@ gagesii_path <- "Gages2.1_RefSiteList.xlsx"
 #pipeline, ditch, etc.
 drop_gages <- c('02084557', '09406300', '09512200', '10143500', '10172200')
 
-#read in gagesII excel file for use in functions
-gagesII <- read_xlsx(gagesii_path) %>% 
+#read in gagesii excel file for use in functions
+gagesii <- read_xlsx(gagesii_path) %>% 
   mutate(ID = substr(ID, start=2, stop=nchar(ID))) %>%
   #drop 5 sites that are not representative (ditch, pipeline)
   filter(!(ID %in% drop_gages))
@@ -108,7 +112,7 @@ set.seed(12422)
 ##targets
 list(
   #all gagesii (g2) sites 
-  tar_target(p1_sites_g2,gagesII,
+  tar_target(p1_sites_g2,gagesii,
              deployment = 'main'
   ),
   #create a spatial object 
@@ -261,20 +265,30 @@ list(
   ),
   
   ##generate table of data to download from sciencebase
-  tar_target(p1_make_sb_dl_table,
-             make_dl_table(idtostart, outdir = "./1_fetch/out"),
+  tar_target(p1_sb_table_full,
+             make_dl_table(sb_parent_id = sb_parent_id, 
+                           outdir = "./1_fetch/out/sb"),
              deployment = 'main',
              format = "file"
              ),
   
+  ##reduce list to watershed attributes of interest
+  tar_target(p1_sb_table_reduced, 
+             reduce_sb_table(sb_table_full = p1_sb_table_full, 
+                             sb_var_list = sb_var_list,
+                             outdir = "./1_fetch/out/sb"), 
+             deployment = 'main', 
+             format = "file"
+             ),
+  
   ##generate table of landscape data for gages list  
-  tar_target(p1_make_sb_landscapedata,
-             download_children(sites = gagesII, 
-                               dldir = "./1_fetch/out/dldir", 
-                               workdir = "./1_fetch/out/workdir",
-                               outdir = "./1_fetch/out",
-                               out_file_name = "gagesII.csv",
-                               table_sb_dl = p1_make_sb_dl_table),
+  tar_target(p1_sb_data_gagesii,
+             download_children(sites = gagesii, 
+                               sb_table_reduced = p1_sb_table_reduced,
+                               dldir = "./1_fetch/out/sb/dldir", 
+                               workdir = "./1_fetch/out/sb/workdir",
+                               outdir = "./1_fetch/out/sb",
+                               out_file_name = "sb_data_gagesii.csv"),
              deployment = 'main',
              format = "file"
              ),

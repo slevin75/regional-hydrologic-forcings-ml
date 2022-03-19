@@ -5,10 +5,10 @@ get_babies <- function(idin) {
   return(ids)
 }
 
-make_dl_table <- function(idtostart, outdir) {
+make_dl_table <- function(sb_parent_id, outdir) {
   
   #start with doing the top level id so we have something to work with.
-  idlist <- get_babies(idtostart)
+  idlist <- get_babies(sb_parent_id)
   
   #these are our 2 working lists for our loop
   #the = "blank" thing is maybe a little lazy, but i take care of it later.
@@ -85,24 +85,63 @@ make_dl_table <- function(idtostart, outdir) {
   rownames(tabledl) <- NULL
   
   #if you would like to export the table as csv
-  filepath <- file.path(outdir, paste0("sb_dl_table.csv"))
+  filepath <- file.path(outdir, paste0("sb_table_full.csv"))
   write.csv(tabledl,filepath, row.names = FALSE)
   return(filepath)
 }
 
-download_children <-function(sites, dldir, workdir, outdir, out_file_name, table_sb_dl) {
+reduce_sb_table <- function(sb_table_full, sb_var_list, outdir) {
+  sb_table_full <- read_csv(sb_table_full, col_types = 'cccT')
+  #sb_table_full <- read_csv("./1_fetch/out/sb/sb_table_full.csv", col_types = 'cccT')
+  
+  #extract sciencebase ids and add to data frame
+  sbid <- vector('character')
+  for (i in 1:nrow(sb_var_list)){
+    sbid[i] <- strsplit(x = sb_var_list$Science.Base.Link[i], split = 'item/')[[1]] %>% 
+      last()
+  }
+  rm(i)
+  
+  sb_var_list$sbid <- sbid
+  
+  #remove duplicates
+  sbid <- unique(sbid)
+  
+  #retrieve sciencebase ids not in list
+  missing <- sbid[!(sbid %in% sb_table_full$id)]
+  missing_vars <- sb_var_list[sb_var_list$sbid %in% missing,]
+  
+  #additional IDs to get missing values
+  #monthly precip - 3 - I think we'll need to use Lauren's processing script to get the monthly averages.
+  #monthly temp - 3 - I think we'll need to use Lauren's processing script to get the monthly averages.
+  retain_ids <- c("5734acafe4b0dae0d5de622d", 
+                  "5730f062e4b0dae0d5db1fbe", 
+                  "573362bce4b0dae0d5dd6193", 
+                  "574ddc8ce4b07e28b66901b3",
+                  "574f3e86e4b0ee97d51abf31",
+                  "574f238fe4b0ee97d51a8916")
+  
+  retain_sb_table <- sb_table_full[sb_table_full$id %in% c(sbid, retain_ids),]
+  
+  #save list of sb ids
+  filepath <- file.path(outdir, paste0("sb_table_reduced.csv"))
+  write.csv(retain_sb_table, filepath, row.names = FALSE)
+  return(filepath)
+}
+
+download_children <-function(sites, sb_table_reduced, dldir, workdir, outdir, out_file_name) {
   #making a copy to work with
   data_at_sites <- sites
   itemfails <- "1st"
-  table_sb_dl <- read_csv(table_sb_dl, 
-                          col_types = cols(id = col_character(), 
-                                           parent_title = col_character(), 
-                                           title = col_character(), 
-                                           lastUpdated = col_character()))
+  sb_table_reduced <- read_csv(sb_table_reduced, 
+                               col_types = cols(id = col_character(), 
+                                                parent_title = col_character(), 
+                                                title = col_character(), 
+                                                lastUpdated = col_character()))
   
-  for (row in 1:nrow(table_sb_dl))
+  for (row in 1:nrow(sb_table_reduced))
   {
-    item <- as.character(table_sb_dl[row, 'id'])
+    item <- as.character(sb_table_reduced[row, 'id'])
     print(row)
     print(item)
     item_file_download(item, dest_dir = dldir, overwrite_file = TRUE)
@@ -163,9 +202,9 @@ download_children <-function(sites, dldir, workdir, outdir, out_file_name, table
     colnames(failist) <- c('filename')
     rownames(failist) <- NULL
   }
-  filepath1 <- file.path(outdir, paste0("sb_landscapedata_", out_file_name))
+  filepath1 <- file.path(outdir, out_file_name)
   write.csv(data_at_sites, filepath1, row.names = FALSE)
-  filepath2 <- file.path(outdir, paste0("sb_itemfails_", out_file_name))
+  filepath2 <- file.path(outdir, paste0("FAILS_", out_file_name))
   write.csv(itemfails, filepath2, row.names = FALSE)
   return_df = c(filepath1, filepath2)
   return(return_df)

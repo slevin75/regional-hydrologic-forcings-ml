@@ -5,7 +5,9 @@ has_data_check <- function(site_nums, parameterCd){
   dv_screen <- whatNWISdata(siteNumber = site_nums, parameterCd = parameterCd, service = "dv",
                           convertType = FALSE) %>%
     #Check specifically that the stat_cd for mean flow is available
-    filter(stat_cd == '00003')
+    filter(stat_cd == '00003') %>%
+    #Drop sites with start dates after 2020-09-30
+    filter(as.Date(begin_date) < endDate)
   pk_screen <- whatNWISdata(siteNumber = site_nums, service = "pk", convertType = FALSE)
   sites_with_data <- intersect(dv_screen$site_no, pk_screen$site_no)
   

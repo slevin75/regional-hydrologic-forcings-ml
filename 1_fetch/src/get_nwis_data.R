@@ -1,11 +1,13 @@
-has_data_check <- function(site_nums, parameterCd){
+has_data_check <- function(site_nums, parameterCd, endDate){
   ##check to see if all sites actually have daily flow, peak flow data, and a drainage area.  There are
   ##gages in gagesii that do not have one or the other, so screen these out before we try
   ##to download the data
   dv_screen <- whatNWISdata(siteNumber = site_nums, parameterCd = parameterCd, service = "dv",
                           convertType = FALSE) %>%
     #Check specifically that the stat_cd for mean flow is available
-    filter(stat_cd == '00003')
+    filter(stat_cd == '00003') %>%
+    #Drop sites with start dates after 2020-09-30
+    filter(as.Date(begin_date) < endDate)
   pk_screen <- whatNWISdata(siteNumber = site_nums, service = "pk", convertType = FALSE)
   sites_with_data <- intersect(dv_screen$site_no, pk_screen$site_no)
   
@@ -109,30 +111,17 @@ get_peak_flow_log <- function(files_in, file_out) {
 prescreen_daily_data <- function(filename, prov_rm = TRUE){
   #loads data from file and removes provisional and estimated data if prov_rm = TRUE
   message('loading ', filename)
-  ##Handle sites with strange column names
-  if (length(grep(pattern = '01011500', filename)) +
-      length(grep(pattern = '02196000', filename)) + 
-      length(grep(pattern = '03213000', filename)) + 
-      length(grep(pattern = '12010000', filename)) > 0){
+  d0 <- read_csv(filename,
+                 name_repair = "minimal", 
+                 col_types = cols(agency_cd = col_character(), 
+                                  site_no = col_character(), Date = col_date(format = "%Y-%m-%d"), 
+                                  discharge = col_number(), discharge_cd = col_character(), 
+                                  dateTime = col_character(), tz_cd = col_character()))
+  ##Handle sites with unexpected number of columns ( != 5 )
+  if (ncol(d0) == 7) {
     #site has 2 columns named discharge and 2 named discharge_cd
-    d1 <- read_csv(filename,
-                   col_types = cols(agency_cd = col_character(),
-                                  site_no = col_character(), Date = col_date(format = "%Y-%m-%d"),
-                                  discharge = col_double(), discharge_cd = col_character()),
-                   col_select = 1:5) %>%
-      na.omit() %>%
-      suppressWarnings() %>% 
-      suppressMessages()
-    colnames(d1)[4:5] <- c('discharge', 'discharge_cd')
-    d2 <- read_csv(filename,
-                   col_types=cols(agency_cd = col_character(),
-                                  site_no = col_character(), Date = col_date(format = "%Y-%m-%d"),
-                                  discharge = col_double(), discharge_cd = col_character()),
-                   col_select = c(1,2,3,6,7)) %>%
-      na.omit() %>%
-      suppressWarnings() %>% 
-      suppressMessages()
-    colnames(d2)[4:5] <- c('discharge', 'discharge_cd')
+    d1 <- d0 %>% select(1:5) %>% na.omit()
+    d2 <- d0 %>% select(1:3, 6:7) %>% na.omit()
     
     data <- rbind(d1, d2)
     data <- data[order(data$Date),]
@@ -140,15 +129,17 @@ prescreen_daily_data <- function(filename, prov_rm = TRUE){
     #take only the unique records
     data <- unique(data)
     #check that each date has only one record
-    # some dates have multiple and it seems like that's because of rounding to the thenths place
+    # some dates have multiple and it seems like that's because of rounding to the tenths place
     # Keeping the first dataset
     data <- data[which(duplicated(data$Date) == FALSE),]
     
-  }else{
-    data <- read_csv(filename,
-                     col_types=cols(agency_cd = col_character(),
-                                    site_no = col_character(), Date = col_date(format = "%Y-%m-%d"),
-                                    discharge = col_double(), discharge_cd = col_character()))
+  }else if (ncol(d0) == 5) {
+    data <- d0 %>% na.omit()
+  }else if (ncol(d0) > 7) {
+    stop(paste('A new site has > 2 discharge columns. Special handling is needed for file', filename))
+  }else {
+    data <- tibble(agency_cd = character(), site_no = character(), Date = Date(), 
+                   discharge = numeric(), discharge_cd = character())
   }
   
   if (prov_rm == TRUE){
@@ -170,20 +161,25 @@ screen_daily_data <- function(site, prescreen_data, year_start = 'water'){
   
   data <- filter(prescreen_data, site_no == site)
   
-  missing_data <- screen_flow_data(data.frame(site_no = data$site_no, 
-                                              Date = data$Date,
-                                              Value = data$discharge),
-                                   water_year_start = year_start)
-  complete_yrs <- missing_data %>%
-    filter(n_missing_Q == 0) %>%
-    select(Year)
-  
-  if(nrow(complete_yrs) > 0){
-    data_out <- data.frame(site_no = unique(data$site_no),
-                           complete_yrs = complete_yrs$Year)
-  }else{
-    data_out <- data.frame(site_no = unique(data$site_no),
-                           complete_yrs=NA)
+  if (nrow(data) > 0) {
+    missing_data <- screen_flow_data(data.frame(site_no = data$site_no, 
+                                                Date = data$Date,
+                                                Value = data$discharge),
+                                     water_year_start = year_start)
+    complete_yrs <- missing_data %>%
+      filter(n_missing_Q == 0) %>%
+      select(Year)
+    
+    if(nrow(complete_yrs) > 0){
+      data_out <- data.frame(site_no = unique(data$site_no),
+                             complete_yrs = complete_yrs$Year)
+    }else{
+      data_out <- data.frame(site_no = unique(data$site_no),
+                             complete_yrs=NA)
+    } 
+  }else {
+    data_out <- data.frame(site_no = character(), 
+                           complete_yrs = numeric())
   }
   
   return(data_out)

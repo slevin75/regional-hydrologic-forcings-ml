@@ -143,7 +143,7 @@ list(
   
   ##check to make sure peak and daily flow are actually available for all sites
   tar_target(p1_has_data,
-             has_data_check(p1_sites_list, NWIS_parameter),
+             has_data_check(p1_sites_list, NWIS_parameter, endDate),
              deployment = 'main'
   ),
   

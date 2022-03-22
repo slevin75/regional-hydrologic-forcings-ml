@@ -1,4 +1,4 @@
-has_data_check <- function(site_nums, parameterCd){
+has_data_check <- function(site_nums, parameterCd, endDate){
   ##check to see if all sites actually have daily flow, peak flow data, and a drainage area.  There are
   ##gages in gagesii that do not have one or the other, so screen these out before we try
   ##to download the data

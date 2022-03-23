@@ -86,7 +86,7 @@ make_dl_table <- function(sb_parent_id, outdir) {
   
   #if you would like to export the table as csv
   filepath <- file.path(outdir, paste0("sb_table_full.csv"))
-  write.csv(tabledl,filepath, row.names = FALSE)
+  write_csv(tabledl, filepath, row.names = FALSE)
   return(filepath)
 }
 
@@ -116,8 +116,8 @@ reduce_sb_table <- function(sb_table_full, sb_var_list, outdir) {
   
   
   #additional IDs to get missing values
-  #monthly precip - 3 - I think we'll need to use Lauren's processing script to get the monthly averages.
-  #monthly temp - 3 - I think we'll need to use Lauren's processing script to get the monthly averages.
+  #monthly precip - 3
+  #monthly temp - 3
   retain_ids <- c("5734acafe4b0dae0d5de622d", 
                   "5730f062e4b0dae0d5db1fbe", 
                   "573362bce4b0dae0d5dd6193", 
@@ -129,7 +129,7 @@ reduce_sb_table <- function(sb_table_full, sb_var_list, outdir) {
   
   #save list of sb ids
   filepath <- file.path(outdir, paste0("sb_table_reduced.csv"))
-  write.csv(retain_sb_table, filepath, row.names = FALSE)
+  write_csv(retain_sb_table, filepath, row.names = FALSE)
   return(filepath)
 }
 
@@ -174,7 +174,7 @@ download_children <-function(sites, sb_table_reduced, dldir, workdir, outdir, ou
     {
       print(filem)
       success = "yes"
-      tryCatch(tempfile <- read.csv(filem, header = TRUE), error = function(e) {success <<- "no"})
+      tryCatch(tempfile <- read_csv(filem, header = TRUE), error = function(e) {success <<- "no"})
       names(tempfile) <- toupper(names(tempfile))
       if (!"COMID" %in% colnames(tempfile))
       {
@@ -207,9 +207,9 @@ download_children <-function(sites, sb_table_reduced, dldir, workdir, outdir, ou
     rownames(failist) <- NULL
   }
   filepath1 <- file.path(outdir, out_file_name)
-  write.csv(data_at_sites, filepath1, row.names = FALSE)
+  write_csv(data_at_sites, filepath1, row.names = FALSE)
   filepath2 <- file.path(outdir, paste0("FAILS_", out_file_name))
-  write.csv(itemfails, filepath2, row.names = FALSE)
+  write_csv(itemfails, filepath2, row.names = FALSE)
   return_df = c(filepath1, filepath2)
   return(return_df)
 }

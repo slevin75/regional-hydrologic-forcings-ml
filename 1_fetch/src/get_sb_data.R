@@ -92,7 +92,6 @@ make_dl_table <- function(sb_parent_id, outdir) {
 
 reduce_sb_table <- function(sb_table_full, sb_var_list, outdir) {
   sb_table_full <- read_csv(sb_table_full, col_types = 'cccT')
-  #sb_table_full <- read_csv("./1_fetch/out/sb/sb_table_full.csv", col_types = 'cccT')
   
   #extract sciencebase ids and add to data frame
   sbid <- vector('character')
@@ -110,6 +109,11 @@ reduce_sb_table <- function(sb_table_full, sb_var_list, outdir) {
   #retrieve sciencebase ids not in list
   missing <- sbid[!(sbid %in% sb_table_full$id)]
   missing_vars <- sb_var_list[sb_var_list$sbid %in% missing,]
+  
+  for (i in 1:nrow(missing_vars)) {
+    message(paste("Variable not in sb_table_full:", missing_vars[[i,2]]))
+  }
+  
   
   #additional IDs to get missing values
   #monthly precip - 3 - I think we'll need to use Lauren's processing script to get the monthly averages.

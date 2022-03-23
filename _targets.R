@@ -91,7 +91,8 @@ min_windows <- 10  ##Must have this many windows available in order to plot
 sb_parent_id <- '5669a79ee4b08895842a1d47'
 
 #pre-defined variable list to reduce SB pull
-sb_var_list <- read_excel(path = 'FHWA-NHDVariableList.xlsx', sheet = 'FY22-FHWA')
+sb_var_list_path <- "FHWA-NHDVariableList.xlsx"
+sb_var_sheet <- "FY22-FHWA"
 
 ###gages2.1 ref site list - not sure how to get this right from sharepoint, so the
 ##filepath is currently to onedrive.
@@ -278,17 +279,23 @@ list(
              format = "file"
              ),
   
+  #read in sciencebase variable list excel sheet
+  tar_target(p1_sb_var_list,
+             read_xlsx(path = sb_var_list_path, sheet = sb_var_sheet),
+             deployment = 'main'
+  ),
+  
   ##reduce list to watershed attributes of interest
   tar_target(p1_sb_table_reduced, 
              reduce_sb_table(sb_table_full = p1_sb_table_full, 
-                             sb_var_list = sb_var_list,
+                             sb_var_list = p1_sb_var_list,
                              outdir = "./1_fetch/out/sb"), 
              deployment = 'main', 
              format = "file"
              ),
   
-  ##generate table of landscape data for gages list  
-  tar_target(p1_sb_data_gagesii,
+  ##generate table of landscape data for gagesii list  
+  tar_target(p1_sb_data_g2,
              download_children(sites = gagesii, 
                                sb_table_reduced = p1_sb_table_reduced,
                                dldir = "./1_fetch/out/sb/dldir", 

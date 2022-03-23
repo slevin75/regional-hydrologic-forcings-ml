@@ -58,6 +58,7 @@ plot_trend_summary <- function(moving_window_metrics, screened_plot_sites,
     #normalize metrics and remove NAs (when there is only 1 moving window
     #for a site,the sd will be 0)
     df_norm <- moving_window_metrics %>%
+      #filter(indice %in% unique(grep(paste0(index,'$'), indice, value = T))) %>%
       filter(indice == index) %>%
       group_by(site_num, cluster) %>%
       filter(site_num %in% screened_plot_sites) %>%
@@ -92,6 +93,8 @@ make_summary_plot <- function(grp, data, outdir){
   
   p1 <- ggplot(df_plot, aes(start_Year, norm)) + geom_point(size = .7, alpha = .2) +
     geom_smooth() +
+    xlab('Start Year') +
+    ylab('Normalized Metric Value') +
     facet_wrap(~indice, ncol = 3)
   
 
@@ -103,9 +106,40 @@ make_summary_plot <- function(grp, data, outdir){
 }
 
 make_summary_plot_cluster <- function(index, data, outdir){
+  #number of sites in each cluster
+  num_sites <- group_by(data, indice_grp) %>% 
+    summarize(length(unique(site_num))) %>% 
+    pull('length(unique(site_num))')
+  
+  #number of observations in each cluster
+  num_obs <- group_by(data, indice_grp) %>% 
+    count() %>% 
+    pull(n)
+  
+  #add the cluster number as the label order
+  data$label_order <- 0
+  
+  #add these numbers to the label
+  for (i in 1:length(num_obs)){
+    #metric label_cluster number
+    metric_lab <- unique(data$indice_grp)[i]
+    #index for cluster
+    clust_ind <- str_split(string = metric_lab, pattern = '_', simplify = T) %>% 
+      last() %>% as.numeric()
+    #plot label for this indice_grp
+    lab <- paste0('Cluster ', clust_ind, ': ', num_sites[clust_ind], ' sites, ',
+                  num_obs[clust_ind], ' obs')
+    data$indice_grp[data$indice_grp == metric_lab] <- lab
+    data$label_order[data$indice_grp == lab] <- clust_ind
+  }
+  
+  
   p1 <- ggplot(data, aes(start_Year, norm)) + geom_point(size = .7, alpha = .2) +
     geom_smooth() +
-    facet_wrap(~indice_grp, ncol = 3)
+    xlab('Start Year') +
+    ylab('Normalized Metric Value') +
+    ggtitle(paste0('Metric: ', data$indice[1])) +
+    facet_wrap(~reorder(indice_grp, label_order))
   
   
   filepath <- file.path(outdir, paste0("moving_window_summary_", index, ".png"))

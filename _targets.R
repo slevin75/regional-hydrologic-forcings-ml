@@ -296,7 +296,7 @@ list(
   
   ##generate table of landscape data for gagesii list  
   tar_target(p1_sb_data_g2,
-             download_children(sites = gagesii, 
+             download_children(sites = p1_sites_g2, 
                                sb_table_reduced = p1_sb_table_reduced,
                                dldir = "./1_fetch/out/sb/dldir", 
                                workdir = "./1_fetch/out/sb/workdir",

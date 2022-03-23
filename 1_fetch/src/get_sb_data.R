@@ -146,8 +146,7 @@ download_children <-function(sites, sb_table_reduced, dldir, workdir, outdir, ou
   for (row in 1:nrow(sb_table_reduced))
   {
     item <- as.character(sb_table_reduced[row, 'id'])
-    print(row)
-    print(item)
+    message(paste('Row', row, 'SB ID', item))
     item_file_download(item, dest_dir = dldir, overwrite_file = TRUE)
     files <- list.files(path = dldir, pattern=NULL, full.names = TRUE)
     for (file in files)

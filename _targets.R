@@ -301,7 +301,7 @@ list(
                                dldir = "./1_fetch/out/sb/dldir", 
                                workdir = "./1_fetch/out/sb/workdir",
                                outdir = "./1_fetch/out/sb",
-                               out_file_name = "sb_data_gagesii.csv"),
+                               out_file_name = "sb_data_g2.csv"),
              deployment = 'main',
              format = "file"
              ),

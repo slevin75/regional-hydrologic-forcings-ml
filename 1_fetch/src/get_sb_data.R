@@ -83,10 +83,11 @@ make_dl_table <- function(sb_parent_id, outdir) {
   #renaming some columns and getting rid of that ugly first column
   colnames(tabledl) <- c('id', 'parent_title', 'title', 'lastUpdated')
   rownames(tabledl) <- NULL
+  tabledl <- as.data.frame(tabledl)
   
   #if you would like to export the table as csv
   filepath <- file.path(outdir, paste0("sb_table_full.csv"))
-  write_csv(tabledl, filepath, row.names = FALSE)
+  write_csv(tabledl, filepath)
   return(filepath)
 }
 
@@ -129,7 +130,7 @@ reduce_sb_table <- function(sb_table_full, sb_var_list, outdir) {
   
   #save list of sb ids
   filepath <- file.path(outdir, paste0("sb_table_reduced.csv"))
-  write_csv(retain_sb_table, filepath, row.names = FALSE)
+  write_csv(retain_sb_table, filepath)
   return(filepath)
 }
 
@@ -173,7 +174,7 @@ download_children <-function(sites, sb_table_reduced, dldir, workdir, outdir, ou
     {
       print(filem)
       success = "yes"
-      tryCatch(tempfile <- read_csv(filem, header = TRUE), error = function(e) {success <<- "no"})
+      tryCatch(tempfile <- read_delim(filem, delim = ",", show_col_types = FALSE), error = function(e) {success <<- "no"})
       names(tempfile) <- toupper(names(tempfile))
       if (!"COMID" %in% colnames(tempfile))
       {
@@ -205,10 +206,13 @@ download_children <-function(sites, sb_table_reduced, dldir, workdir, outdir, ou
     colnames(failist) <- c('filename')
     rownames(failist) <- NULL
   }
+  
+  itemfails <- as.data.frame(itemfails)
+  
   filepath1 <- file.path(outdir, out_file_name)
-  write_csv(data_at_sites, filepath1, row.names = FALSE)
+  write_csv(data_at_sites, filepath1)
   filepath2 <- file.path(outdir, paste0("FAILS_", out_file_name))
-  write_csv(itemfails, filepath2, row.names = FALSE)
+  write_csv(itemfails, filepath2)
   return_df = c(filepath1, filepath2)
   return(return_df)
 }

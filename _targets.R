@@ -272,7 +272,7 @@ list(
   ),
   
   ##generate table of data to download from sciencebase
-  tar_target(p1_sb_table_full,
+  tar_target(p1_sb_table_full_csv,
              make_dl_table(sb_parent_id = sb_parent_id, 
                            outdir = "./1_fetch/out/sb"),
              deployment = 'main',
@@ -286,8 +286,8 @@ list(
   ),
   
   ##reduce list to watershed attributes of interest
-  tar_target(p1_sb_table_reduced, 
-             reduce_sb_table(sb_table_full = p1_sb_table_full, 
+  tar_target(p1_sb_table_reduced_csv, 
+             reduce_sb_table(sb_table_full = p1_sb_table_full_csv, 
                              sb_var_list = p1_sb_var_list,
                              outdir = "./1_fetch/out/sb"), 
              deployment = 'main', 
@@ -295,9 +295,9 @@ list(
              ),
   
   ##generate table of landscape data for gagesii list  
-  tar_target(p1_sb_data_g2,
+  tar_target(p1_sb_data_g2_csv,
              download_children(sites = p1_sites_g2, 
-                               sb_table_reduced = p1_sb_table_reduced,
+                               sb_table_reduced = p1_sb_table_reduced_csv,
                                dldir = "./1_fetch/out/sb/dldir", 
                                workdir = "./1_fetch/out/sb/workdir",
                                outdir = "./1_fetch/out/sb",

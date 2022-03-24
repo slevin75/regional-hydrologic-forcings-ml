@@ -111,8 +111,10 @@ reduce_sb_table <- function(sb_table_full, sb_var_list, outdir) {
   missing <- sbid[!(sbid %in% sb_table_full$id)]
   missing_vars <- sb_var_list[sb_var_list$sbid %in% missing,]
   
-  for (i in 1:nrow(missing_vars)) {
-    message(paste("Variable not in sb_table_full:", missing_vars[[i,2]]))
+  if(nrow(missing_vars) > 0){
+    for (i in 1:nrow(missing_vars)) {
+      message(paste("Variable not in sb_table_full:", missing_vars[[i,2]]))
+    }
   }
   
   

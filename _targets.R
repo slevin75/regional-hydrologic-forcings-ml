@@ -91,7 +91,7 @@ min_windows <- 10  ##Must have this many windows available in order to plot
 sb_parent_id <- '5669a79ee4b08895842a1d47'
 
 #pre-defined variable list to reduce SB pull
-sb_var_list_path <- "FHWA-NHDVariableList.xlsx"
+sb_var_list_path <- "1_fetch/in/FHWA-NHDVariableList.xlsx"
 sb_var_sheet <- "FY22-FHWA"
 
 ###gages2.1 ref site list - not sure how to get this right from sharepoint, so the

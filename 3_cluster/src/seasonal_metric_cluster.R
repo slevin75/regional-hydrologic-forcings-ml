@@ -284,7 +284,7 @@ plot_seasonal_barplot <- function(metric_mat, metric,
         if(by_quantile){
           #need to loop over metric names to create plots
           for (j in 1:length(metric_names)){
-            fileout[j+(i-1)*length(k)] <- file.path(dir_out[i], paste0('SeasonalBarplot_', 
+            fileout[j+(i-1)*length(metric_names)] <- file.path(dir_out[i], paste0('SeasonalBarplot_', 
                                                        colnames(cluster_table)[i+1], '_Metric_',
                                                        metric_names[j], '.png'))
             
@@ -300,7 +300,7 @@ plot_seasonal_barplot <- function(metric_mat, metric,
                                 ymax = ymax),
                             width = 0.4) +
               facet_wrap(~reorder(cluster, label_order))
-            ggsave(filename = fileout[j+(i-1)*length(k)], plot = plt, device = 'png')
+            ggsave(filename = fileout[j+(i-1)*length(metric_names)], plot = plt, device = 'png')
           }
         }else{
           fileout[i] <- file.path(dir_out[i], paste0('SeasonalBarplot_', 
@@ -396,7 +396,8 @@ plot_cuttree <- function(clusts, kmin, kmax, seq_by, dir_out){
 
 #Function to make a map of the resulting clusters
 #can add bounding boxes for clusters as argument
-plot_cluster_map <- function(gages, cluster_table, screened_sites, dir_out){
+plot_cluster_map <- function(gages, cluster_table, screened_sites, dir_out,
+                             facet = FALSE){
   ncol_gages <- ncol(gages)
   
   #get only sites with metrics computed
@@ -405,25 +406,42 @@ plot_cluster_map <- function(gages, cluster_table, screened_sites, dir_out){
   #Add the cluster_table to gages by ID join
   gages <- cbind(gages, cluster_table)
   
+  #U.S. States
+  states <- map_data("state")
+  
   fileout <- vector('character', length = ncol(cluster_table)-1)
   
   for(i in 1:(ncol(cluster_table)-1)){
-    fileout[i] <- file.path(dir_out, paste0(colnames(cluster_table)[i+1], '_map.png'))
+    fileout[i] <- ifelse(facet,
+                         file.path(dir_out, paste0(colnames(cluster_table)[i+1], '_facet_map.png')),
+                         file.path(dir_out, paste0(colnames(cluster_table)[i+1], '_map.png')))
     
-    #number of clusters fro the column name
+    #number of clusters from the column name
     k <- as.numeric(str_split(string = str_split(string = colnames(cluster_table)[i+1], 
                                       pattern = '_')[[1]] %>% last(), 
                    pattern = 'k')[[1]] %>% last())
     
-    png(filename = fileout[i], width = 8, height = 5, units = 'in', res = 200)
+    #png(filename = fileout[i], width = 8, height = 5, units = 'in', res = 200)
     #plot gage locations, colored by their cluster
-    plot(gages[ncol_gages+i], pch = 16, cex = 0.4, axes = TRUE,
-         main = colnames(cluster_table)[i+1], 
-         breaks = seq(0,k,1),
-         pal = scico(n = k, palette = 'batlow'),
-         key.width = 0.15, key.length = 0.75, key.pos = 1)
-    #add legend
-    dev.off()
+    p1 <- ggplot(states, aes(x=long, y=lat, group=group)) +
+      geom_polygon(fill="white", colour="gray") +
+      geom_sf(data = gages, inherit.aes = FALSE, 
+              aes(color = factor(.data[[colnames(gages)[ncol_gages+i]]])), 
+              size = 0.75) + 
+      ggtitle(paste0('Quantiles ', 
+                     str_split(colnames(cluster_table)[i+1], pattern = '_', 
+                               simplify = T)[1])) +
+      xlab('Longitude') + 
+      ylab('Latitude') +
+      labs(color='Cluster') +
+      scale_color_scico_d(palette = 'batlow')
+      if(facet){
+        p1 <- p1 + facet_wrap(~.data[[colnames(gages)[ncol_gages+i]]]) +
+          theme(legend.position = 'none')
+      }
+    
+    ggsave(filename = fileout[i],
+           plot = p1)
   }
   
   return(fileout)

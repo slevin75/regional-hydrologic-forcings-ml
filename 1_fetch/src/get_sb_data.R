@@ -218,3 +218,42 @@ download_children <-function(sites, sb_table_reduced, dldir, workdir, outdir, ou
   return_df = c(filepath1, filepath2)
   return(return_df)
 }
+
+calc_avg_monthly_weather <- function(sb_data, arg2) {
+  sb_data <- read_csv(sb_data[[1]], show_col_types = FALSE)
+  precip <- sb_data %>%
+    select(COMID, contains("_PPT_")) %>%
+    pivot_longer(!COMID, names_to = "unit_month_year", values_to = "precip") %>%
+    mutate(unit = str_sub(unit_month_year, 1, 3), 
+           month_name = str_sub(unit_month_year, 9, 11)) %>%
+    group_by(COMID, unit, month_name) %>%
+    summarise(avg_monthly_ppt = mean(precip, na.rm = TRUE), .groups = "drop") %>%
+    mutate(month_num = case_when(month_name == "JAN" ~ 1, month_name == "FEB" ~ 2, 
+                                 month_name == "MAR" ~ 3, month_name == "APR" ~ 4, 
+                                 month_name == "MAY" ~ 5, month_name == "JUN" ~ 6, 
+                                 month_name == "JUL" ~ 7, month_name == "AUG" ~ 8, 
+                                 month_name == "SEP" ~ 9, month_name == "OCT" ~ 10, 
+                                 month_name == "NOV" ~ 11, month_name == "DEC" ~ 12),
+           name = paste0(unit, "_PPT_", month_name)) %>%
+    arrange(COMID, unit, month_num) %>%
+    select(COMID, name, avg_monthly_ppt) %>%
+    pivot_wider(names_from = "name", values_from = "avg_monthly_ppt")
+  temperature <- sb_data %>%
+    select(COMID, contains("_TAV_")) %>%
+    pivot_longer(!COMID, names_to = "unit_month_year", values_to = "temp") %>%
+    mutate(unit = str_sub(unit_month_year, 1, 3), 
+           month_name = str_sub(unit_month_year, 9, 11)) %>%
+    group_by(COMID, unit, month_name) %>%
+    summarise(avg_monthly_temp = mean(temp, na.rm = TRUE), .groups = "drop") %>%
+    mutate(month_num = case_when(month_name == "JAN" ~ 1, month_name == "FEB" ~ 2, 
+                                 month_name == "MAR" ~ 3, month_name == "APR" ~ 4, 
+                                 month_name == "MAY" ~ 5, month_name == "JUN" ~ 6, 
+                                 month_name == "JUL" ~ 7, month_name == "AUG" ~ 8, 
+                                 month_name == "SEP" ~ 9, month_name == "OCT" ~ 10, 
+                                 month_name == "NOV" ~ 11, month_name == "DEC" ~ 12),
+           name = paste0(unit, "_TAV_", month_name)) %>%
+    arrange(COMID, unit, month_num) %>%
+    select(COMID, name, avg_monthly_temp) %>%
+    pivot_wider(names_from = "name", values_from = "avg_monthly_temp")
+  weather <- left_join(precip, temperature, by = "COMID")
+}

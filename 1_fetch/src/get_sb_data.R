@@ -219,8 +219,9 @@ download_children <-function(sites, sb_table_reduced, dldir, workdir, outdir, ou
   return(return_df)
 }
 
-calc_avg_monthly_weather <- function(sb_data, arg2) {
-  sb_data <- read_csv(sb_data[[1]], show_col_types = FALSE)
+calc_avg_monthly_weather <- function(sb_data) {
+  sb_data <- read_csv(sb_data, show_col_types = FALSE) %>%
+    suppressMessages()
   precip <- sb_data %>%
     select(COMID, contains("_PPT_")) %>%
     pivot_longer(!COMID, names_to = "unit_month_year", values_to = "precip") %>%
@@ -256,4 +257,5 @@ calc_avg_monthly_weather <- function(sb_data, arg2) {
     select(COMID, name, avg_monthly_temp) %>%
     pivot_wider(names_from = "name", values_from = "avg_monthly_temp")
   weather <- left_join(precip, temperature, by = "COMID")
+  return(weather)
 }

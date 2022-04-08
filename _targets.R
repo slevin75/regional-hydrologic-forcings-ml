@@ -306,6 +306,12 @@ list(
              format = "file"
              ),
   
+  ##convert monthly weather data by year to average monthly weather
+  tar_target(p1_monthly_weather_g2, 
+             calc_avg_monthly_weather(sb_data = p1_sb_data_g2_csv[[1]]), 
+             deployment = 'main', 
+             ),
+  
   ##get flood threshold from NWIS for eflowstats
   #this is deployed on main to avoid overloading the NWIS server with download requests
   tar_target(p1_flood_threshold,

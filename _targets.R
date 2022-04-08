@@ -308,7 +308,9 @@ list(
   
   ##convert monthly weather data by year to average monthly weather
   tar_target(p1_monthly_weather_g2, 
-             calc_avg_monthly_weather(sb_data = p1_sb_data_g2_csv[[1]]), 
+             {file_ind <- grep(p1_sb_data_g2_csv, pattern = "FAILS", invert = TRUE)
+               calc_avg_monthly_weather(sb_data = p1_sb_data_g2_csv[file_ind])
+             }, 
              deployment = 'main', 
              ),
   

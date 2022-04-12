@@ -314,6 +314,14 @@ list(
              deployment = 'main', 
              ),
   
+  ##convert annual wildfire data to long-term average wildfire
+  tar_target(p1_avg_wildfire_g2, 
+             {file_ind <- grep(p1_sb_data_g2_csv, pattern = "FAILS", invert = TRUE)
+             calc_avg_wildfire(sb_data = p1_sb_data_g2_csv[file_ind])
+             }, 
+             deployment = 'main', 
+  ),
+  
   ##get flood threshold from NWIS for eflowstats
   #this is deployed on main to avoid overloading the NWIS server with download requests
   tar_target(p1_flood_threshold,

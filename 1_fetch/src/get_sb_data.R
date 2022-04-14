@@ -242,3 +242,20 @@ calc_avg_monthly_weather <- function(sb_data) {
     pivot_wider(names_from = "label", values_from = "avg_monthly")
   return(weather)
 }
+
+calc_avg_wildfire <- function(sb_data) {
+  sb_data <- read_csv(sb_data, show_col_types = FALSE) %>%
+    suppressMessages()
+  wildfire <- sb_data %>%
+    select(COMID, contains("_WILDFIRE_")) %>%
+    pivot_longer(!COMID, names_to = "name", values_to = "value") %>%
+    mutate(unit = str_sub(name, 1, 3), 
+           year = str_sub(name, 14, 17)) %>%
+    group_by(COMID, unit) %>%
+    summarise(avg_annual = mean(value, na.rm = TRUE), .groups = "drop") %>%
+    mutate(label = paste0(unit, "_AVG_WILDFIRE")) %>%
+    arrange(COMID, label) %>%
+    select(COMID, label, avg_annual) %>%
+    pivot_wider(names_from = "label", values_from = "avg_annual")
+  return(wildfire)
+}

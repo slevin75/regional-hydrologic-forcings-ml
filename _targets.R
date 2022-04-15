@@ -106,7 +106,7 @@ drop_gages <- c('02084557', '09406300', '09512200', '10143500', '10172200')
 
 ##distance to search upstream for nested basins, in km.  note-the nhdplusTools function fails if this 
 ##value is 10000 or greater.
-nav_distance_km<-4500
+nav_distance_km <- 4500
 
 #set random seed for project
 set.seed(12422)
@@ -114,9 +114,15 @@ set.seed(12422)
 
 ##targets
 list(
+  #file target for gagesii (g2) sites 
+  tar_target(p1_sites_g2_xlsx,
+             gagesii_path,
+             deployment = 'main',
+             format = "file"
+  ),
   #all gagesii (g2) sites 
   tar_target(p1_sites_g2,
-             read_xlsx(gagesii_path) %>% 
+             read_xlsx(p1_sites_g2_xlsx) %>% 
                mutate(ID = substr(ID, start=2, stop=nchar(ID))) %>%
                #drop 5 sites that are not representative (ditch, pipeline)
                filter(!(ID %in% drop_gages)),
@@ -279,9 +285,15 @@ list(
              format = "file"
              ),
   
+  #file target for sciencebase variable list excel sheet
+  tar_target(p1_sb_var_list_xlsx,
+             sb_var_list_path,
+             deployment = 'main',
+             format = "file"
+  ),
   #read in sciencebase variable list excel sheet
   tar_target(p1_sb_var_list,
-             read_xlsx(path = sb_var_list_path, sheet = sb_var_sheet),
+             read_xlsx(path = p1_sb_var_list_xlsx, sheet = sb_var_sheet),
              deployment = 'main'
   ),
   

@@ -8,6 +8,13 @@
 #SBATCH --mail-type=ALL                 # enable email notifications for job status. Sends to submitting user
 #SBATCH -A fhwa                         # project account to charge
 
+#################################################################################
+#This script is designed to be run with the container name as an sbatch argument. 
+#The container needs to be located in /caldera/projects/usgs/water/impd/fhwa/containers/
+#Example:
+# sbatch run-tar_make.slurm mycontainer.sif
+#################################################################################
+
 module load singularity
 
 #Container path
@@ -16,4 +23,4 @@ CONTAINER="/caldera/projects/usgs/water/impd/fhwa/containers/${1}"
 
 # Run the tar_make() command
 # 1 - number of workers to use
-singularity exec ${CONTAINER} Rscript 'tar_make.R' 71
+singularity exec ${CONTAINER} Rscript 'tar_make.R' "$SLURM_JOB_CPUS_PER_NODE"

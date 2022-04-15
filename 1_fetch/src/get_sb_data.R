@@ -218,3 +218,44 @@ download_children <-function(sites, sb_table_reduced, dldir, workdir, outdir, ou
   return_df = c(filepath1, filepath2)
   return(return_df)
 }
+
+calc_avg_monthly_weather <- function(sb_data) {
+  sb_data <- read_csv(sb_data, show_col_types = FALSE) %>%
+    suppressMessages()
+  weather <- sb_data %>%
+    select(COMID, contains("_PPT_"), contains("_TAV_")) %>%
+    pivot_longer(!COMID, names_to = "name", values_to = "value") %>%
+    mutate(unit = str_sub(name, 1, 3), 
+           type = str_sub(name, 5, 7),
+           month_name = str_sub(name, 9, 11)) %>%
+    group_by(COMID, unit, type, month_name) %>%
+    summarise(avg_monthly = mean(value, na.rm = TRUE), .groups = "drop") %>%
+    mutate(month_num = case_when(month_name == "JAN" ~ 1, month_name == "FEB" ~ 2, 
+                                 month_name == "MAR" ~ 3, month_name == "APR" ~ 4, 
+                                 month_name == "MAY" ~ 5, month_name == "JUN" ~ 6, 
+                                 month_name == "JUL" ~ 7, month_name == "AUG" ~ 8, 
+                                 month_name == "SEP" ~ 9, month_name == "OCT" ~ 10, 
+                                 month_name == "NOV" ~ 11, month_name == "DEC" ~ 12),
+           label = paste0(unit, "_", type, "_", month_name)) %>%
+    arrange(COMID, type, unit, month_num) %>%
+    select(COMID, label, avg_monthly) %>%
+    pivot_wider(names_from = "label", values_from = "avg_monthly")
+  return(weather)
+}
+
+calc_avg_wildfire <- function(sb_data) {
+  sb_data <- read_csv(sb_data, show_col_types = FALSE) %>%
+    suppressMessages()
+  wildfire <- sb_data %>%
+    select(COMID, contains("_WILDFIRE_")) %>%
+    pivot_longer(!COMID, names_to = "name", values_to = "value") %>%
+    mutate(unit = str_sub(name, 1, 3), 
+           year = str_sub(name, 14, 17)) %>%
+    group_by(COMID, unit) %>%
+    summarise(avg_annual = mean(value, na.rm = TRUE), .groups = "drop") %>%
+    mutate(label = paste0(unit, "_AVG_WILDFIRE")) %>%
+    arrange(COMID, label) %>%
+    select(COMID, label, avg_annual) %>%
+    pivot_wider(names_from = "label", values_from = "avg_annual")
+  return(wildfire)
+}

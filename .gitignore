@@ -8,6 +8,11 @@ _targets
 #Clustermq worker log files
 *.log
 
+#Container RStudio Server files
+.local*
+rstudio*
+.config
+
 #R plots
 Rplots.pdf
 

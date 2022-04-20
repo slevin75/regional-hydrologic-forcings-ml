@@ -11,7 +11,10 @@ tar_option_set(packages = c("fasstr", "EflowStats", "dataRetrieval",
                             "lubridate", "cluster", "factoextra", "NbClust",
                             "sf", "cowplot", "gridGraphics", "stringi",
                             "dendextend", "scico", "tidyverse", "nhdplusTools",
-                            "sbtools", "maps", "mapproj"))
+                            "sbtools", "maps", "mapproj"),
+               imports = c("fasstr", "EflowStats", "dataRetrieval", 
+                           "cluster","factoextra", "NbClust", "dendextend",
+                           "tidyverse"))
 
 ##Create output file directories
 dir.create('1_fetch/out', showWarnings = FALSE)

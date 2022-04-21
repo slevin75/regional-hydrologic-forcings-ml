@@ -16,10 +16,10 @@ calc_moving_window_metrics <- function(site_num, window_length, increment,
 
   ##remove starting years which would result in a window with no data 
   ##(if there are large data gaps, or the starting year is at the end of the record). 
-  df_screen <- bind_rows(map(start_yrs, window_screen, data, window_length))
+  df_screen <- bind_rows(purrr::map(start_yrs, window_screen, data, window_length))
   start_yrs <- start_yrs[start_yrs %in% df_screen$start_yr[which(df_screen$years_in_window > min_yrs_in_window)] == TRUE]
   
-  map_out <- map(start_yrs, calc_FDC_subset,
+  map_out <- purrr::map(start_yrs, calc_FDC_subset,
                window_length = window_length, site_num = site_num, 
                clean_daily_flow = data, yearType = yearType,
                drainArea_tab = drainArea_tab, NE_probs = NE_probs, 
@@ -78,7 +78,7 @@ plot_trend_summary <- function(moving_window_metrics, screened_plot_sites,
     
     indice_grp <- unique(df_norm$indice_grp) 
     ##map over indice_grp and produce a plot file for each group, with all the quantiles 
-    map_out <- map(indice_grp, make_summary_plot,
+    map_out <- purrr::map(indice_grp, make_summary_plot,
                    data = df_norm,
                    outdir = outdir) %>%
       unlist()

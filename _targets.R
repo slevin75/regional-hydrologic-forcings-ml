@@ -10,7 +10,11 @@ library(tidyverse)
 tar_option_set(packages = c("fasstr", "EflowStats", "dataRetrieval",
                             "lubridate", "cluster", "factoextra", "NbClust",
                             "sf", "cowplot", "gridGraphics", "stringi",
-                            "dendextend", "scico", "tidyverse", "nhdplusTools","sbtools"))
+                            "dendextend", "scico", "tidyverse", "nhdplusTools",
+                            "sbtools", "maps", "mapproj"),
+               imports = c("fasstr", "EflowStats", "dataRetrieval", 
+                           "cluster","factoextra", "NbClust", "dendextend",
+                           "tidyverse"))
 
 ##Create output file directories
 dir.create('1_fetch/out', showWarnings = FALSE)
@@ -91,7 +95,7 @@ min_windows <- 10  ##Must have this many windows available in order to plot
 sb_parent_id <- '5669a79ee4b08895842a1d47'
 
 #pre-defined variable list to reduce SB pull
-sb_var_list_path <- "FHWA-NHDVariableList.xlsx"
+sb_var_list_path <- "1_fetch/in/FHWA-NHDVariableList.xlsx"
 sb_var_sheet <- "FY22-FHWA"
 
 ###gages2.1 ref site list - not sure how to get this right from sharepoint, so the
@@ -106,7 +110,7 @@ drop_gages <- c('02084557', '09406300', '09512200', '10143500', '10172200')
 
 ##distance to search upstream for nested basins, in km.  note-the nhdplusTools function fails if this 
 ##value is 10000 or greater.
-nav_distance_km<-4500
+nav_distance_km <- 4500
 
 #set random seed for project
 set.seed(12422)
@@ -114,9 +118,15 @@ set.seed(12422)
 
 ##targets
 list(
+  #file target for gagesii (g2) sites 
+  tar_target(p1_sites_g2_xlsx,
+             gagesii_path,
+             deployment = 'main',
+             format = "file"
+  ),
   #all gagesii (g2) sites 
   tar_target(p1_sites_g2,
-             read_xlsx(gagesii_path) %>% 
+             read_xlsx(p1_sites_g2_xlsx) %>% 
                mutate(ID = substr(ID, start=2, stop=nchar(ID))) %>%
                #drop 5 sites that are not representative (ditch, pipeline)
                filter(!(ID %in% drop_gages)),
@@ -280,9 +290,15 @@ list(
              format = "file"
              ),
   
+  #file target for sciencebase variable list excel sheet
+  tar_target(p1_sb_var_list_xlsx,
+             sb_var_list_path,
+             deployment = 'main',
+             format = "file"
+  ),
   #read in sciencebase variable list excel sheet
   tar_target(p1_sb_var_list,
-             read_xlsx(path = sb_var_list_path, sheet = sb_var_sheet),
+             read_xlsx(path = p1_sb_var_list_xlsx, sheet = sb_var_sheet),
              deployment = 'main'
   ),
   
@@ -314,7 +330,7 @@ list(
              }, 
              deployment = 'main', 
              ),
-  
+
   ##convert annual wildfire data to long-term average wildfire
   tar_target(p1_avg_wildfire_g2, 
              {file_ind <- grep(p1_sb_data_g2_csv, pattern = "FAILS", invert = TRUE)
@@ -545,6 +561,14 @@ list(
                                   min_clusts = 3, max_clusts = 15, by_clusts = 4,
                                   quantile_agg = TRUE),
              deployment = 'main'),
+  tar_target(p3_gages_clusters_quants_agg_selected,
+             add_cluster_to_gages(gages = p1_sites_g2,
+                                  clusts = p3_FDC_clusters_quants_agg,
+                                  screened_sites = p1_screened_site_list_season,
+                                  best_clust = p3_FDC_best_cluster_method_quants_agg,
+                                  min_clusts = 4, max_clusts = 6, by_clusts = 1,
+                                  quantile_agg = TRUE),
+             deployment = 'main'),
   
   #Assign cluster column names to a target for later branch iteration
   tar_target(p3_cluster_cols,
@@ -555,6 +579,9 @@ list(
              deployment = 'main'),
   tar_target(p3_cluster_cols_quants_agg,
              colnames(p3_gages_clusters_quants_agg)[-1],
+             deployment = 'main'),
+  tar_target(p3_cluster_cols_quants_agg_selected,
+             colnames(p3_gages_clusters_quants_agg_selected)[-1],
              deployment = 'main'),
   
   #Plot maps of gages with clusters
@@ -576,7 +603,32 @@ list(
              plot_cluster_map(gages = p1_sites_g2_sf,
                               cluster_table = p3_gages_clusters_quants_agg,
                               screened_sites = p1_screened_site_list_season,
-                              dir_out = '3_cluster/out/seasonal_plots/maps/by_agg_quantiles'),
+                              dir_out = '3_cluster/out/seasonal_plots/maps/by_agg_quantiles',
+                              facet=FALSE),
+             deployment = 'main',
+             format = 'file'),
+  tar_target(p3_cluster_map_quants_agg_facet_png,
+             plot_cluster_map(gages = p1_sites_g2_sf,
+                              cluster_table = p3_gages_clusters_quants_agg,
+                              screened_sites = p1_screened_site_list_season,
+                              dir_out = '3_cluster/out/seasonal_plots/maps/by_agg_quantiles',
+                              facet = TRUE),
+             deployment = 'main',
+             format = 'file'),
+  tar_target(p3_cluster_map_quants_agg_selected_png,
+             plot_cluster_map(gages = p1_sites_g2_sf,
+                              cluster_table = p3_gages_clusters_quants_agg_selected,
+                              screened_sites = p1_screened_site_list_season,
+                              dir_out = '3_cluster/out/seasonal_plots/maps/by_agg_quantiles',
+                              facet=FALSE),
+             deployment = 'main',
+             format = 'file'),
+  tar_target(p3_cluster_map_quants_agg_facet_selected_png,
+             plot_cluster_map(gages = p1_sites_g2_sf,
+                              cluster_table = p3_gages_clusters_quants_agg_selected,
+                              screened_sites = p1_screened_site_list_season,
+                              dir_out = '3_cluster/out/seasonal_plots/maps/by_agg_quantiles',
+                              facet = TRUE),
              deployment = 'main',
              format = 'file'),
   
@@ -611,6 +663,19 @@ list(
                                    by_cluster = TRUE,
                                    panel_plot = TRUE,
                                    cluster_table = p3_gages_clusters_quants_agg,
+                                   dir_out = '3_cluster/out/seasonal_plots/barplots/by_agg_quantiles',
+                                   quantile_agg = TRUE,
+                                   by_quantile = TRUE),
+             map(p3_metric_names_quants_agg),
+             deployment = 'worker',
+             format = 'file'),
+  tar_target(p3_seasonal_barplot_clusters_quants_agg_selected_png,
+             plot_seasonal_barplot(metric_mat = p1_FDC_metrics_season,
+                                   metric = p3_metric_names_quants_agg,
+                                   season_months = season_months,
+                                   by_cluster = TRUE,
+                                   panel_plot = TRUE,
+                                   cluster_table = p3_gages_clusters_quants_agg_selected,
                                    dir_out = '3_cluster/out/seasonal_plots/barplots/by_agg_quantiles',
                                    quantile_agg = TRUE,
                                    by_quantile = TRUE),

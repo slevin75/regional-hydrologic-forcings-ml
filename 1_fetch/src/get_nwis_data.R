@@ -96,6 +96,7 @@ catch_download_timeout_daily <- function(time, site_num, parameterCd,
     return(result)
     },
     error = function(e){
+      message('Download timed out. Retrying download.')
       return(NULL)
     }
   )

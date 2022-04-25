@@ -23,4 +23,4 @@ CONTAINER="/caldera/projects/usgs/water/impd/fhwa/containers/${1}"
 
 # Run the tar_make() command
 # 1 - number of workers to use
-singularity exec ${CONTAINER} Rscript 'tar_make.R' "$SLURM_JOB_CPUS_PER_NODE"
+singularity exec ${CONTAINER} Rscript './slurm/tar_make.R' "$SLURM_JOB_CPUS_PER_NODE"

@@ -170,6 +170,8 @@ list(
   
   ##fetch daily streamflow
   #this is deployed on main to avoid overloading the NWIS server with download requests
+  #note that the download occasionally randomly hangs even with the timeout.
+  #you can stop and restart the pipeline when this happens.
   tar_target(p1_daily_flow_csv, 
              get_nwis_daily_data(p1_has_data, outdir="./1_fetch/out", 
                                  NWIS_parameter, startDate, endDate, 

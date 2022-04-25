@@ -93,6 +93,7 @@ catch_download_timeout_daily <- function(time, site_num, parameterCd,
                                                       startDate, endDate), 
                                     timeout = time, 
                                     onTimeout = 'error')
+    message('Download successful.')
     return(result)
     },
     error = function(e){

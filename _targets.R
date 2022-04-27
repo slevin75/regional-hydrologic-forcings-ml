@@ -37,6 +37,7 @@ dir.create('3_cluster/out/seasonal_plots/diagnostics/by_agg_quantiles', showWarn
 dir.create('3_cluster/out/seasonal_plots/maps', showWarnings = FALSE)
 dir.create('3_cluster/out/seasonal_plots/maps/by_quantiles', showWarnings = FALSE)
 dir.create('3_cluster/out/seasonal_plots/maps/by_agg_quantiles', showWarnings = FALSE)
+dir.create('6_predict/out', showWarnings = FALSE)
 
 ##Load user defined functions
 source("1_fetch/src/get_nwis_data.R")
@@ -112,9 +113,6 @@ drop_gages <- c('02084557', '09406300', '09512200', '10143500', '10172200')
 ##value is 10000 or greater.
 nav_distance_km <- 4500
 
-#set random seed for project
-set.seed(12422)
-
 
 ##targets
 list(
@@ -142,23 +140,7 @@ list(
   #ID numbers for sites to use
   tar_target(
     p1_sites_list,
-    {p1_sites_g2$ID
-     ## not sure yet how we'll be selecting gages so I'm not putting this in a function yet.
-     ##since there is no state attribution in the gagesii list, for East River, I am taking 
-     ##AggEco==WestMnts and LON > -117 which cuts off the pacific northwest and cA areas
-     
-     #p1_sites_g2 %>%
-     #  filter(AggEco == "WestMnts") %>%
-     #  filter(LON > -117) %>%
-     #  filter(LAT > 36) %>%
-     #  pull(ID)
-     
-     #DE - just pulling a bounding box of sites here
-     #p1_sites_g2 %>%
-     #  filter(LAT < 42) %>%
-     #  filter(LON > -76) %>%
-     #  pull(ID)
-   },
+    p1_sites_g2$ID,
    deployment = 'main'
   ),
   

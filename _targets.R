@@ -307,13 +307,13 @@ list(
              format = "file"
              ),
   
-  # ##generate log file to track updates to sb variables
-  # tar_target(p1_sb_data_g2_log, 
-  #            get_sb_data_log_g2(sb_data_in = p1_sb_var_ids, 
-  #                               sites = p1_sites_g2), 
-  #            deployment = "main", 
-  #            format = "file"
-  #            ),
+  ##generate log file to track updates to sb variables
+  tar_target(p1_sb_data_g2_log,
+             get_sb_data_log_g2(sb_var_ids = p1_sb_var_ids,
+                                file_out = "1_fetch/out/logs/sb_update_log.csv"),
+             deployment = "main",
+             format = "file"
+             ),
   
   ##merge and select feature variables from gagesii list
   tar_target(p1_feature_vars_g2, 

@@ -3,9 +3,10 @@ get_sb_data <- function(sites, sb_var_ids, dldir, workdir, outdir, out_file_name
   data_at_sites <- tibble(COMID = sites$COMID)
   itemfails <- "1st"
   item <- sb_var_ids[[1]]
-  message(paste('starting SB ID', item))
+  name <- sb_var_ids[[2]]
+  message(paste('starting SB ID', item, name))
   item_file_download(item, dest_dir = dldir, overwrite_file = TRUE)
-  files <- list.files(path = dldir, pattern=NULL, full.names = TRUE)
+  files <- list.files(path = dldir, pattern = NULL, full.names = TRUE)
   for (file in files)
   {
     last3 <- str_sub(file, -3, -1)
@@ -24,12 +25,16 @@ get_sb_data <- function(sites, sb_var_ids, dldir, workdir, outdir, out_file_name
       file.copy(file, workdir)
       file.remove(file)
     }
-    filestomerge <- c(list.files(workdir, ".txt", recursive=TRUE, full.names=TRUE, include.dirs=TRUE),list.files(workdir, ".csv", recursive=TRUE, full.names=TRUE, include.dirs=TRUE),list.files(workdir, ".TXT", recursive=TRUE, full.names=TRUE, include.dirs=TRUE),list.files(workdir, ".CSV", recursive=TRUE, full.names=TRUE, include.dirs=TRUE))
+    filestomerge <- c(list.files(workdir, ".txt", recursive = TRUE, full.names = TRUE, include.dirs = TRUE), 
+                      list.files(workdir, ".csv", recursive = TRUE, full.names = TRUE, include.dirs = TRUE), 
+                      list.files(workdir, ".TXT", recursive = TRUE, full.names = TRUE, include.dirs = TRUE), 
+                      list.files(workdir, ".CSV", recursive = TRUE, full.names = TRUE, include.dirs = TRUE))
     for (filem in filestomerge)
     {
       print(filem)
       success = "yes"
-      tryCatch(tempfile <- read_delim(filem, delim = ",", show_col_types = FALSE), error = function(e) {success <<- "no"})
+      tryCatch(tempfile <- read_delim(filem, delim = ",", show_col_types = FALSE), 
+               error = function(e) {success <<- "no"})
       names(tempfile) <- toupper(names(tempfile))
       if (!"COMID" %in% colnames(tempfile))
       {
@@ -72,19 +77,27 @@ get_sb_data <- function(sites, sb_var_ids, dldir, workdir, outdir, out_file_name
   return(return_df)
 }
 
-# get_sb_data_log_g2 <- function(sb_var_ids, ) {
-#   data_all <- 
-#   for (i in 1:length(sb_data_in)) {
-#     filepath <- sb_data_in[[i]][1]
-#     data <- read_csv(filepath, show_col_types = FALSE) %>%
-#       group_by(COMID) %>%
-#       summarise_all(mean)
-#     
-#   }
+get_sb_data_log_g2 <- function(sb_var_ids, file_out) {
+  
+  sb_log <- tibble(sb_id = character(), 
+                   last_update = character())
+  for (i in 1:nrow(sb_var_ids)) {
+    sb_id <- as.character(sb_var_ids[i,1])
+    last_update <- item_get_fields(sb_id, "provenance")$lastUpdated
+    log_item <- tibble(sb_id, last_update)
+    sb_log <- bind_rows(sb_log, log_item)
+  }
+  
+  write_csv(sb_log, file_out)
+  return(file_out)
+  
+}
 
 prep_feature_vars <- function(sb_var_data, sites) {
+  
   data <- sites %>%
     select(COMID, LAT, LON, npdes, fwwd, strg, devl, cndp)
+  
   for (i in 1:length(sb_var_data)) {
     filepath <- sb_var_data[[i]][1]
     data_temp <- read_csv(filepath, show_col_types = FALSE) %>%

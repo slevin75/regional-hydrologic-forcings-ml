@@ -37,6 +37,7 @@ dir.create('3_cluster/out/seasonal_plots/diagnostics/by_agg_quantiles', showWarn
 dir.create('3_cluster/out/seasonal_plots/maps', showWarnings = FALSE)
 dir.create('3_cluster/out/seasonal_plots/maps/by_quantiles', showWarnings = FALSE)
 dir.create('3_cluster/out/seasonal_plots/maps/by_agg_quantiles', showWarnings = FALSE)
+dir.create('5_EDA/out/metrics_plots', showWarnings = FALSE)
 
 ##Load user defined functions
 source("1_fetch/src/get_nwis_data.R")
@@ -46,6 +47,7 @@ source("1_fetch/src/calc_FDC.R")
 source("1_fetch/src/moving_window_functions.R")
 source("3_cluster/src/seasonal_metric_cluster.R")
 source("4_setup_crossval/src/cross_validation_functions.R")
+source("5_EDA/src/EDA_metric_plots.R")
 
 ###Define parameters
 NWIS_parameter <- '00060'
@@ -101,8 +103,8 @@ sb_var_sheet <- "FY22-FHWA"
 ###gages2.1 ref site list - not sure how to get this right from sharepoint, so the
 ##filepath is currently to onedrive.
 #gagesii_path <- "C:/Users/jsmith/OneDrive - DOI/Shared Documents - FHWA/General/Data/Gages2.1_RefSiteList.xlsx"
-#gagesii_path <- "C:/Users/slevin/OneDrive - DOI/FWA_bridgeScour/Data/Gages2.1_RefSiteList.xlsx"
-gagesii_path <- "Gages2.1_RefSiteList.xlsx"
+gagesii_path <- "C:/Users/slevin/OneDrive - DOI/FWA_bridgeScour/Data/Gages2.1_RefSiteList.xlsx"
+#gagesii_path <- "Gages2.1_RefSiteList.xlsx"
 
 #Drop the following gages from the dataset because they are not representative
 #pipeline, ditch, etc.
@@ -324,7 +326,15 @@ list(
              deployment = 'main',
              format = "file"
              ),
-  
+
+  ##convert decadal dam data by to long-term average dam data
+  tar_target(p1_avg_dams_g2, 
+             {file_ind <- grep(p1_sb_data_g2_csv, pattern = "FAILS", invert = TRUE)
+             calc_avg_dams(sb_data = p1_sb_data_g2_csv[file_ind])
+             }, 
+             deployment = 'main'
+             ),
+    
   ##convert monthly weather data by year to average monthly weather
   tar_target(p1_monthly_weather_g2, 
              {file_ind <- grep(p1_sb_data_g2_csv, pattern = "FAILS", invert = TRUE)
@@ -765,5 +775,27 @@ list(
              get_nested_gages(gagesii = p1_sites_g2,
                               nav_distance_km = nav_distance_km),
              deployment = 'worker'
-            )  
+            )  ,
+  
+  ###EDA plots
+  ##list of all the metrics names - for dynamic branching
+  tar_target(p2_all_metrics_names,
+             c(colnames(p1_HIT_metrics)[-1],colnames(p1_FDC_metrics)[-1])),
+  
+  ##combined metrics tables
+  tar_target(p2_all_metrics,
+             inner_join(p1_FDC_metrics,p1_HIT_metrics)),
+  
+  ##maps and violin plots of all metrics by cluster.  k is the number of clusters to use in 
+  ##the cluster table
+  tar_target(p5_EDA_plots_metrics,
+             make_EDA_metric_plots(metric=p2_all_metrics_names,
+                                   k = 5,
+                                  cluster_table = p3_gages_clusters_quants_agg_selected,
+                                  metrics_table = p2_all_metrics,
+                                  gages = p1_sites_g2_sf,
+                                  out_dir = "5_EDA/out/metrics_plots"
+                                   ),
+             map(p2_all_metrics_names),
+             format="file")
 ) #end list

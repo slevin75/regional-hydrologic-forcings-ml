@@ -25,19 +25,20 @@ make_EDA_metric_plots <- function(metric,k,cluster_table, metrics_table, gages,o
     metric_quantile <- as.numeric(str_split(metric,pattern="_q")[[1]][2])
     cluster_col<-ifelse(metric_quantile< 0.75,low_quant_cluster_col,high_quant_cluster_col)
   } ##end if
-  
+ 
+   ##renaming the cluster column to make referencing this column easier later on
+  cluster_table <- cluster_table %>% 
+     rename(cluster = all_of(cluster_col))  
   
   ##get the column index of the metric
   metric_col<- which(names(metrics_table)==metric)
   ##renaming the first column to match the cluster and gages ID field
   names(metrics_table)[1] <- "ID"
   
-  
   ##create data frame for plots
   df_plot<- 
-    inner_join(gages[,c("ID","LAT","LON")],cluster_table[,c(1,cluster_col)]) %>%
+    inner_join(gages[,c("ID","LAT","LON")],cluster_table[,c("ID","cluster")]) %>%
     left_join(.,metrics_table[c(1,metric_col)])
-  
 
 
   ##loop through clusters and make a map and violin plot for each cluster
@@ -46,19 +47,21 @@ make_EDA_metric_plots <- function(metric,k,cluster_table, metrics_table, gages,o
   for (cl in 1:k){
     
     df<-df_plot %>% 
-      filter(.data[[colnames(df_plot)[5]]]==cl)
+      filter(cluster==cl)
     
-    p_violin<- ggplot(df, aes(x=1,y = .data[[colnames(df)[6]]]))+
+    p_violin<- ggplot(df, aes(x=1,y = .data[[metric]]))+
       geom_violin(draw_quantiles = c(0.5))+
       geom_jitter(height=0,color = "steelblue",alpha=0.5,width=0.2)+
-      xlab(paste("cluster" , cl))
+      xlab(paste("cluster" , cl))+
+      theme(axis.ticks.x=element_blank(),
+            axis.text.x=element_blank())
     
     p_map<- ggplot(states, aes(x=long, y=lat, group=group)) +
       geom_polygon(fill="white", colour="gray") +
       geom_sf(data = df, inherit.aes = FALSE, 
-              aes(color = .data[[colnames(df)[6]]]), 
+              aes(color = .data[[metric]]), 
               size = 0.75)+
-      scale_color_gradientn(colors=rainbow(5))+
+      scale_color_scico(palette = 'batlow')+
       theme(legend.position="bottom",
             legend.key.size=unit(.5,'cm'))+
       xlab('Longitude') + 
@@ -67,7 +70,7 @@ make_EDA_metric_plots <- function(metric,k,cluster_table, metrics_table, gages,o
 
      fname<- paste0(metric,"_k",k,"_cluster",cl,".png")
      fileout<-file.path(out_dir, fname)  
-     save_plot(filename = fileout, base_height = 5, base_width = 7, 
+     save_plot(filename = fileout, 
                plot = plot_grid(p_map, p_violin,scale=c(1,.6)))
     
      fileout_all<-append(fileout_all,fileout)

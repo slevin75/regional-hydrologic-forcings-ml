@@ -756,23 +756,23 @@ list(
   
   ###EDA plots
   ##list of all the metrics names - for dynamic branching
-  tar_target(p5_all_metrics_names,
+  tar_target(p2_all_metrics_names,
              c(colnames(p1_HIT_metrics)[-1],colnames(p1_FDC_metrics)[-1])),
   
   ##combined metrics tables
-  tar_target(p5_all_metrics,
+  tar_target(p2_all_metrics,
              inner_join(p1_FDC_metrics,p1_HIT_metrics)),
   
   ##maps and violin plots of all metrics by cluster.  k is the number of clusters to use in 
   ##the cluster table
   tar_target(p5_EDA_plots_metrics,
-             make_EDA_metric_plots(metric=p5_all_metrics_names,
+             make_EDA_metric_plots(metric=p2_all_metrics_names,
                                    k = 5,
                                   cluster_table = p3_gages_clusters_quants_agg_selected,
-                                  metrics_table = p5_all_metrics,
+                                  metrics_table = p2_all_metrics,
                                   gages = p1_sites_g2_sf,
                                   out_dir = "5_EDA/out/metrics_plots"
                                    ),
-             map(p5_all_metrics_names),
+             map(p2_all_metrics_names),
              format="file")
 ) #end list

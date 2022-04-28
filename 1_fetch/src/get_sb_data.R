@@ -1,5 +1,6 @@
 
 get_sb_data <- function(sites, sb_var_ids, dldir, workdir, outdir, out_file_name) {
+  
   data_at_sites <- tibble(COMID = sites$COMID)
   itemfails <- "1st"
   item <- sb_var_ids[[1]]
@@ -7,6 +8,7 @@ get_sb_data <- function(sites, sb_var_ids, dldir, workdir, outdir, out_file_name
   message(paste('starting SB ID', item, name))
   item_file_download(item, dest_dir = dldir, overwrite_file = TRUE)
   files <- list.files(path = dldir, pattern = NULL, full.names = TRUE)
+  
   for (file in files)
   {
     last3 <- str_sub(file, -3, -1)
@@ -56,6 +58,7 @@ get_sb_data <- function(sites, sb_var_ids, dldir, workdir, outdir, out_file_name
       }
       file.remove(filem)
     }
+    
     f <- list.files(workdir)
     unlink(file.path(workdir,f), recursive=TRUE)
   }
@@ -204,15 +207,26 @@ prep_feature_vars <- function(sb_var_data, sites) {
     pivot_wider(names_from = "label", values_from = "avg_annual")
   
   data <- data %>%
-    select(COMID:TOT_PIPELINE.x, ACC_OLSON_K.x:TOT_RDX, 
-           contains("TOTAL_ROAD_DENS"), SINUOSITY:ACC_PHYSIO_25, 
-           CAT_PHYSIO_0:CAT_PHYSIO_25, TOT_PHYSIO_0:TOT_PHYSIO_25, 
-           TOT_OLSON_K:TOT_WB5100_DEC, CAT_FSTFZ6190:TOT_LSTFZ6190, 
-           CAT_MAXP6190:TOT_ET, ACC_PLAYA:TOT_ESTUARY) %>%
+    select(-ends_with(".y"), -ID, -starts_with("..."), -contains("_S1"), -contains("PHYSIO_AREA"), 
+           -contains("SOHL"), -contains("NDAMS"), -contains("STORAGE"), 
+           -contains("MAJOR"), -contains("TAV"), -contains("PPT"), -contains("WILDFIRE")) %>%
     left_join(land_cover) %>%
     left_join(dams) %>%
     left_join(weather) %>%
     left_join(wildfire)
+  
+  rename_dup_headers <- list()
+  for (i in 1:ncol(data)) {
+    header <- names(data)[i]
+    if (str_sub(header, -2) == ".x") {
+      new_header <- str_sub(header, 1, -3)
+    } else {
+      new_header <- header
+    }
+    rename_dup_headers[[i]] <- new_header
+  }
+  rename_dup_headers <- as.character(rename_dup_headers)
+  names(data) <- rename_dup_headers
   
   return(data)
 }

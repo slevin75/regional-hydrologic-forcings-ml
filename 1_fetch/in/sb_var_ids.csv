@@ -1,40 +1,40 @@
-sciencebase_id
-57976a0ce4b021cadec97890
-57dafd3ae4b090824ffc32f1
-5703e35be4b0328dcb825562
-57867c33e4b0e02680c14fff
-5728decfe4b0b13d3918a9aa
-5728d93be4b0b13d3918a99f
-5728dd46e4b0b13d3918a9a7
-572900afe4b0b13d3918aa64
-56f97be4e4b0a6037df06b70
-5669a8e3e4b08895842a1d4f
-56f96fc5e4b0a6037df06b12
-56f97577e4b0a6037df06b5a
-56f97456e4b0a6037df06b50
-573b6028e4b0dae0d5e3ae16
-56fd5bd0e4b0c07cbfa40473
-56f974e2e4b0a6037df06b55
-56f97acbe4b0a6037df06b6a
-573b5344e4b0dae0d5e3ad9c
-574ddc8ce4b07e28b66901b3
-574f3e86e4b0ee97d51abf31
-574f238fe4b0ee97d51a8916
-5704052ae4b0328dcb827bc7
-57040a6ce4b0328dcb828378
-5734acafe4b0dae0d5de622d
-5730f062e4b0dae0d5db1fbe
-573362bce4b0dae0d5dd6193
-57040af4e4b0328dcb82842b
-572a23c4e4b0b13d391a0142
-573b5497e4b0dae0d5e3ada1
-57053e25e4b0d4e2b756c17d
-57053dc5e4b0d4e2b756c117
-57054a24e4b0d4e2b756d0e7
-56f96ed1e4b0a6037df06a2d
-5705491be4b0d4e2b756cf8a
-58cbeef2e4b0849ce97dcd61
-5a5406bee4b01e7be2308855
-57ab4009e4b05e859be1ad26
-58c301f2e4b0f37a93ed915a
-57f66d66e4b0bc0bec06de3a
+sciencebase_id,name
+57976a0ce4b021cadec97890,Select Basin Characteristics
+57dafd3ae4b090824ffc32f1,Physiographic Provinces
+5703e35be4b0328dcb825562,Select Geochemical Characteristics Based on Olson Geology Types
+57867c33e4b0e02680c14fff,Bedrock Permeability Classes
+5728decfe4b0b13d3918a9aa,"STATSGO Soil Characteristics, Layer Attributes"
+5728d93be4b0b13d3918a99f,"STATSGO2 Soil Characteristics, Hydrologic Groups"
+5728dd46e4b0b13d3918a9a7,"STATSGO Soil Characteristics, Text Attributes"
+572900afe4b0b13d3918aa64,Estimated Percent Presence of the Soil Restrictive Layers on Agricultural Land
+56f97be4e4b0a6037df06b70,Topographic Wetness Index
+5669a8e3e4b08895842a1d4f,Base Flow Index
+56f96fc5e4b0a6037df06b12,Contact Time
+56f97577e4b0a6037df06b5a,Estimated Mean Annual Natural Groundwater Recharge
+56f97456e4b0a6037df06b50,Average Elevation of Water Table Relative to Land Surface
+573b6028e4b0dae0d5e3ae16,"Estimated 30 Year, 1971-2000, Mean Annual Watershed Rainfall and Runoff factor (""R factor"" of Universal Soil Loss Equation)"
+56fd5bd0e4b0c07cbfa40473,Average Annual Runoff (mm) from McCabe and Wolock's Runoff Model 1951-2000
+56f974e2e4b0a6037df06b55,Mean Infiltration-Excess Overland Flow as a Percent of StreamFlow
+56f97acbe4b0a6037df06b6a,Mean Saturation Overland Flow as a Percent of Streamflow
+573b5344e4b0dae0d5e3ad9c,"Average Monthly Runoff (mm) from McCabe and Wolock's Runoff Model Over Period of Record, 1951-2000"
+574ddc8ce4b07e28b66901b3,Monthly Average Temperature (Celsius) from 1945 - 2015 (Catchment Values)
+574f3e86e4b0ee97d51abf31,Monthly Average Temperature (Celsius) from 1945 - 2015 (Total Upstream Accumulation)
+574f238fe4b0ee97d51a8916,Monthly Average Temperature (Celsius) from 1945 - 2015 (Divergence-Routed Accumulation)
+5704052ae4b0328dcb827bc7,"Mean Julian Day of the Year of First Freeze, from 30 Years of Record (1961-1990)"
+57040a6ce4b0328dcb828378,"Mean Day of the Year of Last Freeze, from 30 Years of Record (1961-1990)"
+5734acafe4b0dae0d5de622d,Monthly Average Precipitation (millimeters) from 1945 - 2015 (Catchment Values)
+5730f062e4b0dae0d5db1fbe,Monthly Average Precipitation (millimeters) from 1945 - 2015 (Total Upstream Accumulation)
+573362bce4b0dae0d5dd6193,Monthly Average Precipitation (millimeters) from 1945 - 2015 (Divergence-Routed Accumulation)
+57040af4e4b0328dcb82842b,30 Year Average (1961-1990) of Maximum Monthly Precipitation in Millimeters
+572a23c4e4b0b13d391a0142,30 Year Average (1961-1990) of Minimum Monthly Precipitation in mm
+573b5497e4b0dae0d5e3ada1,PRISM 30 Year (1961-1990) Annual Average Number of Days of Measurable Precipitation
+57053e25e4b0d4e2b756c17d,Consecutive Wet Days
+57053dc5e4b0d4e2b756c117,Estimated Mean Annual Snow as a Percent of Total Precipitation
+57054a24e4b0d4e2b756d0e7,PRISM 30-Year Average (1961-1990) Relative Humidity (percent)
+56f96ed1e4b0a6037df06a2d,"PRISM 30-Year Average Potential Evapotranspiration, 1971-2000"
+5705491be4b0d4e2b756cf8a,"Mean-Annual Actual Evapotranspiration, Estimated Using Regression Equation of Sanford and Selnick (2013)"
+58cbeef2e4b0849ce97dcd61,"Modeled historical land use and land cover for the conterminous United States, 1940-1990"
+5a5406bee4b01e7be2308855,"Modeled historical land use and land cover for the conterminous United States, 1992-2002"
+57ab4009e4b05e859be1ad26,Percent of Watershed Covered by Waterbodies from NHD High Resolution
+58c301f2e4b0f37a93ed915a,"National Inventory of Dams (NID) Storage and Construction by Decade, 1930 to 2010"
+57f66d66e4b0bc0bec06de3a,Wildfire 2000-2012

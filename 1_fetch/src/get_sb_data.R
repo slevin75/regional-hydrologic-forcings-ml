@@ -1,170 +1,28 @@
-get_babies <- function(idin) {
-  listall <- item_list_children(idin, limit = 999)
-  listall2 <- lapply(listall, `[`, c('id'))
-  ids <- unlist(listall2)
-  return(ids)
-}
 
-make_dl_table <- function(sb_parent_id, outdir) {
-  
-  #start with doing the top level id so we have something to work with.
-  idlist <- get_babies(sb_parent_id)
-  
-  #these are our 2 working lists for our loop
-  #the = "blank" thing is maybe a little lazy, but i take care of it later.
-  parlist <- idlist
-  dllist <- "blank"
-  
-  #getting ready for our loop
-  end <- FALSE
-  count <- 1
-  
-  #the main stuff
-  #the first if just ends the loop when you go past the end of the parlist
-  #otherwise, we test the id in parlist. We use item_get_fields to check if the id has children.
-  #if yes, we get the ids of those children with our get_babies function
-  #and we add them to the end of parlist so we can check those ids later in our loop
-  #if the id has no children, that means its an id with download links.
-  #and we add them to our dllist.
-  while (end == FALSE)
-  {
-    if (is.na(parlist[count]) == TRUE)
-    {
-      end <- TRUE
-      print("we are done")
-    }
-    if (is.na(parlist[count]) == FALSE)
-    {
-      idN <- parlist[count]
-      print(paste("trying", idN))
-      test <- item_get_fields(idN,'hasChildren')
-      if (test == TRUE)
-      {
-        templist <- get_babies(idN)
-        parlist <- c(parlist, templist)
-        print("adding to parlist")
-      }
-      if (test == FALSE)
-      {
-        print("adding one to dllist")
-        dllist <- c(dllist, idN)
-      }
-      count <- count + 1
-    }
-  }
-  
-  #this gets rid of our first "blank" entry
-  dllist <- dllist[-1]
-  
-  #resetting count for the next loop
-  count <- 1
-  
-  #this loop just gets a parentid, title, and last modified date for each download id to add back to our dllist
-  #just uses item_get_fields
-  #i made this loop in a way that did not need my lazy "blank" first entry
-  for (x in dllist)
-  {
-    parentid <- item_get_fields(x, 'parentId')
-    parenttitle <- item_get_fields(parentid, 'title')
-    dllisttitle <- item_get_fields(x, 'title')
-    dllistdate <- item_get_fields(x, 'provenance')
-    if (count == 1)
-    {
-      tabledl <- c(x, parenttitle, dllisttitle, dllistdate$lastUpdated)
-    }
-    if (count == 2)
-    {
-      tableadd <- c(x, parenttitle, dllisttitle, dllistdate$lastUpdated)
-      tabledl <- rbind(tabledl, tableadd)
-    }
-    count <- 2
-  }
-  
-  #renaming some columns and getting rid of that ugly first column
-  colnames(tabledl) <- c('id', 'parent_title', 'title', 'lastUpdated')
-  rownames(tabledl) <- NULL
-  tabledl <- as.data.frame(tabledl)
-  
-  #if you would like to export the table as csv
-  filepath <- file.path(outdir, paste0("sb_table_full.csv"))
-  write_csv(tabledl, filepath)
-  return(filepath)
-}
-
-reduce_sb_table <- function(sb_table_full, sb_var_list, outdir) {
-  sb_table_full <- read_csv(sb_table_full, col_types = 'cccT')
-  
-  #extract sciencebase ids and add to data frame
-  sbid <- vector('character')
-  for (i in 1:nrow(sb_var_list)){
-    sbid[i] <- strsplit(x = sb_var_list$Science.Base.Link[i], split = 'item/')[[1]] %>% 
-      last()
-  }
-  rm(i)
-  
-  sb_var_list$sbid <- sbid
-  
-  #remove duplicates
-  sbid <- unique(sbid)
-  
-  #retrieve sciencebase ids not in list
-  missing <- sbid[!(sbid %in% sb_table_full$id)]
-  missing_vars <- sb_var_list[sb_var_list$sbid %in% missing,]
-  
-  if(nrow(missing_vars) > 0){
-    for (i in 1:nrow(missing_vars)) {
-      message(paste("Variable not in sb_table_full:", missing_vars[[i,2]]))
-    }
-  }
-  
-  
-  #additional IDs to get missing values
-  #if there are missing values, edit this function with the IDs you want to add
-  #or, edit the sb_var_list with the IDs you want.
-  retain_ids <- c()
-  
-  retain_sb_table <- sb_table_full[sb_table_full$id %in% c(sbid, retain_ids),]
-  
-  #save list of sb ids
-  filepath <- file.path(outdir, paste0("sb_table_reduced.csv"))
-  write_csv(retain_sb_table, filepath)
-  return(filepath)
-}
-
-download_children <-function(sites, sb_table_reduced, dldir, workdir, outdir, out_file_name) {
-  #making a copy to work with
-  data_at_sites <- sites
+get_sb_data <- function(sites, sb_var_ids, dldir, workdir, outdir, out_file_name) {
+  data_at_sites <- tibble(COMID = sites$COMID)
   itemfails <- "1st"
-  sb_table_reduced <- read_csv(sb_table_reduced, 
-                               col_types = cols(id = col_character(), 
-                                                parent_title = col_character(), 
-                                                title = col_character(), 
-                                                lastUpdated = col_character()))
-  
-  for (row in 1:nrow(sb_table_reduced))
+  item <- sb_var_ids[[1]]
+  message(paste('starting SB ID', item))
+  item_file_download(item, dest_dir = dldir, overwrite_file = TRUE)
+  files <- list.files(path = dldir, pattern=NULL, full.names = TRUE)
+  for (file in files)
   {
-    item <- as.character(sb_table_reduced[row, 'id'])
-    message(paste('Row', row, 'SB ID', item))
-    item_file_download(item, dest_dir = dldir, overwrite_file = TRUE)
-    files <- list.files(path = dldir, pattern=NULL, full.names = TRUE)
-    for (file in files)
+    last3 <- str_sub(file, -3, -1)
+    last3 <- tolower(last3)
+    if (last3 == "xml")
     {
-      last3 <- str_sub(file, -3, -1)
-      last3 <- tolower(last3)
-      if (last3 == "xml")
-      {
-        file.remove(file)
-      }
-      if (last3 == "zip")
-      {
-        unzip(file, exdir=workdir)
-        file.remove(file)
-      }
-      if (last3 == "txt")
-      {
-        file.copy(file, workdir)
-        file.remove(file)
-      }
+      file.remove(file)
+    }
+    if (last3 == "zip")
+    {
+      unzip(file, exdir=workdir)
+      file.remove(file)
+    }
+    if (last3 == "txt")
+    {
+      file.copy(file, workdir)
+      file.remove(file)
     }
     filestomerge <- c(list.files(workdir, ".txt", recursive=TRUE, full.names=TRUE, include.dirs=TRUE),list.files(workdir, ".csv", recursive=TRUE, full.names=TRUE, include.dirs=TRUE),list.files(workdir, ".TXT", recursive=TRUE, full.names=TRUE, include.dirs=TRUE),list.files(workdir, ".CSV", recursive=TRUE, full.names=TRUE, include.dirs=TRUE))
     for (filem in filestomerge)
@@ -206,18 +64,87 @@ download_children <-function(sites, sb_table_reduced, dldir, workdir, outdir, ou
   
   itemfails <- as.data.frame(itemfails)
   
-  filepath1 <- file.path(outdir, out_file_name)
+  filepath1 <- paste0(outdir, "/", out_file_name, item, ".csv")
   write_csv(data_at_sites, filepath1)
-  filepath2 <- file.path(outdir, paste0("FAILS_", out_file_name))
+  filepath2 <- paste0(outdir, "/", out_file_name, item, "_FAILS.csv")
   write_csv(itemfails, filepath2)
   return_df = c(filepath1, filepath2)
   return(return_df)
 }
 
-calc_avg_dams <- function(sb_data) {
-  sb_data <- read_csv(sb_data, show_col_types = FALSE) %>%
-    suppressMessages()
-  dams <- sb_data %>%
+# get_sb_data_log_g2 <- function(sb_var_ids, ) {
+#   data_all <- 
+#   for (i in 1:length(sb_data_in)) {
+#     filepath <- sb_data_in[[i]][1]
+#     data <- read_csv(filepath, show_col_types = FALSE) %>%
+#       group_by(COMID) %>%
+#       summarise_all(mean)
+#     
+#   }
+
+prep_feature_vars <- function(sb_var_data, sites) {
+  data <- sites %>%
+    select(COMID, LAT, LON, npdes, fwwd, strg, devl, cndp)
+  for (i in 1:length(sb_var_data)) {
+    filepath <- sb_var_data[[i]][1]
+    data_temp <- read_csv(filepath, show_col_types = FALSE) %>%
+      group_by(COMID) %>%
+      summarise_all(mean)
+    data <- left_join(data, data_temp, by = "COMID")
+  }
+  
+  data$npdes <- as.numeric(data$npdes)
+  data$fwwd <- as.numeric(data$fwwd)
+  data$strg <- as.numeric(data$strg)
+  data$devl <- as.numeric(data$devl)
+  data$cndp <- as.numeric(data$cndp)
+  
+  data <- data %>% 
+    group_by(COMID) %>%
+    summarise_all(mean)
+  
+  land_cover <- data %>%
+    select(COMID, 
+           contains("SOHL40"), contains("SOHL50"), contains("SOHL60"),
+           contains("SOHL70"), contains("SOHL80"), contains("SOHL90"), 
+           contains("SOHL00")) %>%
+    pivot_longer(!COMID, names_to = "name", values_to = "value") %>%
+    mutate(unit = str_sub(name, 1, 3), 
+           year = if_else(str_sub(name, 9, 10) == "00", 2000, 
+                          as.numeric(paste0("19", str_sub(name, 9, 10)))), 
+           class = as.numeric(str_sub(name, 12))) %>%
+    group_by(COMID, unit, year, class) %>%
+    summarise(value = mean(value), .groups = "drop") %>%
+    mutate(new_class = case_when(class == 1 ~ "WATER", class == 2 ~ "DEVELOPED", 
+                                 class == 3 ~ "FOREST", class == 4 ~ "FOREST", 
+                                 class == 5 ~ "FOREST", class == 6 ~ "MINING", 
+                                 class == 7 ~ "BARREN", class == 8 ~ "FOREST", 
+                                 class == 9 ~ "FOREST", class == 10 ~ "FOREST", 
+                                 class == 11 ~ "GRASSLAND", class == 12 ~ "SHRUBLAND", 
+                                 class == 13 ~ "CROPLAND", class == 14 ~ "HAY/PASTURE", 
+                                 class == 15 ~ "WETLAND", class == 16 ~ "WETLAND", 
+                                 class == 17 ~ "ICE/SNOW")) %>%
+    group_by(COMID, unit, year, new_class) %>%
+    summarise(value = sum(value), .groups = "drop")
+  
+  comid_out_conus <- land_cover %>%
+    group_by(COMID, unit, year) %>%
+    summarise(lc_sum = sum(value), .groups = "drop") %>%
+    filter(lc_sum < 90 | lc_sum > 101)
+  comid_out_conus <- unique(comid_out_conus$COMID)
+  data <- data %>%
+    subset(!(COMID %in% comid_out_conus))
+  
+  land_cover <- land_cover %>%
+    group_by(COMID, unit, new_class) %>%
+    summarise(value = mean(value), .groups = "drop") %>%
+    mutate(label = paste0(unit, "_SOHL_", new_class)) %>%
+    select(COMID, label, value) %>%
+    pivot_wider(names_from = "label", values_from = "value")
+  land_cover <- land_cover %>%
+    subset(!(COMID %in% comid_out_conus))
+  
+  dams <- data %>%
     select(COMID, contains("NDAMS"), contains("STORAGE"), contains("MAJOR")) %>%
     pivot_longer(!COMID, names_to = "name", values_to = "value") %>%
     mutate(unit = str_sub(name, 1, 3), 
@@ -231,13 +158,8 @@ calc_avg_dams <- function(sb_data) {
     mutate(label = paste0(unit, "_", feature)) %>%
     select(COMID, label, value) %>%
     pivot_wider(names_from = label, values_from = value)
-  return(dams)
-}
-
-calc_avg_monthly_weather <- function(sb_data) {
-  sb_data <- read_csv(sb_data, show_col_types = FALSE) %>%
-    suppressMessages()
-  weather <- sb_data %>%
+ 
+  weather <- data %>%
     select(COMID, contains("_PPT_"), contains("_TAV_")) %>%
     pivot_longer(!COMID, names_to = "name", values_to = "value") %>%
     mutate(unit = str_sub(name, 1, 3), 
@@ -255,13 +177,8 @@ calc_avg_monthly_weather <- function(sb_data) {
     arrange(COMID, type, unit, month_num) %>%
     select(COMID, label, avg_monthly) %>%
     pivot_wider(names_from = "label", values_from = "avg_monthly")
-  return(weather)
-}
-
-calc_avg_wildfire <- function(sb_data) {
-  sb_data <- read_csv(sb_data, show_col_types = FALSE) %>%
-    suppressMessages()
-  wildfire <- sb_data %>%
+  
+  wildfire <- data %>%
     select(COMID, contains("_WILDFIRE_")) %>%
     pivot_longer(!COMID, names_to = "name", values_to = "value") %>%
     mutate(unit = str_sub(name, 1, 3), 
@@ -272,5 +189,17 @@ calc_avg_wildfire <- function(sb_data) {
     arrange(COMID, label) %>%
     select(COMID, label, avg_annual) %>%
     pivot_wider(names_from = "label", values_from = "avg_annual")
-  return(wildfire)
+  
+  data <- data %>%
+    select(COMID:TOT_PIPELINE.x, ACC_OLSON_K.x:TOT_RDX, 
+           contains("TOTAL_ROAD_DENS"), SINUOSITY:ACC_PHYSIO_25, 
+           CAT_PHYSIO_0:CAT_PHYSIO_25, TOT_PHYSIO_0:TOT_PHYSIO_25, 
+           TOT_OLSON_K:TOT_WB5100_DEC, CAT_FSTFZ6190:TOT_LSTFZ6190, 
+           CAT_MAXP6190:TOT_ET, ACC_PLAYA:TOT_ESTUARY) %>%
+    left_join(land_cover) %>%
+    left_join(dams) %>%
+    left_join(weather) %>%
+    left_join(wildfire)
+  
+  return(data)
 }

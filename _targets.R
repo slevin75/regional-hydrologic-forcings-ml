@@ -49,7 +49,7 @@ source("1_fetch/src/moving_window_functions.R")
 source("3_cluster/src/seasonal_metric_cluster.R")
 source("4_setup_crossval/src/cross_validation_functions.R")
 source("5_EDA/src/EDA_metric_plots.R")
-source("6_predict/src/select_features.R")
+source("5_EDA/src/select_features.R")
 
 ###Define parameters
 NWIS_parameter <- '00060'
@@ -373,6 +373,16 @@ list(
              map(p1_screened_site_list),
              deployment = 'worker'
   ),
+  
+  ##combined metrics tables
+  tar_target(p2_all_metrics,
+             inner_join(p1_FDC_metrics,p1_HIT_metrics)
+  ),
+  ##list of all the metrics names - for dynamic branching
+  tar_target(p2_all_metrics_names,
+             colnames(p2_all_metrics)[-1]
+  ),
+  
   
   ##compute seasonal FDC-based metrics using water year seasons
   tar_target(p1_FDC_metrics_season,
@@ -792,20 +802,10 @@ list(
   ),
   
   ###EDA plots
-  ##list of all the metrics names - for dynamic branching
-  tar_target(p2_all_metrics_names,
-             c(colnames(p1_HIT_metrics)[-1],colnames(p1_FDC_metrics)[-1])
-  ),
-  
-  ##combined metrics tables
-  tar_target(p2_all_metrics,
-             inner_join(p1_FDC_metrics,p1_HIT_metrics)
-  ),
-  
   ##maps and violin plots of all metrics by cluster.  k is the number of clusters to use in 
   ##the cluster table
   tar_target(p5_EDA_plots_metrics,
-             make_EDA_metric_plots(metric=p2_all_metrics_names,
+             make_EDA_metric_plots(metric = p2_all_metrics_names,
                                    k = 5,
                                   cluster_table = p3_gages_clusters_quants_agg_selected,
                                   metrics_table = p2_all_metrics,

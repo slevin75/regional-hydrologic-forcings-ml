@@ -115,7 +115,7 @@ get_sb_data_log <- function(sb_var_ids, file_out) {
   
 }
 
-prep_feature_vars <- function(sb_var_data, sites) {
+prep_feature_vars <- function(sb_var_data, sites, extra_vars) {
   
   #'@description joins all data downloaded from ScienceBase with sites of interest
   #'
@@ -125,13 +125,14 @@ prep_feature_vars <- function(sb_var_data, sites) {
   #'locations containing the feature variable data from each ScienceBase identifier
   #'joined with the COMIDs contained in the 'sites' parameter
   #'@param sites data frame with a COMID column including all reaches of interest
+  #'@param extra_vars character strings of additional column headers to keep in the 
+  #'sites data frame
   #'
   #'@return data frame with COMID column appended by all feature variables of interest; 
   #'time-varying features converted to long-term averages where applicable
   
   data <- sites %>%
-    select(COMID, LAT, LON, npdes, fwwd, strg, devl, cndp) %>%
-    rename(TOT_npdes = npdes, TOT_fwwd = fwwd, TOT_strg = strg, TOT_devl = devl, TOT_cndp = cndp) %>%
+    select(COMID, paste(extra_vars)) %>%
     mutate(across(where(is.character), as.numeric))
   
   #join all sciencebase data to single data frame with comids

@@ -312,14 +312,15 @@ list(
              get_sb_data_log(sb_var_ids = p1_sb_var_ids,
                              file_out = "1_fetch/out/logs/sb_update_log.csv"),
              deployment = "main",
-             format = "file", 
-             cue = "always"
+             format = "file"
              ),
   
   ##merge and select feature variables from gagesii list
   tar_target(p1_feature_vars_g2, 
              prep_feature_vars(sb_var_data = p1_sb_data_g2_csv, 
-                               sites = p1_sites_g2), 
+                               sites = p1_sites_g2, 
+                               extra_vars = c("LAT", "LON",
+                                 "npdes", "fwwd", "strg", "devl", "cndp")), 
              deployment = "main"
              ),
   

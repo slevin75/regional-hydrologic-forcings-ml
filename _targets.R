@@ -11,10 +11,10 @@ tar_option_set(packages = c("fasstr", "EflowStats", "dataRetrieval",
                             "lubridate", "cluster", "factoextra", "NbClust",
                             "sf", "cowplot", "gridGraphics", "stringi",
                             "dendextend", "scico", "tidyverse", "nhdplusTools",
-                            "sbtools", "maps", "mapproj"),
+                            "sbtools", "maps", "mapproj", "ranger", "Boruta"),
                imports = c("fasstr", "EflowStats", "dataRetrieval", 
                            "cluster","factoextra", "NbClust", "dendextend",
-                           "tidyverse"))
+                           "tidyverse", "ranger", "Boruta"))
 
 ##Create output file directories
 dir.create('1_fetch/out', showWarnings = FALSE)
@@ -50,6 +50,7 @@ source("3_cluster/src/seasonal_metric_cluster.R")
 source("4_setup_crossval/src/cross_validation_functions.R")
 source("5_EDA/src/EDA_metric_plots.R")
 source("5_EDA/src/select_features.R")
+source("6_predict/src/train_models.R")
 
 ###Define parameters
 NWIS_parameter <- '00060'
@@ -115,6 +116,14 @@ drop_gages <- c('02084557', '09406300', '09512200', '10143500', '10172200')
 ##distance to search upstream for nested basins, in km.  note-the nhdplusTools function fails if this 
 ##value is 10000 or greater.
 nav_distance_km <- 4500
+
+#Random Forest Parameters
+#maximum number of runs for Boruta feature screening algorithm
+Boruta_runs <- 200
+#number of trees
+Boruta_trees <- 500
+#number of cores
+Boruta_cores <- 20
 
 
 ##targets
@@ -378,11 +387,20 @@ list(
   tar_target(p2_all_metrics,
              inner_join(p1_FDC_metrics,p1_HIT_metrics)
   ),
+  #Metrics ml17 and 18 have NAs for some gages, so we will not predict them.
+  #also dropping 0.98, 0.99, and 0.995 metrics
+  tar_target(p2_all_metrics_predict,
+             p2_all_metrics %>% 
+               select(-ml17, -ml18, -contains('0.98'),
+                      -contains('0.99'), -contains('0.995'))
+  ),
   ##list of all the metrics names - for dynamic branching
   tar_target(p2_all_metrics_names,
              colnames(p2_all_metrics)[-1]
   ),
-  
+  tar_target(p2_all_metrics_names_predict,
+             colnames(p2_all_metrics_predict)[-1]
+  ),
   
   ##compute seasonal FDC-based metrics using water year seasons
   tar_target(p1_FDC_metrics_season,
@@ -859,14 +877,96 @@ list(
              },
              deployment = 'main'
   ),
-  # remove ACC variables that are highly correlated (> 0.9)
+  # remove ACC variables that are highly correlated with other variables (> 0.9)
   tar_target(p5_attr_g2,
-             drop_high_corr_ACC(p5_screen_attr_g2, threshold_corr = 0.9),
+             drop_high_corr_ACC(features = p5_screen_attr_g2, 
+                                threshold_corr = 0.9),
              deployment = 'main'
-  )
+  ),
   
   #########
   #Predict
+  #Note - may be best to select features again using the local region databases
+  #values can have different correlations in a region
+  # Rain dominated region
+  #Boruta screening
+  # This should be applied to only the training data. Currently applied to all
+  #  gages in the model region.
+  # Not using the target map argument for now so that we get only the vhfdc1_q0.9 metric
+  tar_target(p6_Boruta_rain,
+             screen_Boruta(features = p5_attr_g2,
+                           cluster_table = p3_gages_clusters_quants_agg_selected %>%
+                             select(ID, contains('_k5')) %>%
+                             rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
+                                    high = '0.75,0.8,0.85,0.9,0.95_k5'),
+                           metrics_table = p2_all_metrics_predict,
+                           metric_name = 'vhfdc1_q0.9',
+                           train_region = 'rain',
+                           ncores = Boruta_cores, 
+                           brf_runs = Boruta_runs, 
+                           ntrees = Boruta_trees
+             ),
+             #map(p2_all_metrics_names_predict),
+             deployment = 'worker'
+  ),
+  #RF train
+  tar_target(p6_train_RF_rain,
+             train_models(features = p5_attr_g2,
+                          cluster_table = p3_gages_clusters_quants_agg_selected %>%
+                            select(ID, contains('_k5')) %>%
+                            rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5', 
+                                   high = '0.75,0.8,0.85,0.9,0.95_k5'),
+                          metrics_table = p2_all_metrics_predict,
+                          metric_name = p2_all_metrics_names_predict,
+                          train_region = 'rain'
+             ),
+             map(p2_all_metrics_names_predict),
+             deployment = 'worker'
+  )
+  #Test rain-dominated flood model in snow-dominated region
+  #   holdout = TRUE? test set based variable importance.
+  #tar_target(p6_test_RF_rain_snow,
+  #           test_model(features = p5_attr_g2,
+  #                      cluster_table = p3_gages_clusters_quants_agg_selected %>%
+  #                        select(ID, contains('_k5')) %>%
+  #                        rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5', 
+  #                               high = '0.75,0.8,0.85,0.9,0.95_k5'),
+  #                      metrics_table = p2_all_metrics_predict,
+  #                      metric_name = p2_all_metrics_names_predict
+  #           ),
+  #           deployment = 'main'
+  #),
+  # Snow dominated region
+  #tar_target(p6_train_RF_snow,
+  #),
+  # Test on rain
+  #tar_target(p6_test_RF_snow_rain,
+  #),
+  # All data in both regions OOB error
+  #tar_target(p6_train_RF_rain_snow,
+  #),
+  # All data CONUS OOB error
+  #tar_target(p6_train_RF_CONUS_g2,
+  #),
   
+  # Visualize predictions:
+  
+  # Boruta screening
+  #tar_target(p6_Boruta_rain_png,
+  #           plot()
+  #  
+  #)
+  
+  # RF variable importance plot (mean + error bars over X random seeds)
+  
+  # RF residual vs. y (mean over X random seeds)
+  #May want to do some oversampling in extreme tails
+  # plot(x = input_data %>% 
+  #        filter(region == 'rain') %>% 
+  #        pull({{metric_name}}), y = abs(rf$predictions - input_data %>% 
+  #                                         filter(region == 'rain') %>% 
+  #                                         pull({{metric_name}})))
+  
+  # Spatial residuals
   
 ) #end list

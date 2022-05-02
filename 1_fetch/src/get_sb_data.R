@@ -99,7 +99,9 @@ get_sb_data_log_g2 <- function(sb_var_ids, file_out) {
 prep_feature_vars <- function(sb_var_data, sites) {
   
   data <- sites %>%
-    select(COMID, LAT, LON, npdes, fwwd, strg, devl, cndp)
+    select(COMID, LAT, LON, npdes, fwwd, strg, devl, cndp) %>%
+    rename(TOT_npdes = npdes, TOT_fwwd = fwwd, TOT_strg = strg, TOT_devl = devl, TOT_cndp = cndp) %>% 
+    as.numeric()
   
   for (i in 1:length(sb_var_data)) {
     filepath <- sb_var_data[[i]][1]

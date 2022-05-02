@@ -42,12 +42,26 @@ drop_high_corr_ACC <- function(features, threshold_corr){
   high_corr_features <- which(cor_mat >= threshold_corr, arr.ind = T)
   #Remove diagonal
   high_corr_features <- high_corr_features[
-    -which(high_corr_features[,1] == high_corr_features[,2]),] %>%
-    rownames()
+    -which(high_corr_features[,1] == high_corr_features[,2]),]
   
-  #Drop all of the ACC values - we'll use TOT instead
-  features <- select(features, -grep(pattern = 'ACC_', x = high_corr_features, 
-                                     value = TRUE))
+  #Find where ACC is highly correlated with CAT, TOT, or 
+  #"npdes" "fwwd"  "strg"  "devl"  "cndp" and remove
+  names_cor <- colnames(cor_mat)
+  remove_ACC <- vector('character', length = 0L)
+  for(i in 1:nrow(high_corr_features)){
+    name <- rownames(high_corr_features)[i]
+    if(substr(name, 1,3) == 'ACC'){
+      #Check if the column is also ACC
+      if(substr(names_cor[high_corr_features[i,2]], 1,3) != 'ACC'){
+        #add the ACC name to vector for removal
+        remove_ACC <- c(remove_ACC, name)
+      }
+    }
+  }
+  remove_ACC <- unique(remove_ACC)
+  
+  #Drop all of the remove_ACC values - we'll use TOT instead
+  features <- select(features, -{{remove_ACC}})
   
   #other correlations were checked manually for CAT and TOT using
   #cor_mat <- cor(features %>% select(starts_with('TOT_')))

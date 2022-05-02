@@ -92,7 +92,7 @@ get_sb_data <- function(sites, sb_var_ids, dldir, workdir, outdir, out_file_name
   return(return_df)
 }
 
-get_sb_data_log_g2 <- function(sb_var_ids, file_out) {
+get_sb_data_log <- function(sb_var_ids, file_out) {
   
   #'@description generates a log file to track changes to ScienceBase data
   #'
@@ -131,9 +131,10 @@ prep_feature_vars <- function(sb_var_data, sites) {
   
   data <- sites %>%
     select(COMID, LAT, LON, npdes, fwwd, strg, devl, cndp) %>%
-    rename(TOT_npdes = npdes, TOT_fwwd = fwwd, TOT_strg = strg, TOT_devl = devl, TOT_cndp = cndp) %>% 
-    as.numeric()
+    rename(TOT_npdes = npdes, TOT_fwwd = fwwd, TOT_strg = strg, TOT_devl = devl, TOT_cndp = cndp) %>%
+    mutate(across(where(is.character), as.numeric))
   
+  #join all sciencebase data to single data frame with comids
   for (i in 1:length(sb_var_data)) {
     filepath <- sb_var_data[[i]][1]
     data_temp <- read_csv(filepath, show_col_types = FALSE) %>%
@@ -142,11 +143,12 @@ prep_feature_vars <- function(sb_var_data, sites) {
     data <- left_join(data, data_temp, by = "COMID")
   }
   
-  #handles duplicated COMIDs in gages2.1
+  #handles any duplicated COMIDs
   data <- data %>% 
     group_by(COMID) %>%
     summarise_all(mean)
   
+  #reclassify land use data for consistency across time periods
   land_cover <- data %>%
     select(COMID, 
            contains("SOHL40"), contains("SOHL50"), contains("SOHL60"),
@@ -157,8 +159,6 @@ prep_feature_vars <- function(sb_var_data, sites) {
            year = if_else(str_sub(name, 9, 10) == "00", 2000, 
                           as.numeric(paste0("19", str_sub(name, 9, 10)))), 
            class = as.numeric(str_sub(name, 12))) %>%
-    group_by(COMID, unit, year, class) %>%
-    summarise(value = mean(value), .groups = "drop") %>%
     mutate(new_class = case_when(class == 1 ~ "WATER", class == 2 ~ "DEVELOPED", 
                                  class == 3 ~ "FOREST", class == 4 ~ "FOREST", 
                                  class == 5 ~ "FOREST", class == 6 ~ "MINING", 
@@ -169,25 +169,30 @@ prep_feature_vars <- function(sb_var_data, sites) {
                                  class == 15 ~ "WETLAND", class == 16 ~ "WETLAND", 
                                  class == 17 ~ "ICE/SNOW")) %>%
     group_by(COMID, unit, year, new_class) %>%
-    summarise(value = sum(value), .groups = "drop")
+    summarise(value = sum(value)) %>%
+    mutate(lc_sum = sum(value)) %>%
+    ungroup()
   
+  #identify comids with substantial area outside of CONUS and remove
   comid_out_conus <- land_cover %>%
-    group_by(COMID, unit, year) %>%
-    summarise(lc_sum = sum(value), .groups = "drop") %>%
     filter(lc_sum < 90 | lc_sum > 101)
   comid_out_conus <- unique(comid_out_conus$COMID)
   data <- data %>%
     subset(!(COMID %in% comid_out_conus))
   
+  #convert decadal land use to long-term average land use
   land_cover <- land_cover %>%
+    subset(!(COMID %in% comid_out_conus)) %>%
+    group_by(COMID, unit, year, new_class) %>%
+    mutate(lc_adj = (value / lc_sum) * 100) %>%
+    select(COMID, unit, new_class, lc_adj) %>%
     group_by(COMID, unit, new_class) %>%
-    summarise(value = mean(value), .groups = "drop") %>%
+    summarise(value = mean(lc_adj), .groups = "drop") %>%
     mutate(label = paste0(unit, "_SOHL_", new_class)) %>%
     select(COMID, label, value) %>%
     pivot_wider(names_from = "label", values_from = "value")
-  land_cover <- land_cover %>%
-    subset(!(COMID %in% comid_out_conus))
-  
+    
+  #convert decadal dam information to long-term average dam information
   dams <- data %>%
     select(COMID, contains("NDAMS"), contains("STORAGE"), contains("MAJOR")) %>%
     pivot_longer(!COMID, names_to = "name", values_to = "value") %>%
@@ -203,6 +208,7 @@ prep_feature_vars <- function(sb_var_data, sites) {
     select(COMID, label, value) %>%
     pivot_wider(names_from = label, values_from = value)
  
+  #convert annual monthly weather data to long-term average monthly weather data
   weather <- data %>%
     select(COMID, contains("_PPT_"), contains("_TAV_")) %>%
     pivot_longer(!COMID, names_to = "name", values_to = "value") %>%
@@ -222,6 +228,7 @@ prep_feature_vars <- function(sb_var_data, sites) {
     select(COMID, label, avg_monthly) %>%
     pivot_wider(names_from = "label", values_from = "avg_monthly")
   
+  #convert annual wildfire data to long-term average wildfire data
   wildfire <- data %>%
     select(COMID, contains("_WILDFIRE_")) %>%
     pivot_longer(!COMID, names_to = "name", values_to = "value") %>%
@@ -234,6 +241,7 @@ prep_feature_vars <- function(sb_var_data, sites) {
     select(COMID, label, avg_annual) %>%
     pivot_wider(names_from = "label", values_from = "avg_annual")
   
+  #remove unwanted feature variables and re-join long-term average datasets
   data <- data %>%
     select(-ends_with(".y"), -ID, -starts_with("..."), -contains("_S1"), -contains("PHYSIO_AREA"), 
            -contains("SOHL"), -contains("NDAMS"), -contains("STORAGE"), -contains("MAJOR"), 
@@ -243,6 +251,7 @@ prep_feature_vars <- function(sb_var_data, sites) {
     left_join(weather) %>%
     left_join(wildfire)
   
+  #rename duplicated headers (if any)
   rename_dup_headers <- list()
   for (i in 1:ncol(data)) {
     header <- names(data)[i]

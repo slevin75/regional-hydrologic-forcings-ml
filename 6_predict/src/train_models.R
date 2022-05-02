@@ -1,125 +1,199 @@
-library(ranger)
-library(Boruta)
-
-#Features - all g2 sites
-#Down select features from full database
-#Dropping catchment soil groups becuase they have NAs
-#Dropping some perfectly correlated attributes
-tar_target(p6_attr_g2,
-           {file_ind <- grep(p1_sb_data_g2_csv, pattern = "FAILS", invert = TRUE)
-           refine_features(nhdv2_attr_path = p1_sb_data_g2_csv[file_ind], 
-                drop_columns = c('NO10AVE', 'NO200AVE', 'NO4AVE', 'WRSE', 'IMPV',
-                                 "ID.y", 'S1100', 'S1200', 'S1400', 'S1500', 
-                                 'S1630', 'S1640', 'S1710', 'S1720', 'S1730', 
-                                 'S1740', 'S1750', 'S1780', 'S1820', 'S1830', 
-                                 'SOHL', 'NDAMS', 'NID', 'NORM', 'MAJOR', 'NLCD', 
-                                 'ESTUARY', 'WILDFIRE', 'CNPY', 'RUN7100', '_PPT_', 
-                                 '_TAV_', 'STANAME', 'LAT', 'LON', 
-                                 'GRP', 'COMID.DUP', 'eco3', 'ecos3.NA', 'AggEco',
-                                 '...892', '...908', 'wy', 'PHYSIO_AREA',
-                                 "CAT_HGA", "CAT_HGAC", "CAT_HGAD", "CAT_HGB", 
-                                 "CAT_HGBC", "CAT_HGBD", "CAT_HGC", "CAT_HGCD",
-                                 "CAT_HGD", "CAT_HGVAR", 'ACC_PHYSIO_5', 
-                                 'ACC_PHYSIO_6', 'ACC_PHYSIO_8', 'ACC_PHYSIO_11',
-                                 'ACC_PHYSIO_14', 'ACC_PHYSIO_25', 'ACC_CWD', 
-                                 'CAT_CWD', 'ACC_PIPELINE', 'ACC_ELEV_MIN', 'ACC_HGBC')) %>%
-             rename(ID.x = GAGES_ID) %>%
-             # add averages
-             left_join(p1_avg_wildfire_g2, by = c('COMID' = 'COMID')) %>%
-             left_join(p1_monthly_weather_g2, by = c('COMID' = 'COMID'))
-           }
-)
-
-refine_features <- function(nhdv2_attr_path, drop_columns){
+screen_Boruta <- function(features, cluster_table, metrics_table, metric_name,
+                          train_region, ncores, brf_runs, ntrees){
   #' 
-  #' @description Function to reduce and refine the features for use in models.
-  #' It drops features that have the same value for all gages.
-  #' It drops columns specified in drop_columns
-  #' It converts -9999 to NA
+  #' @description Applies Boruta screening to the features
   #'
-  #' @param nhdv2_attr_path the csv of static attributes (columns) for each COMID (rows)
-  #' @param drop_columns character vector of column names to remove from nhdv2_attr
+  #' @param features table of gages (rows) and features (columns). Must include
+  #' COMID and GAGES_ID columns.
+  #' @param cluster_table table of gages (rows) and cluster columns. Must include 
+  #' columns for gage ID, and regions named midhigh and high.
+  #' @param metrics_table table of metrics computed for each gage. Must include
+  #' site_num column.
+  #' @param metric_name character string of the column name in metrics_table to use
+  #' @param train_region vector of 'rain', 'snow', or both. Can use 'all' to 
+  #' use all gages in the metrics_table.
+  #' @param ncores number of cores to use
+  #' @param brf_runs maximum number of RF runs
+  #' @param ntrees number of trees to use
   #' 
-  #' @value Returns a refined nhdv2_attr based on the columns to drop
+  #' @value Returns a list of the metric name, all 3 brf models, and 
+  #' the input dataset (IDs, features, metric)
   
-  nhdv2_attr <- read_csv(nhdv2_attr_path, show_col_types = FALSE)
   
-  #Convert -9999 to NA
-  nhdv2_attr[nhdv2_attr == -9999] <- NA
+  #Get only the metric_name metric
+  metrics_table <- select(metrics_table, site_num, .data[[metric_name]])
+  
+  #determine if the metric should use the high flow region or mid-high flow region
+  if (metric_name %in% c('ma','ml17', 'ml18')){
+    region <- 'midhigh'
+  } else if (!grepl("_q", metric_name)){
+    ##other metrics from HIT
+    region <- 'high'
+  }else{
+    ##get quantile from FDC metric name
+    metric_quantile <- as.numeric(str_split(metric_name,pattern="_q")[[1]][2])
+    region <- ifelse(metric_quantile < 0.75, 'midhigh', 'high')
+  }
+  
+  #Select training region
+  if(train_region == 'all'){
+    metrics_table$region = 'all'
+  }else{
+    #select only gages for high and mid-high model regions
+    if (region == 'high'){
+      metrics_table <- mutate(metrics_table,
+                              region = case_when(site_num %in% cluster_table$ID[cluster_table$high == 5] ~ 'snow',
+                                                 site_num %in% cluster_table$ID[cluster_table$high == 2] ~ 'rain')) %>%
+        drop_na()
+    }else{
+      metrics_table <- mutate(metrics_table,
+                              region = case_when(site_num %in% cluster_table$ID[cluster_table$midhigh == 5] ~ 'snow',
+                                                 site_num %in% cluster_table$ID[cluster_table$midhigh == 3] ~ 'rain'))  %>%
+        drop_na()
+    }
+  }
+  
+  #Select the features for these gages
+  features <- filter(features, GAGES_ID %in% metrics_table$site_num) %>%
+    left_join(metrics_table %>% select(site_num, region), c('GAGES_ID' = 'site_num')) %>%
+    filter(region %in% train_region)
   
   #Detect variables that are all equal across the modeling domain and remove them
-  unique_col_vals <- apply(nhdv2_attr, 2, FUN = function(x) length(unique(x[!is.na(x)])))
-  nhdv2_attr_refined <- nhdv2_attr[, which(unique_col_vals > 1)] %>%
-    #Remove other columns
-    select(!contains(drop_columns))
-
-  return(nhdv2_attr_refined)
+  unique_col_vals <- apply(features, 2, FUN = function(x) length(unique(x[!is.na(x)])))
+  features <- features[, which(unique_col_vals > 1)]
+  
+  #scale all features using z transform
+  features[,-which(colnames(features) %in% c('COMID', 'GAGES_ID', 'region'))] <- 
+    scale(features[,-which(colnames(features) %in% c('COMID', 'GAGES_ID', 'region'))], 
+          center = TRUE, scale = TRUE)
+  
+  #Join dataframe to match the features to the metrics
+  input_data <- left_join(features, metrics_table %>% select(-region), 
+                          by = c('GAGES_ID' = 'site_num'))
+  
+  #Apply Boruta to down-select features
+  #This is parallelized by default
+  #Noticed that there were switches when applied 2 times, probably due to correlation
+  #applying once to CAT+ACC+dev only, then TOT+ACC+dev only
+  brf_noTOT <- Boruta(x = input_data %>% 
+                        select(-COMID, -GAGES_ID, -{{metric_name}}, -starts_with('TOT_')) %>%
+                        as.data.frame(),
+                      y = input_data %>% 
+                        pull({{metric_name}}),
+                      pValue = 0.01,
+                      mcAdj = TRUE,
+                      maxRuns = brf_runs,
+                      doTrace = 0,
+                      holdHistory = TRUE,
+                      getImp = getImpRfZ,
+                      num.trees = ntrees,
+                      oob.error = TRUE,
+                      num.threads = ncores)
+  
+  brf_noCAT <- Boruta(x = input_data %>% 
+                        select(-COMID, -GAGES_ID, -{{metric_name}}, -starts_with('CAT_')) %>%
+                        as.data.frame(),
+                      y = input_data %>% 
+                        pull({{metric_name}}),
+                      pValue = 0.01,
+                      mcAdj = TRUE,
+                      maxRuns = brf_runs,
+                      doTrace = 0,
+                      holdHistory = TRUE,
+                      getImp = getImpRfZ,
+                      num.trees = ntrees,
+                      oob.error = TRUE,
+                      num.threads = ncores)
+  
+  brf_All <- Boruta(x = input_data %>%
+                      select(-COMID, -GAGES_ID, -{{metric_name}}) %>%
+                      as.data.frame(),
+                    y = input_data %>%
+                      pull({{metric_name}}),
+                    pValue = 0.01,
+                    mcAdj = TRUE,
+                    maxRuns = brf_runs,
+                    doTrace = 0,
+                    holdHistory = TRUE,
+                    getImp = getImpRfZ,
+                    num.trees = ntrees,
+                    oob.error = TRUE,
+                    num.threads = ncores)
+  
+  #Select all features that were not rejected over these 3 screenings
+  names_unique = unique(c(names(brf_All$finalDecision[brf_All$finalDecision != 'Rejected']),
+                          names(brf_noTOT$finalDecision[brf_noTOT$finalDecision != 'Rejected']),
+                          names(brf_noCAT$finalDecision[brf_noCAT$finalDecision != 'Rejected'])
+  ))
+  
+  #Create modeling dataset
+  input_data <- select(input_data, COMID, GAGES_ID, 
+                       all_of(names_unique), {{metric_name}})
+  
+  # metric name, all 3 brf models and the input dataset (IDs, features, metric)
+  return(list(metric = metric_name, brf_noCAT = brf_noCAT, brf_noTOT = brf_noTOT, 
+              brf_All = brf_All, input_data = input_data))
 }
 
-#Check highly correlated relationships and remove as needed
-which(test >= 0.999, arr.ind = T)[-which(which(test >= 0.999, arr.ind = T)[,1] == which(test >= 0.999, arr.ind = T)[,2]),]
-
-#Metrics to predict
-p1_FDC_metrics
-p1_HIT_metrics
-
-#separate variables for high flow quantiles and mid-high flow quantiles
-p6_metrics_high <-
-p6_metrics_midhigh <- 
-
-
-#select only gages for our model regions
+train_models <- function(brf_output){
+  #Find best model with a grid search over hyperparameters
+  # seed = 0? We set seed from targets, so it should be already set. But maybe not on parallel cores?,
+  # max.depth = search,
+  # min.node.size = search,
+  # mtry = search,
+  # num.trees = search)
+  rf <- ranger(x = input_data %>%
+                 select(all_of(names_unique)) %>%
+                 as.data.frame(),
+               y = input_data %>%
+                 pull({{metric_name}}),
+               oob.error = TRUE,
+               num.threads = 20,
+               write.forest = FALSE,
+               replace = TRUE,
+               sample.fraction = 1,
+               holdout = FALSE,
+               importance = 'permutation',
+               num.trees = 500,
+               verbose = FALSE)
+  
+  #Predict with best hyperparameters over 100 random seeds to get model error
+  
+}
 
 
 #Decide train/test split based on nestedness matrix
 # - Can be random within algorithm for now
-p4_nested_gages
+# p4_nested_gages
 
-#Apply Boruta to down-select features
-#Single dataframe of observations and features
-input_data <- left_join(p2_SC_observations %>% 
-                          drop_na() %>%
-                          select(subsegid, mean_value), 
-                        p2_nhdv2_attr_refined %>% 
-                          select(-hru_segment), 
-                        by = c('subsegid' = 'PRMS_segid')) %>% 
-  select(-subsegid)
+#Test with and without WB model variables
+#slight improvement
+# rf_noWB <- ranger(x = input_data %>%
+#                select(all_of(names_unique), -contains('WB5100')) %>%
+#                as.data.frame(),
+#              y = input_data %>%
+#                pull({{metric_name}}),
+#              oob.error = TRUE,
+#              num.threads = 20,
+#              write.forest = FALSE,
+#              replace = TRUE,
+#              sample.fraction = 1,
+#              holdout = FALSE,
+#              importance = 'permutation',
+#              num.trees = 500)
 
-#Test if I can run in parallel within Boruta
-#Test if result is different for oob.error = TRUE vs. FALSE
-#Test with different max depth - time and results
-
-rf <- ranger(data = as.data.frame(input_data), 
-             dependent.variable.name = 'mean_value', 
-             importance = 'permutation', 
-             num.trees = 5000, 
-             write.forest = FALSE, 
-             replace = TRUE, 
-             sample.fraction = 1, 
-             holdout = FALSE)
-
-#This is parallelized by default??
-brf <- Boruta(x = as.data.frame(input_data[,-1]), 
-              y = input_data$mean_value, 
-              pValue = 0.01, 
-              maxRuns = 11, 
-              doTrace = 0, 
-              holdHistory = TRUE, 
-              getImp = getImpRfZ, 
-              num.trees = 500,
-              oob.error = FALSE, 
-              num.threads = 15)
-
-ranger(#seed = 0? We set seed from targets, so it should be already set. But maybe not on parallel cores?,
-  num.threads = detectCores,
-  oob.error = FALSE,
-  verbose = FALSE,
-  holdout = TRUE? test set based variable importance. ,
-  max.depth = 5?,
-  min.node.size = grid search)
-
-
-#Find best model with a grid search over hyperparameters
-
-
-#Predict with best model
+#Test with and without monthly climate variables
+#slightly worse
+# rf_noMonthlyClimate <- ranger(x = input_data %>%
+#                     select(all_of(names_unique), -contains('_TAV_'), -contains('_PPT_')) %>%
+#                     as.data.frame(),
+#                   y = input_data %>%
+#                     pull({{metric_name}}),
+#                   oob.error = TRUE,
+#                   num.threads = 20,
+#                   write.forest = FALSE,
+#                   replace = TRUE,
+#                   sample.fraction = 1,
+#                   holdout = FALSE,
+#                   importance = 'permutation',
+#                   num.trees = 500)

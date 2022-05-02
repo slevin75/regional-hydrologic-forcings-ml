@@ -1,6 +1,18 @@
 
 get_sb_data <- function(sites, sb_var_ids, dldir, workdir, outdir, out_file_name) {
   
+  #'@description recursively downloads and saves feature variable values from ScienceBase
+  #'
+  #'@param sites data frame with a COMID column including all reaches of interest
+  #'@param sb_var_ids data frame with ScienceBase identifier column
+  #'@param dldir filepath for downloads
+  #'@param workdir filepath for unzipping, joining, etc.
+  #'@param outdir filepath for final data downloads
+  #'@param out_file_name filename for final data downloads
+  #'
+  #'@return series of .csv files with ScienceBase feature variable values
+  #'joined to a list of COMIDs of interest
+  
   data_at_sites <- tibble(COMID = sites$COMID)
   itemfails <- "1st"
   item <- sb_var_ids[[1]]
@@ -82,6 +94,13 @@ get_sb_data <- function(sites, sb_var_ids, dldir, workdir, outdir, out_file_name
 
 get_sb_data_log_g2 <- function(sb_var_ids, file_out) {
   
+  #'@description generates a log file to track changes to ScienceBase data
+  #'
+  #'@param sb_var_ids data frame with ScienceBase identifier column
+  #'@param file_out filepath for log file
+  #'
+  #'@return log file documenting dates of changes to ScienceBase feature variable values
+  
   sb_log <- tibble(sb_id = character(), 
                    last_update = character())
   for (i in 1:nrow(sb_var_ids)) {
@@ -98,6 +117,18 @@ get_sb_data_log_g2 <- function(sb_var_ids, file_out) {
 
 prep_feature_vars <- function(sb_var_data, sites) {
   
+  #'@description joins all data downloaded from ScienceBase with sites of interest
+  #'
+  #'@param sb_var_data target generated from the 'get_sb_data()' function mapped over the 
+  #''p1_sb_var_ids' targets; the 'p1_sb_var_ids' target reads in a .csv of ScienceBase
+  #'identifiers and names, and the 'get_sb_data()' function generates a list of .csv file
+  #'locations containing the feature variable data from each ScienceBase identifier
+  #'joined with the COMIDs contained in the 'sites' parameter
+  #'@param sites data frame with a COMID column including all reaches of interest
+  #'
+  #'@return data frame with COMID column appended by all feature variables of interest; 
+  #'time-varying features converted to long-term averages where applicable
+  
   data <- sites %>%
     select(COMID, LAT, LON, npdes, fwwd, strg, devl, cndp) %>%
     rename(TOT_npdes = npdes, TOT_fwwd = fwwd, TOT_strg = strg, TOT_devl = devl, TOT_cndp = cndp) %>% 
@@ -111,7 +142,7 @@ prep_feature_vars <- function(sb_var_data, sites) {
     data <- left_join(data, data_temp, by = "COMID")
   }
   
-  
+  #handles duplicated COMIDs in gages2.1
   data <- data %>% 
     group_by(COMID) %>%
     summarise_all(mean)
@@ -205,8 +236,8 @@ prep_feature_vars <- function(sb_var_data, sites) {
   
   data <- data %>%
     select(-ends_with(".y"), -ID, -starts_with("..."), -contains("_S1"), -contains("PHYSIO_AREA"), 
-           -contains("SOHL"), -contains("NDAMS"), -contains("STORAGE"), 
-           -contains("MAJOR"), -contains("TAV"), -contains("PPT"), -contains("WILDFIRE")) %>%
+           -contains("SOHL"), -contains("NDAMS"), -contains("STORAGE"), -contains("MAJOR"), 
+           -contains("_TAV_"), -contains("_PPT_"), -contains("WILDFIRE")) %>%
     left_join(land_cover) %>%
     left_join(dams) %>%
     left_join(weather) %>%

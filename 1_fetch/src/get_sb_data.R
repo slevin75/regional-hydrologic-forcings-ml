@@ -111,11 +111,6 @@ prep_feature_vars <- function(sb_var_data, sites) {
     data <- left_join(data, data_temp, by = "COMID")
   }
   
-  data$npdes <- as.numeric(data$npdes)
-  data$fwwd <- as.numeric(data$fwwd)
-  data$strg <- as.numeric(data$strg)
-  data$devl <- as.numeric(data$devl)
-  data$cndp <- as.numeric(data$cndp)
   
   data <- data %>% 
     group_by(COMID) %>%

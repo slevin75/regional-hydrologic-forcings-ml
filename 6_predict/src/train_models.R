@@ -135,7 +135,7 @@ screen_Boruta <- function(features, cluster_table, metrics_table, metric_name,
               brf_All = brf_All, input_data = input_data))
 }
 
-train_models <- function(brf_output){
+train_models <- function(brf_output, ncores, ntrees){
   #Find best model with a grid search over hyperparameters
   # seed = 0? We set seed from targets, so it should be already set. But maybe not on parallel cores?,
   # max.depth = search,
@@ -148,7 +148,7 @@ train_models <- function(brf_output){
                y = input_data %>%
                  pull({{metric_name}}),
                oob.error = TRUE,
-               num.threads = 20,
+               num.threads = ncores,
                write.forest = FALSE,
                replace = TRUE,
                sample.fraction = 1,

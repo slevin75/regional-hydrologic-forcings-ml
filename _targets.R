@@ -39,6 +39,7 @@ dir.create('3_cluster/out/seasonal_plots/maps/by_quantiles', showWarnings = FALS
 dir.create('3_cluster/out/seasonal_plots/maps/by_agg_quantiles', showWarnings = FALSE)
 dir.create('5_EDA/out/metrics_plots', showWarnings = FALSE)
 dir.create('6_predict/out', showWarnings = FALSE)
+dir.create('6_predict/out/Boruta', showWarnings = FALSE)
 
 ##Load user defined functions
 source("1_fetch/src/get_nwis_data.R")
@@ -51,6 +52,7 @@ source("4_setup_crossval/src/cross_validation_functions.R")
 source("5_EDA/src/EDA_metric_plots.R")
 source("5_EDA/src/select_features.R")
 source("6_predict/src/train_models.R")
+source("6_predict/src/plot_diagnostics.R")
 
 ###Define parameters
 NWIS_parameter <- '00060'
@@ -911,18 +913,13 @@ list(
   ),
   #RF train
   tar_target(p6_train_RF_rain,
-             train_models(features = p5_attr_g2,
-                          cluster_table = p3_gages_clusters_quants_agg_selected %>%
-                            select(ID, contains('_k5')) %>%
-                            rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5', 
-                                   high = '0.75,0.8,0.85,0.9,0.95_k5'),
-                          metrics_table = p2_all_metrics_predict,
-                          metric_name = p2_all_metrics_names_predict,
-                          train_region = 'rain'
+             train_models(p6_Boruta_rain,
+                          ncores = Boruta_cores, 
+                          ntrees = Boruta_trees
              ),
-             map(p2_all_metrics_names_predict),
+             #map(p6_Boruta_rain),
              deployment = 'worker'
-  )
+  ),
   #Test rain-dominated flood model in snow-dominated region
   #   holdout = TRUE? test set based variable importance.
   #tar_target(p6_test_RF_rain_snow,
@@ -952,10 +949,13 @@ list(
   # Visualize predictions:
   
   # Boruta screening
-  #tar_target(p6_Boruta_rain_png,
-  #           plot()
-  #  
-  #)
+  tar_target(p6_Boruta_rain_png,
+             plot_Boruta(p6_Boruta_rain$brf_All,
+                         metric = p6_Boruta_rain$metric,
+                         out_dir = '6_predict/out/Boruta'),
+             deployment = 'main',
+             format = 'file'
+  )
   
   # RF variable importance plot (mean + error bars over X random seeds)
   

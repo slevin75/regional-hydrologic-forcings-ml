@@ -10,7 +10,8 @@ plot_Boruta <- function(brf_model, metric, out_dir){
   fileout <- file.path(out_dir, paste0('Boruta_', metric, '.png'))
   
   png(fileout, width = 8, height = 4, units = 'in', res = 200)
-  plot(brf_model)
+  #plot without outlier points
+  plot(brf_model, outpch = NA, show.names = FALSE)
   dev.off()
   
   return(fileout)

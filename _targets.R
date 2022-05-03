@@ -11,10 +11,11 @@ tar_option_set(packages = c("fasstr", "EflowStats", "dataRetrieval",
                             "lubridate", "cluster", "factoextra", "NbClust",
                             "sf", "cowplot", "gridGraphics", "stringi",
                             "dendextend", "scico", "tidyverse", "nhdplusTools",
-                            "sbtools", "maps", "mapproj", "ranger", "Boruta"),
+                            "sbtools", "maps", "mapproj", "ranger", "Boruta",
+                            "tidymodels", "doParallel"),
                imports = c("fasstr", "EflowStats", "dataRetrieval", 
                            "cluster","factoextra", "NbClust", "dendextend",
-                           "tidyverse", "ranger", "Boruta"))
+                           "tidyverse", "ranger", "Boruta", "tidymodels"))
 
 ##Create output file directories
 dir.create('1_fetch/out', showWarnings = FALSE)
@@ -913,9 +914,8 @@ list(
   ),
   #RF train
   tar_target(p6_train_RF_rain,
-             train_models(p6_Boruta_rain,
-                          ncores = Boruta_cores, 
-                          ntrees = Boruta_trees
+             train_models_grid(brf_output = p6_Boruta_rain,
+                               ncores = Boruta_cores
              ),
              #map(p6_Boruta_rain),
              deployment = 'worker'

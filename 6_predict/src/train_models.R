@@ -1,7 +1,29 @@
+#Random split for now.
+# Should add an argument to make train/test split based on nestedness matrix
+# p4_nested_gages
+split_data <- function(data){
+  #' 
+  #' @description splits the data into training and testing
+  #'
+  #' @param data table of gages (rows) and features (columns). Must include
+  #' COMID and GAGES_ID columns.
+  #' @param train_prop proportion of the data to use for training
+  #' 
+  #' @value Returns a list of the dataset split, the training dataset and 
+  #' the testing dataset
+  
+  split <- initial_split(data, prop = 0.8)
+  training <- training(split)
+  testing <- testing(split)
+  
+  return(list(split = split, training = training, testing = testing))
+}
+
 screen_Boruta <- function(features, cluster_table, metrics_table, metric_name,
                           train_region, ncores, brf_runs, ntrees){
   #' 
-  #' @description Applies Boruta screening to the features
+  #' @description Applies Boruta screening to the features. Makes a train/test
+  #' split before applying the screening.
   #'
   #' @param features table of gages (rows) and features (columns). Must include
   #' COMID and GAGES_ID columns.
@@ -17,7 +39,8 @@ screen_Boruta <- function(features, cluster_table, metrics_table, metric_name,
   #' @param ntrees number of trees to use
   #' 
   #' @value Returns a list of the metric name, all 3 brf models, and 
-  #' the input dataset (IDs, features, metric)
+  #' the input dataset (IDs, features, metric) as a list with train/test splits
+  #' as the elements of the list.
   
   
   #Get only the metric_name metric
@@ -63,22 +86,25 @@ screen_Boruta <- function(features, cluster_table, metrics_table, metric_name,
   features <- features[, which(unique_col_vals > 1)]
   
   #scale all features using z transform
-  features[,-which(colnames(features) %in% c('COMID', 'GAGES_ID', 'region'))] <- 
-    scale(features[,-which(colnames(features) %in% c('COMID', 'GAGES_ID', 'region'))], 
-          center = TRUE, scale = TRUE)
+  #features[,-which(colnames(features) %in% c('COMID', 'GAGES_ID', 'region'))] <- 
+  #  scale(features[,-which(colnames(features) %in% c('COMID', 'GAGES_ID', 'region'))], 
+  #        center = TRUE, scale = TRUE)
   
   #Join dataframe to match the features to the metrics
   input_data <- left_join(features, metrics_table %>% select(-region), 
                           by = c('GAGES_ID' = 'site_num'))
   
+  #Split into training and testing datasets
+  input_data_split <- split_data(input_data)
+  
   #Apply Boruta to down-select features
   #This is parallelized by default
   #Noticed that there were switches when applied 2 times, probably due to correlation
   #applying once to CAT+ACC+dev only, then TOT+ACC+dev only
-  brf_noTOT <- Boruta(x = input_data %>% 
+  brf_noTOT <- Boruta(x = input_data_split$training %>% 
                         select(-COMID, -GAGES_ID, -{{metric_name}}, -starts_with('TOT_')) %>%
                         as.data.frame(),
-                      y = input_data %>% 
+                      y = input_data_split$training %>% 
                         pull({{metric_name}}),
                       pValue = 0.01,
                       mcAdj = TRUE,
@@ -90,10 +116,10 @@ screen_Boruta <- function(features, cluster_table, metrics_table, metric_name,
                       oob.error = TRUE,
                       num.threads = ncores)
   
-  brf_noCAT <- Boruta(x = input_data %>% 
+  brf_noCAT <- Boruta(x = input_data_split$training %>% 
                         select(-COMID, -GAGES_ID, -{{metric_name}}, -starts_with('CAT_')) %>%
                         as.data.frame(),
-                      y = input_data %>% 
+                      y = input_data_split$training %>% 
                         pull({{metric_name}}),
                       pValue = 0.01,
                       mcAdj = TRUE,
@@ -105,10 +131,10 @@ screen_Boruta <- function(features, cluster_table, metrics_table, metric_name,
                       oob.error = TRUE,
                       num.threads = ncores)
   
-  brf_All <- Boruta(x = input_data %>%
+  brf_All <- Boruta(x = input_data_split$training %>%
                       select(-COMID, -GAGES_ID, -{{metric_name}}) %>%
                       as.data.frame(),
-                    y = input_data %>%
+                    y = input_data_split$training %>%
                       pull({{metric_name}}),
                     pValue = 0.01,
                     mcAdj = TRUE,
@@ -127,44 +153,129 @@ screen_Boruta <- function(features, cluster_table, metrics_table, metric_name,
   ))
   
   #Create modeling dataset
-  input_data <- select(input_data, COMID, GAGES_ID, 
-                       all_of(names_unique), {{metric_name}})
+  screened_input_data <- list(split = list(data = input_data_split$split$data %>% 
+                                select(COMID, GAGES_ID, all_of(names_unique), 
+                                       {{metric_name}}),
+                                in_id = input_data_split$split$in_id,
+                                out_id = input_data_split$split$out_id,
+                                id = input_data_split$split$id),
+                              
+                              training = input_data_split$training %>% 
+                                select(COMID, GAGES_ID, all_of(names_unique), 
+                                       {{metric_name}}),
+                              
+                              testing = input_data_split$testing %>% 
+                                select(COMID, GAGES_ID, all_of(names_unique), 
+                                       {{metric_name}}))
   
   # metric name, all 3 brf models and the input dataset (IDs, features, metric)
   return(list(metric = metric_name, brf_noCAT = brf_noCAT, brf_noTOT = brf_noTOT, 
-              brf_All = brf_All, input_data = input_data))
+              brf_All = brf_All, input_data = screened_input_data))
 }
 
-train_models <- function(brf_output, ncores, ntrees){
+train_models_grid <- function(brf_output, ncores){
+  #' 
+  #' @description optimizes hyperparameters using a grid search
+  #'
+  #' @param brf_output output of the screen_Boruta function
+  #' @param ncores number of cores to use
+  #' 
+  #' @value Returns...
+  
+  #Set the parameters to be tuned
+  #Test with and without write.forest
+  tune_spec <- rand_forest(mode = "regression",
+                           mtry = tune(), 
+                           min_n = tune(), 
+                           trees = tune()) %>% 
+    set_engine(engine = "ranger", 
+               verbose = TRUE, importance = 'permutation', 
+               probability = FALSE)
+  
+  grid <- grid_regular(mtry(range = c(5L, 50L)), 
+                       min_n(range = c(2L, 20L)), 
+                       trees(range = c(500L, 5000L)), 
+                       levels = 5)
+  # grid <- grid_max_entropy(mtry(range = c(5L, 50L)), 
+  #                          min_n(range = c(2L, 20L)), 
+  #                          trees(range = c(500L, 5000L)),
+  #                          size = 100, 
+  #                          iter = 1000)
+  
+  #number of cross validation folds (v)
+  #Datasets are fairly small, so using 5 for now
+  cv_folds <- vfold_cv(data = brf_output$input_data$training, v = 5)
+  
+  #specify workflow to tune the grid
+  wf <- workflow() %>%
+    add_model(tune_spec) %>%
+    add_variables(outcomes = contains(brf_output$metric),
+                  predictors = (!(contains('COMID') | contains('GAGES_ID') | contains(brf_output$metric))))
+  
   #Find best model with a grid search over hyperparameters
-  # seed = 0? We set seed from targets, so it should be already set. But maybe not on parallel cores?,
-  # max.depth = search,
-  # min.node.size = search,
-  # mtry = search,
-  # num.trees = search)
-  rf <- ranger(x = input_data %>%
-                 select(all_of(names_unique)) %>%
-                 as.data.frame(),
-               y = input_data %>%
-                 pull({{metric_name}}),
-               oob.error = TRUE,
-               num.threads = ncores,
-               write.forest = FALSE,
-               replace = TRUE,
-               sample.fraction = 1,
-               holdout = FALSE,
-               importance = 'permutation',
-               num.trees = 500,
-               verbose = FALSE)
+  cl = parallel::makeCluster(ncores)
+  doParallel::registerDoParallel(cl)
+  #Send variables to worker environments
+  parallel::clusterExport(cl = cl, varlist = c('brf_output'))
+  
+  grid_result <- tune_grid(wf, 
+                           resamples = cv_folds, 
+                           grid = grid, 
+                           metrics = metric_set(rmse, mae, rsq),
+                           control = control_grid(
+                             verbose = TRUE,
+                             allow_par = TRUE,
+                             extract = NULL,
+                             save_pred = FALSE,
+                             pkgs = NULL,
+                             save_workflow = FALSE,
+                             event_level = "first",
+                             parallel_over = "everything"
+                           ))
+  
+  #plot the results 
+  # add symbols for number of trees
+  # add flow metric name from brf_output$metric
+  grid_result %>% 
+    collect_metrics() %>%
+    mutate(mtry = factor(mtry)) %>%
+    ggplot(aes(min_n, mean, color = mtry)) +
+    geom_line(size = 1.5, alpha = 0.6) +
+    geom_point(size = 2) +
+    facet_wrap(~ .metric, scales = "free", nrow = 2) +
+    scale_x_log10(labels = scales::label_number()) +
+    scale_color_viridis_d(option = "plasma", begin = .9, end = 0)
+  
+  #Get the best model
+  grid_result %>%
+    show_best("rmse")
+  
+  best_grid_result <- grid_result %>%
+    select_best("rmse")
+  
+  final_wf <- wf %>% 
+    finalize_workflow(best_grid_result)
+  
+  final_fit <- final_wf %>%
+    last_fit(brf_output$input_data$split) 
+  
+  final_fit %>%
+    collect_metrics()
+  
+  final_fit %>%
+    collect_predictions()
+  
+  #Variable importance plot
+  final_tree %>% 
+    extract_fit_parsnip() %>% 
+    vip()
   
   #Predict with best hyperparameters over 100 random seeds to get model error
   
+  parallel::stopCluster(cl)
+  
+  return()
 }
-
-
-#Decide train/test split based on nestedness matrix
-# - Can be random within algorithm for now
-# p4_nested_gages
 
 #Test with and without WB model variables
 #slight improvement
@@ -197,3 +308,18 @@ train_models <- function(brf_output, ncores, ntrees){
 #                   holdout = FALSE,
 #                   importance = 'permutation',
 #                   num.trees = 500)
+
+# rf <- ranger(x = input_data %>%
+#                select(all_of(names_unique)) %>%
+#                as.data.frame(),
+#              y = input_data %>%
+#                pull({{metric_name}}),
+#              oob.error = TRUE,
+#              num.threads = ncores,
+#              write.forest = FALSE,
+#              replace = TRUE,
+#              sample.fraction = 1,
+#              holdout = FALSE,
+#              importance = 'permutation',
+#              num.trees = 500,
+#              verbose = FALSE)

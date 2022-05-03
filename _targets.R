@@ -12,7 +12,7 @@ tar_option_set(packages = c("fasstr", "EflowStats", "dataRetrieval",
                             "sf", "cowplot", "gridGraphics", "stringi",
                             "dendextend", "scico", "tidyverse", "nhdplusTools",
                             "sbtools", "maps", "mapproj", "ranger", "Boruta",
-                            "tidymodels", "doParallel"),
+                            "tidymodels", "doParallel", "vip"),
                imports = c("fasstr", "EflowStats", "dataRetrieval", 
                            "cluster","factoextra", "NbClust", "dendextend",
                            "tidyverse", "ranger", "Boruta", "tidymodels"))

@@ -153,6 +153,7 @@ screen_Boruta <- function(features, cluster_table, metrics_table, metric_name,
   ))
   
   #Create modeling dataset
+  #Make the class match the split object
   screened_input_data <- list(split = list(data = input_data_split$split$data %>% 
                                 select(COMID, GAGES_ID, all_of(names_unique), 
                                        {{metric_name}}),
@@ -192,9 +193,9 @@ train_models_grid <- function(brf_output, ncores){
                verbose = TRUE, importance = 'permutation', 
                probability = FALSE)
   
-  grid <- grid_regular(mtry(range = c(5L, 50L)), 
-                       min_n(range = c(2L, 20L)), 
-                       trees(range = c(500L, 5000L)), 
+  grid <- grid_regular(mtry(range = c(10L, 100L)), 
+                       min_n(range = c(2L, 10L)), 
+                       trees(range = c(500L, 2000L)), 
                        levels = 5)
   # grid <- grid_max_entropy(mtry(range = c(5L, 50L)), 
   #                          min_n(range = c(2L, 20L)), 
@@ -248,16 +249,15 @@ train_models_grid <- function(brf_output, ncores){
   
   #Get the best model
   grid_result %>%
-    show_best("rmse")
+    show_best("rsq", n = 20)
   
-  best_grid_result <- grid_result %>%
-    select_best("rmse")
+  best_grid_result <- select_best(grid_result, metric = "rsq")
   
-  final_wf <- wf %>% 
-    finalize_workflow(best_grid_result)
+  final_wf <- finalize_workflow(wf, best_grid_result)
   
-  final_fit <- final_wf %>%
-    last_fit(brf_output$input_data$split) 
+  #Fit to all training data with best hyperparameters
+  #test on testing dataset
+  final_fit <- last_fit(final_wf, split = brf_output$input_data$split) 
   
   final_fit %>%
     collect_metrics()

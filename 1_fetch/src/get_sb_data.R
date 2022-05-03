@@ -131,9 +131,16 @@ prep_feature_vars <- function(sb_var_data, sites, retain_vars) {
   #'@return data frame with COMID column appended by all feature variables of interest; 
   #'time-varying features converted to long-term averages where applicable
   
+  options(dplyr.summarise.inform = FALSE)
+  
   data <- sites %>%
     select(COMID, all_of(retain_vars)) %>%
     mutate(across(where(is.character), as.numeric))
+  
+  if("ID" %in% retain_vars) {
+    data <- rename(data, GAGES_ID = ID) %>%
+      mutate(GAGES_ID = as.character(GAGES_ID))
+  }
   
   #join all sciencebase data to single data frame with comids
   for (i in 1:length(sb_var_data)) {
@@ -186,6 +193,7 @@ prep_feature_vars <- function(sb_var_data, sites, retain_vars) {
     subset(!(COMID %in% comid_out_conus)) %>%
     group_by(COMID, unit, year, new_class) %>%
     mutate(lc_adj = (value / lc_sum) * 100) %>%
+    ungroup() %>%
     select(COMID, unit, new_class, lc_adj) %>%
     group_by(COMID, unit, new_class) %>%
     summarise(value = mean(lc_adj), .groups = "drop") %>%

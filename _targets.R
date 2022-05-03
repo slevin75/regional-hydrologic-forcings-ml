@@ -100,8 +100,8 @@ sb_var_ids_path <- "1_fetch/in/sb_var_ids.csv"
 ###gages2.1 ref site list - not sure how to get this right from sharepoint, so the
 ##filepath is currently to onedrive.
 #gagesii_path <- "C:/Users/jsmith/OneDrive - DOI/Shared Documents - FHWA/General/Data/Gages2.1_RefSiteList.xlsx"
-gagesii_path <- "C:/Users/slevin/OneDrive - DOI/FWA_bridgeScour/Data/Gages2.1_RefSiteList.xlsx"
-#gagesii_path <- "Gages2.1_RefSiteList.xlsx"
+#gagesii_path <- "C:/Users/slevin/OneDrive - DOI/FWA_bridgeScour/Data/Gages2.1_RefSiteList.xlsx"
+gagesii_path <- "Gages2.1_RefSiteList.xlsx"
 
 #Drop the following gages from the dataset because they are not representative
 #pipeline, ditch, etc.
@@ -321,7 +321,7 @@ list(
   tar_target(p1_feature_vars_g2, 
              prep_feature_vars(sb_var_data = p1_sb_data_g2_csv, 
                                sites = p1_sites_g2, 
-                               retain_vars = c("LAT", "LON",
+                               retain_vars = c("ID", "LAT", "LON",
                                  "npdes", "fwwd", "strg", "devl", "cndp")), 
              deployment = "main"
              ),

@@ -25,6 +25,7 @@ dir.create('1_fetch/out/logs', showWarnings = FALSE)
 dir.create('1_fetch/out/sb', showWarnings = FALSE)
 dir.create('1_fetch/out/sb/workdir', showWarnings = FALSE)
 dir.create('1_fetch/out/sb/dldir', showWarnings = FALSE)
+dir.create('1_fetch/out/sb/data', showWarnings = FALSE)
 dir.create('3_cluster/out', showWarnings = FALSE)
 dir.create('3_cluster/out/seasonal_plots', showWarnings = FALSE)
 dir.create('3_cluster/out/seasonal_plots/barplots', showWarnings = FALSE)
@@ -93,12 +94,8 @@ increment <- 1
 min_yrs_in_window<- 15  ##minimum number of years of data required within a window
 min_windows <- 10  ##Must have this many windows available in order to plot 
 
-#this is the top level Science Base ID of Mike's database
-sb_parent_id <- '5669a79ee4b08895842a1d47'
-
-#pre-defined variable list to reduce SB pull
-sb_var_list_path <- "1_fetch/in/FHWA-NHDVariableList.xlsx"
-sb_var_sheet <- "FY22-FHWA"
+# list of science base identifiers containing feature variables of interest
+sb_var_ids_path <- "1_fetch/in/sb_var_ids.csv"
 
 ###gages2.1 ref site list - not sure how to get this right from sharepoint, so the
 ##filepath is currently to onedrive.
@@ -286,70 +283,48 @@ list(
              format = "file"
   ),
   
-  ##generate table of data to download from sciencebase
-  tar_target(p1_sb_table_full_csv,
-             make_dl_table(sb_parent_id = sb_parent_id, 
-                           outdir = "./1_fetch/out/sb"),
-             deployment = 'main',
-             format = "file"
-             ),
-  
-  #file target for sciencebase variable list excel sheet
-  tar_target(p1_sb_var_list_xlsx,
-             sb_var_list_path,
+  #file target for sciencebase variable list csv
+  tar_target(p1_sb_var_ids_csv,
+             sb_var_ids_path,
              deployment = 'main',
              format = "file"
   ),
-  #read in sciencebase variable list excel sheet
-  tar_target(p1_sb_var_list,
-             read_xlsx(path = p1_sb_var_list_xlsx, sheet = sb_var_sheet),
+  #read in sciencebase variable list csv
+  tar_target(p1_sb_var_ids,
+             read_csv(file = p1_sb_var_ids_csv, show_col_types = FALSE),
              deployment = 'main'
   ),
   
-  ##reduce list to watershed attributes of interest
-  tar_target(p1_sb_table_reduced_csv, 
-             reduce_sb_table(sb_table_full = p1_sb_table_full_csv, 
-                             sb_var_list = p1_sb_var_list,
-                             outdir = "./1_fetch/out/sb"), 
-             deployment = 'main', 
-             format = "file"
-             ),
-  
-  ##generate table of landscape data for gagesii list  
+  ##generate tables of feature variables from gagesii list  
   tar_target(p1_sb_data_g2_csv,
-             download_children(sites = p1_sites_g2, 
-                               sb_table_reduced = p1_sb_table_reduced_csv,
-                               dldir = "./1_fetch/out/sb/dldir", 
-                               workdir = "./1_fetch/out/sb/workdir",
-                               outdir = "./1_fetch/out/sb",
-                               out_file_name = "sb_data_g2.csv"),
+             get_sb_data(sites = p1_sites_g2, 
+                         sb_var_ids = p1_sb_var_ids,
+                         dldir = "./1_fetch/out/sb/dldir", 
+                         workdir = "./1_fetch/out/sb/workdir",
+                         outdir = "./1_fetch/out/sb/data",
+                         out_file_name = "sb_data_g2_"),
+             map(p1_sb_var_ids),
+             iteration = "list",
              deployment = 'main',
              format = "file"
              ),
-
-  ##convert decadal dam data by to long-term average dam data
-  tar_target(p1_avg_dams_g2, 
-             {file_ind <- grep(p1_sb_data_g2_csv, pattern = "FAILS", invert = TRUE)
-             calc_avg_dams(sb_data = p1_sb_data_g2_csv[file_ind])
-             }, 
-             deployment = 'main'
+  
+  ##generate log file to track updates to sb variables
+  tar_target(p1_sb_data_g2_log,
+             get_sb_data_log(sb_var_ids = p1_sb_var_ids,
+                             file_out = "1_fetch/out/logs/sb_update_log.csv"),
+             deployment = "main",
+             format = "file"
              ),
-    
-  ##convert monthly weather data by year to average monthly weather
-  tar_target(p1_monthly_weather_g2, 
-             {file_ind <- grep(p1_sb_data_g2_csv, pattern = "FAILS", invert = TRUE)
-               calc_avg_monthly_weather(sb_data = p1_sb_data_g2_csv[file_ind])
-             }, 
-             deployment = 'main', 
+  
+  ##merge and select feature variables from gagesii list
+  tar_target(p1_feature_vars_g2, 
+             prep_feature_vars(sb_var_data = p1_sb_data_g2_csv, 
+                               sites = p1_sites_g2, 
+                               retain_vars = c("LAT", "LON",
+                                 "npdes", "fwwd", "strg", "devl", "cndp")), 
+             deployment = "main"
              ),
-
-  ##convert annual wildfire data to long-term average wildfire
-  tar_target(p1_avg_wildfire_g2, 
-             {file_ind <- grep(p1_sb_data_g2_csv, pattern = "FAILS", invert = TRUE)
-             calc_avg_wildfire(sb_data = p1_sb_data_g2_csv[file_ind])
-             }, 
-             deployment = 'main', 
-  ),
   
   ##get flood threshold from NWIS for eflowstats
   #this is deployed on main to avoid overloading the NWIS server with download requests

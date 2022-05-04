@@ -23,8 +23,8 @@ sciencebase_id,name
 5704052ae4b0328dcb827bc7,"Mean Julian Day of the Year of First Freeze, from 30 Years of Record (1961-1990)"
 57040a6ce4b0328dcb828378,"Mean Day of the Year of Last Freeze, from 30 Years of Record (1961-1990)"
 5734acafe4b0dae0d5de622d,Monthly Average Precipitation (millimeters) from 1945 - 2015 (Catchment Values)
-5730f062e4b0dae0d5db1fbe,Monthly Average Precipitation (millimeters) from 1945 - 2015 (Total Upstream Accumulation)
-573362bce4b0dae0d5dd6193,Monthly Average Precipitation (millimeters) from 1945 - 2015 (Divergence-Routed Accumulation)
+573362bce4b0dae0d5dd6193,Monthly Average Precipitation (millimeters) from 1945 - 2015 (Total Upstream Accumulation)
+5730f062e4b0dae0d5db1fbe,Monthly Average Precipitation (millimeters) from 1945 - 2015 (Divergence-Routed Accumulation)
 57040af4e4b0328dcb82842b,30 Year Average (1961-1990) of Maximum Monthly Precipitation in Millimeters
 572a23c4e4b0b13d391a0142,30 Year Average (1961-1990) of Minimum Monthly Precipitation in mm
 573b5497e4b0dae0d5e3ada1,PRISM 30 Year (1961-1990) Annual Average Number of Days of Measurable Precipitation

@@ -1007,30 +1007,30 @@ list(
              deployment = 'main',
              format = 'file'
   ),
-  tar_target(p6_Boruta_snow_png,
-             plot_Boruta(p6_Boruta_snow$brf_All,
-                         metric = p6_Boruta_snow$metric,
-                         region = 'snow',
-                         out_dir = '6_predict/out/Boruta'),
-             deployment = 'main',
-             format = 'file'
-  ),
-  tar_target(p6_Boruta_rain_snow_png,
-             plot_Boruta(p6_Boruta_rain_snow$brf_All,
-                         metric = p6_Boruta_rain_snow$metric,
-                         region = 'rain_snow',
-                         out_dir = '6_predict/out/Boruta'),
-             deployment = 'main',
-             format = 'file'
-  ),
-  tar_target(p6_Boruta_CONUS_g2_png,
-             plot_Boruta(p6_Boruta_CONUS_g2$brf_All,
-                         metric = p6_Boruta_CONUS_g2$metric,
-                         region = 'CONUS_g2',
-                         out_dir = '6_predict/out/Boruta'),
-             deployment = 'main',
-             format = 'file'
-  ),
+  # tar_target(p6_Boruta_snow_png,
+  #            plot_Boruta(p6_Boruta_snow$brf_All,
+  #                        metric = p6_Boruta_snow$metric,
+  #                        region = 'snow',
+  #                        out_dir = '6_predict/out/Boruta'),
+  #            deployment = 'main',
+  #            format = 'file'
+  # ),
+  # tar_target(p6_Boruta_rain_snow_png,
+  #            plot_Boruta(p6_Boruta_rain_snow$brf_All,
+  #                        metric = p6_Boruta_rain_snow$metric,
+  #                        region = 'rain_snow',
+  #                        out_dir = '6_predict/out/Boruta'),
+  #            deployment = 'main',
+  #            format = 'file'
+  # ),
+  # tar_target(p6_Boruta_CONUS_g2_png,
+  #            plot_Boruta(p6_Boruta_CONUS_g2$brf_All,
+  #                        metric = p6_Boruta_CONUS_g2$metric,
+  #                        region = 'CONUS_g2',
+  #                        out_dir = '6_predict/out/Boruta'),
+  #            deployment = 'main',
+  #            format = 'file'
+  # ),
   
   # RF variable importance plot 
   #Should add error bars over X random seeds
@@ -1043,33 +1043,33 @@ list(
              deployment = 'main',
              format = 'file'
   ),
-  tar_target(p6_vip_snow_png,
-             plot_vip(p6_train_RF_snow$best_fit,
-                      metric = p6_Boruta_snow$metric,
-                      region = 'snow',
-                      num_features = 20,
-                      out_dir = '6_predict/out/vip'),
-             deployment = 'main',
-             format = 'file'
-  ),
-  tar_target(p6_vip_rain_snow_png,
-             plot_vip(p6_train_RF_rain_snow$best_fit,
-                      metric = p6_Boruta_rain_snow$metric,
-                      region = 'rain_snow',
-                      num_features = 20,
-                      out_dir = '6_predict/out/vip'),
-             deployment = 'main',
-             format = 'file'
-  ),
-  tar_target(p6_vip_CONUS_g2_png,
-             plot_vip(p6_train_RF_CONUS_g2$best_fit,
-                      metric = p6_Boruta_CONUS_g2$metric,
-                      region = 'CONUS_g2',
-                      num_features = 20,
-                      out_dir = '6_predict/out/vip'),
-             deployment = 'main',
-             format = 'file'
-  ),
+  # tar_target(p6_vip_snow_png,
+  #            plot_vip(p6_train_RF_snow$best_fit,
+  #                     metric = p6_Boruta_snow$metric,
+  #                     region = 'snow',
+  #                     num_features = 20,
+  #                     out_dir = '6_predict/out/vip'),
+  #            deployment = 'main',
+  #            format = 'file'
+  # ),
+  # tar_target(p6_vip_rain_snow_png,
+  #            plot_vip(p6_train_RF_rain_snow$best_fit,
+  #                     metric = p6_Boruta_rain_snow$metric,
+  #                     region = 'rain_snow',
+  #                     num_features = 20,
+  #                     out_dir = '6_predict/out/vip'),
+  #            deployment = 'main',
+  #            format = 'file'
+  # ),
+  # tar_target(p6_vip_CONUS_g2_png,
+  #            plot_vip(p6_train_RF_CONUS_g2$best_fit,
+  #                     metric = p6_Boruta_CONUS_g2$metric,
+  #                     region = 'CONUS_g2',
+  #                     num_features = 20,
+  #                     out_dir = '6_predict/out/vip'),
+  #            deployment = 'main',
+  #            format = 'file'
+  # ),
   
   # RF hyperparameter optimization
   tar_target(p6_hypopt_rain_png,
@@ -1079,31 +1079,31 @@ list(
                       out_dir = '6_predict/out/hypopt'),
              deployment = 'main',
              format = 'file'
-  ),
-  tar_target(p6_hypopt_snow_png,
-             plot_hyperparam_opt_results_RF(p6_train_RF_snow$grid_params,
-                      metric = p6_Boruta_snow$metric,
-                      region = 'snow',
-                      out_dir = '6_predict/out/hypopt'),
-             deployment = 'main',
-             format = 'file'
-  ),
-  tar_target(p6_hypopt_rain_snow_png,
-             plot_hyperparam_opt_results_RF(p6_train_RF_rain_snow$grid_params,
-                      metric = p6_Boruta_rain_snow$metric,
-                      region = 'rain_snow',
-                      out_dir = '6_predict/out/hypopt'),
-             deployment = 'main',
-             format = 'file'
-  ),
-  tar_target(p6_hypopt_CONUS_g2_png,
-             plot_hyperparam_opt_results_RF(p6_train_RF_CONUS_g2$grid_params,
-                      metric = p6_Boruta_CONUS_g2$metric,
-                      region = 'CONUS_g2',
-                      out_dir = '6_predict/out/hypopt'),
-             deployment = 'main',
-             format = 'file'
-  ), 
+  )
+  # tar_target(p6_hypopt_snow_png,
+  #            plot_hyperparam_opt_results_RF(p6_train_RF_snow$grid_params,
+  #                     metric = p6_Boruta_snow$metric,
+  #                     region = 'snow',
+  #                     out_dir = '6_predict/out/hypopt'),
+  #            deployment = 'main',
+  #            format = 'file'
+  # ),
+  # tar_target(p6_hypopt_rain_snow_png,
+  #            plot_hyperparam_opt_results_RF(p6_train_RF_rain_snow$grid_params,
+  #                     metric = p6_Boruta_rain_snow$metric,
+  #                     region = 'rain_snow',
+  #                     out_dir = '6_predict/out/hypopt'),
+  #            deployment = 'main',
+  #            format = 'file'
+  # ),
+  # tar_target(p6_hypopt_CONUS_g2_png,
+  #            plot_hyperparam_opt_results_RF(p6_train_RF_CONUS_g2$grid_params,
+  #                     metric = p6_Boruta_CONUS_g2$metric,
+  #                     region = 'CONUS_g2',
+  #                     out_dir = '6_predict/out/hypopt'),
+  #            deployment = 'main',
+  #            format = 'file'
+  # ), 
    
   # RF residual vs. y 
   #Should be for the mean over X random seeds
@@ -1119,13 +1119,13 @@ list(
   
   
   # Model RMSE comparison boxplots / barplots
-  tar_target(p6_compare_RMSE_RF_png,
-             barplot_compare_RF(p6_train_RF_rain, p6_train_RF_snow, 
-                           p6_train_RF_rain_snow, p6_train_RF_CONUS_g2,
-                           metric = p6_Boruta_rain$metric,
-                           out_dir = '6_predict/out/'),
-             deployment = 'main',
-             format = 'file'
-  )
+  # tar_target(p6_compare_RMSE_RF_png,
+  #            barplot_compare_RF(p6_train_RF_rain, p6_train_RF_snow, 
+  #                          p6_train_RF_rain_snow, p6_train_RF_CONUS_g2,
+  #                          metric = p6_Boruta_rain$metric,
+  #                          out_dir = '6_predict/out/'),
+  #            deployment = 'main',
+  #            format = 'file'
+  # )
   
 ) #end list

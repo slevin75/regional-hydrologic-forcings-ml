@@ -135,7 +135,7 @@ prep_feature_vars <- function(sb_var_data, sites, retain_vars) {
   
   data <- sites %>%
     select(COMID, all_of(retain_vars)) %>%
-    mutate(across(where(is.character), as.numeric))
+    mutate(across(where(is.character)  & !starts_with('ID'), as.numeric))
   
   if("ID" %in% retain_vars) {
     data <- rename(data, GAGES_ID = ID) %>%

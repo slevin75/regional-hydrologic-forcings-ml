@@ -42,6 +42,8 @@ dir.create('3_cluster/out/seasonal_plots/maps/by_agg_quantiles', showWarnings = 
 dir.create('5_EDA/out/metrics_plots', showWarnings = FALSE)
 dir.create('6_predict/out', showWarnings = FALSE)
 dir.create('6_predict/out/Boruta', showWarnings = FALSE)
+dir.create('6_predict/out/vip', showWarnings = FALSE)
+dir.create('6_predict/out/hypopt', showWarnings = FALSE)
 
 ##Load user defined functions
 source("1_fetch/src/get_nwis_data.R")
@@ -119,11 +121,13 @@ nav_distance_km <- 4500
 
 #Random Forest Parameters
 #maximum number of runs for Boruta feature screening algorithm
-Boruta_runs <- 200
+Boruta_runs <- 300
 #number of trees
 Boruta_trees <- 500
 #number of cores
-Boruta_cores <- 20
+Boruta_cores <- 35
+#Cross validation folds
+cv_folds <- 5
 
 
 ##targets
@@ -316,7 +320,7 @@ list(
   tar_target(p1_feature_vars_g2, 
              prep_feature_vars(sb_var_data = p1_sb_data_g2_csv, 
                                sites = p1_sites_g2, 
-                               retain_vars = c("LAT", "LON",
+                               retain_vars = c("ID", "LAT", "LON",
                                  "npdes", "fwwd", "strg", "devl", "cndp")), 
              deployment = "main"
   ),
@@ -813,24 +817,11 @@ list(
   ),
   
   #Down select features from full database
-  #Dropping catchment soil groups because they have NAs
-  #Dropping one of the pair of perfectly correlated attributes
-  #Dropping some highly correlated attributes (> 0.9)
   tar_target(p5_screen_attr_g2,
-             {file_ind <- grep(p1_sb_data_g2_csv, pattern = "FAILS", invert = TRUE)
-             refine_features(nhdv2_attr_path = p1_sb_data_g2_csv[file_ind], 
-                             drop_columns = c('NO10AVE', 'NO200AVE', 'NO4AVE', 'WRSE', 'IMPV',
-                                              "ID.y", 'S1100', 'S1200', 'S1400', 'S1500', 
-                                              'S1630', 'S1640', 'S1710', 'S1720', 'S1730', 
-                                              'S1740', 'S1750', 'S1780', 'S1820', 'S1830', 
-                                              'SOHL', 'NDAMS', 'NID', 'NORM', 'MAJOR', 'NLCD', 
-                                              'ESTUARY', 'WILDFIRE', 'CNPY', 'RUN7100', '_PPT_', 
-                                              '_TAV_', 'STANAME', 'LAT', 'LON', 
-                                              'GRP', 'COMID.DUP', 'eco3', 'ecos3.NA', 'AggEco',
-                                              '...892', '...908', 'wy', 
-                                              #Not useful - percent area covered by any physio region
-                                              'PHYSIO_AREA',
-                                              # using TOT because CAT is highly correlated
+             refine_features(nhdv2_attr = p1_feature_vars_g2, 
+                             drop_columns = c('NO10AVE', 'NO200AVE', 'NO4AVE',
+                                              'LAT', 'LON',
+                                              # using ACC because CAT is highly correlated
                                               'CAT_PHYSIO',
                                               #CAT soils have NAs. Using TOT instead
                                               "CAT_HGA", "CAT_HGAC", "CAT_HGAD", "CAT_HGB", 
@@ -840,25 +831,30 @@ list(
                                               "RFACT",
                                               #Keeping shallow and deep soil info. Dropping middle 2.
                                               "SRL35AG", "SRL45AG",
-                                              #Min elevation nearly identical for TOT and CAT
+                                              #Min elevation nearly identical for ACC and CAT
                                               "CAT_ELEV_MIN",
-                                              #Canal ditch cndp better than TOT_CANALDITCH
-                                              "TOT_CANALDITCH",
+                                              #Canal ditch cndp better than ACC_CANALDITCH (no 0s)
+                                              "TOT_CANALDITCH", "ACC_CANALDITCH",
+                                              #storage available everywhere with NID and NORM STORAGE
+                                              "strg",
+                                              #CAT storage almost same for NID and NORM
+                                              "CAT_NORM_STORAGE",
                                               #ACC and TOT correlations strange:
-                                              'ACC_STRM_DENS', 
-                                              #CAT hydrologic attributes very correlated with TOT
-                                              'CAT_CWD', 'CAT_BFI', 'CAT_RF7100', 'CAT_SATOF')) %>%
-               rename(GAGES_ID = ID.x) %>%
-               # add averages
-               left_join(p1_avg_wildfire_g2, by = 'COMID') %>%
-               left_join(p1_monthly_weather_g2, by = 'COMID')
-             },
+                                              'TOT_STRM_DENS', 
+                                              #CAT hydrologic attributes very correlated with ACC
+                                              'CAT_CWD', 'CAT_BFI', 'CAT_RF7100', 'CAT_SATOF', 
+                                              'CAT_RH', 'CAT_WDANN', 'CAT_ET', 'CAT_PET', 'CAT_MINP6190', 
+                                              'CAT_MAXP6190', 'CAT_FSTFZ6190', 'CAT_LSTFZ6190', 
+                                              #5 odd TOT waterbody variables - using ACC instead
+                                              'TOT_PLAYA', 'TOT_ICEMASS', 'TOT_LAKEPOND', 
+                                              'TOT_RESERVOIR', 'TOT_SWAMPMARSH')),
              deployment = 'main'
   ),
-  # remove ACC variables that are highly correlated with other variables (> 0.9)
+  # remove TOT variables that are highly correlated with other variables (> 0.9)
   tar_target(p5_attr_g2,
-             drop_high_corr_ACC(features = p5_screen_attr_g2, 
-                                threshold_corr = 0.9),
+             drop_high_corr_ACCTOT(features = p5_screen_attr_g2, 
+                                   threshold_corr = 0.9,
+                                   drop_var = 'TOT'),
              deployment = 'main'
   ),
   
@@ -868,8 +864,6 @@ list(
   #values can have different correlations in a region
   # Rain dominated region
   #Boruta screening
-  # This should be applied to only the training data. Currently applied to all
-  #  gages in the model region.
   # Not using the target map argument for now so that we get only the vhfdc1_q0.9 metric
   tar_target(p6_Boruta_rain,
              screen_Boruta(features = p5_attr_g2,
@@ -890,13 +884,13 @@ list(
   #RF train
   tar_target(p6_train_RF_rain,
              train_models_grid(brf_output = p6_Boruta_rain,
-                               ncores = Boruta_cores
+                               ncores = Boruta_cores,
+                               v_folds = cv_folds
              ),
              #map(p6_Boruta_rain),
              deployment = 'worker'
   ),
   #Test rain-dominated flood model in snow-dominated region
-  #   holdout = TRUE? test set based variable importance.
   #tar_target(p6_test_RF_rain_snow,
   #           test_model(features = p5_attr_g2,
   #                      cluster_table = p3_gages_clusters_quants_agg_selected %>%
@@ -909,32 +903,210 @@ list(
   #           deployment = 'main'
   #),
   # Snow dominated region
+  # Boruta screening
+  #tar_target(p6_Boruta_snow,
+  #            screen_Boruta(features = p5_attr_g2,
+  #                         cluster_table = p3_gages_clusters_quants_agg_selected %>%
+  #                           select(ID, contains('_k5')) %>%
+  #                           rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
+  #                                  high = '0.75,0.8,0.85,0.9,0.95_k5'),
+  #                         metrics_table = p2_all_metrics_predict,
+  #                         metric_name = 'vhfdc1_q0.9',
+  #                         train_region = 'snow',
+  #                         ncores = Boruta_cores, 
+  #                         brf_runs = Boruta_runs, 
+  #                         ntrees = Boruta_trees
+  #           ),
+  #           #map(p2_all_metrics_names_predict),
+  #           deployment = 'worker'
+  #),
+  #RF train
   #tar_target(p6_train_RF_snow,
+  #           train_models_grid(brf_output = p6_Boruta_snow,
+  #                             ncores = Boruta_cores
+  #           ),
+  #           #map(p6_Boruta_snow),
+  #           deployment = 'worker'
   #),
   # Test on rain
   #tar_target(p6_test_RF_snow_rain,
   #),
-  # All data in both regions OOB error
+  # All data in both regions
+  # Boruta screening
+  #tar_target(p6_Boruta_rain_snow,
+  #            screen_Boruta(features = p5_attr_g2,
+  #                         cluster_table = p3_gages_clusters_quants_agg_selected %>%
+  #                           select(ID, contains('_k5')) %>%
+  #                           rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
+  #                                  high = '0.75,0.8,0.85,0.9,0.95_k5'),
+  #                         metrics_table = p2_all_metrics_predict,
+  #                         metric_name = 'vhfdc1_q0.9',
+  #                         train_region = c('rain', 'snow'),
+  #                         ncores = Boruta_cores, 
+  #                         brf_runs = Boruta_runs, 
+  #                         ntrees = Boruta_trees
+  #           ),
+  #           #map(p2_all_metrics_names_predict),
+  #           deployment = 'worker'
+  #),
+  #RF train
   #tar_target(p6_train_RF_rain_snow,
+  #           train_models_grid(brf_output = p6_Boruta_rain_snow,
+  #                             ncores = Boruta_cores
+  #           ),
+  #           #map(p6_Boruta_rain_snow),
+  #           deployment = 'worker'
+  #),
+  # Test on rain
+  #tar_target(p6_test_RF_rain_snow_rain,
+  #),
+  # Test on snow
+  #tar_target(p6_test_RF_rain_snow_snow,
   #),
   # All data CONUS OOB error
+  # Boruta screening
+  #tar_target(p6_Boruta_CONUS_g2,
+  #            screen_Boruta(features = p5_attr_g2,
+  #                         cluster_table = p3_gages_clusters_quants_agg_selected %>%
+  #                           select(ID, contains('_k5')) %>%
+  #                           rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
+  #                                  high = '0.75,0.8,0.85,0.9,0.95_k5'),
+  #                         metrics_table = p2_all_metrics_predict,
+  #                         metric_name = 'vhfdc1_q0.9',
+  #                         train_region = 'all',
+  #                         ncores = Boruta_cores, 
+  #                         brf_runs = Boruta_runs, 
+  #                         ntrees = Boruta_trees
+  #           ),
+  #           #map(p2_all_metrics_names_predict),
+  #           deployment = 'worker'
+  #),
+  #RF train
   #tar_target(p6_train_RF_CONUS_g2,
+  #           train_models_grid(brf_output = p6_Boruta_CONUS_g2,
+  #                             ncores = Boruta_cores
+  #           ),
+  #           #map(p6_Boruta_CONUS_g2),
+  #           deployment = 'worker'
+  #),
+  # Test on rain
+  #tar_target(p6_test_RF_CONUS_g2_rain,
+  #),
+  # Test on snow
+  #tar_target(p6_test_RF_CONUS_g2_snow,
   #),
   
-  # Visualize predictions:
+  # Visualize Model Diagnostics:
   
   # Boruta screening
   tar_target(p6_Boruta_rain_png,
              plot_Boruta(p6_Boruta_rain$brf_All,
                          metric = p6_Boruta_rain$metric,
+                         region = 'rain',
                          out_dir = '6_predict/out/Boruta'),
              deployment = 'main',
              format = 'file'
-  )
+  ),
+  tar_target(p6_Boruta_snow_png,
+             plot_Boruta(p6_Boruta_snow$brf_All,
+                         metric = p6_Boruta_snow$metric,
+                         region = 'snow',
+                         out_dir = '6_predict/out/Boruta'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_Boruta_rain_snow_png,
+             plot_Boruta(p6_Boruta_rain_snow$brf_All,
+                         metric = p6_Boruta_rain_snow$metric,
+                         region = 'rain_snow',
+                         out_dir = '6_predict/out/Boruta'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_Boruta_CONUS_g2_png,
+             plot_Boruta(p6_Boruta_CONUS_g2$brf_All,
+                         metric = p6_Boruta_CONUS_g2$metric,
+                         region = 'CONUS_g2',
+                         out_dir = '6_predict/out/Boruta'),
+             deployment = 'main',
+             format = 'file'
+  ),
   
-  # RF variable importance plot (mean + error bars over X random seeds)
+  # RF variable importance plot 
+  #Should add error bars over X random seeds
+  tar_target(p6_vip_rain_png,
+             plot_vip(p6_train_RF_rain$best_fit,
+                      metric = p6_Boruta_rain$metric,
+                      region = 'rain',
+                      num_features = 20,
+                      out_dir = '6_predict/out/vip'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_vip_snow_png,
+             plot_vip(p6_train_RF_snow$best_fit,
+                      metric = p6_Boruta_snow$metric,
+                      region = 'snow',
+                      num_features = 20,
+                      out_dir = '6_predict/out/vip'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_vip_rain_snow_png,
+             plot_vip(p6_train_RF_rain_snow$best_fit,
+                      metric = p6_Boruta_rain_snow$metric,
+                      region = 'rain_snow',
+                      num_features = 20,
+                      out_dir = '6_predict/out/vip'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_vip_CONUS_g2_png,
+             plot_vip(p6_train_RF_CONUS_g2$best_fit,
+                      metric = p6_Boruta_CONUS_g2$metric,
+                      region = 'CONUS_g2',
+                      num_features = 20,
+                      out_dir = '6_predict/out/vip'),
+             deployment = 'main',
+             format = 'file'
+  ),
   
-  # RF residual vs. y (mean over X random seeds)
+  # RF hyperparameter optimization
+  tar_target(p6_hypopt_rain_png,
+             plot_hyperparam_opt_results_RF(p6_train_RF_rain$grid_params,
+                      metric = p6_Boruta_rain$metric,
+                      region = 'rain',
+                      out_dir = '6_predict/out/hypopt'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_hypopt_snow_png,
+             plot_hyperparam_opt_results_RF(p6_train_RF_snow$grid_params,
+                      metric = p6_Boruta_snow$metric,
+                      region = 'snow',
+                      out_dir = '6_predict/out/hypopt'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_hypopt_rain_snow_png,
+             plot_hyperparam_opt_results_RF(p6_train_RF_rain_snow$grid_params,
+                      metric = p6_Boruta_rain_snow$metric,
+                      region = 'rain_snow',
+                      out_dir = '6_predict/out/hypopt'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_hypopt_CONUS_g2_png,
+             plot_hyperparam_opt_results_RF(p6_train_RF_CONUS_g2$grid_params,
+                      metric = p6_Boruta_CONUS_g2$metric,
+                      region = 'CONUS_g2',
+                      out_dir = '6_predict/out/hypopt'),
+             deployment = 'main',
+             format = 'file'
+  ), 
+   
+  # RF residual vs. y 
+  #Should be for the mean over X random seeds
   #May want to do some oversampling in extreme tails
   # plot(x = input_data %>% 
   #        filter(region == 'rain') %>% 
@@ -943,5 +1115,17 @@ list(
   #                                         pull({{metric_name}})))
   
   # Spatial residuals
+  #Should be for the mean over X random seeds
+  
+  
+  # Model RMSE comparison boxplots / barplots
+  tar_target(p6_compare_RMSE_RF_png,
+             barplot_compare_RF(p6_train_RF_rain, p6_train_RF_snow, 
+                           p6_train_RF_rain_snow, p6_train_RF_CONUS_g2,
+                           metric = p6_Boruta_rain$metric,
+                           out_dir = '6_predict/out/'),
+             deployment = 'main',
+             format = 'file'
+  )
   
 ) #end list

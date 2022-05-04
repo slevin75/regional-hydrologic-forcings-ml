@@ -100,9 +100,9 @@ screen_Boruta <- function(features, cluster_table, metrics_table, metric_name,
   #Apply Boruta to down-select features
   #This is parallelized by default
   #Noticed that there were switches when applied 2 times, probably due to correlation
-  #applying once to CAT+ACC+dev only, then TOT+ACC+dev only
-  brf_noTOT <- Boruta(x = input_data_split$training %>% 
-                        select(-COMID, -GAGES_ID, -{{metric_name}}, -starts_with('TOT_')) %>%
+  #applying once to CAT+dev only, then ACC+dev only
+  brf_noACC <- Boruta(x = input_data_split$training %>% 
+                        select(-COMID, -GAGES_ID, -{{metric_name}}, -starts_with('ACC_')) %>%
                         as.data.frame(),
                       y = input_data_split$training %>% 
                         pull({{metric_name}}),
@@ -148,37 +148,35 @@ screen_Boruta <- function(features, cluster_table, metrics_table, metric_name,
   
   #Select all features that were not rejected over these 3 screenings
   names_unique = unique(c(names(brf_All$finalDecision[brf_All$finalDecision != 'Rejected']),
-                          names(brf_noTOT$finalDecision[brf_noTOT$finalDecision != 'Rejected']),
+                          names(brf_noACC$finalDecision[brf_noACC$finalDecision != 'Rejected']),
                           names(brf_noCAT$finalDecision[brf_noCAT$finalDecision != 'Rejected'])
   ))
   
   #Create modeling dataset
   #Make the class match the split object
-  screened_input_data <- list(split = list(data = input_data_split$split$data %>% 
-                                select(COMID, GAGES_ID, all_of(names_unique), 
-                                       {{metric_name}}),
-                                in_id = input_data_split$split$in_id,
-                                out_id = input_data_split$split$out_id,
-                                id = input_data_split$split$id),
-                              
+  screened_input_data <- list(split = input_data_split$split,
                               training = input_data_split$training %>% 
                                 select(COMID, GAGES_ID, all_of(names_unique), 
                                        {{metric_name}}),
-                              
                               testing = input_data_split$testing %>% 
                                 select(COMID, GAGES_ID, all_of(names_unique), 
                                        {{metric_name}}))
+  #correcting the split table separately so that the class of the split object
+  #is correct.
+  screened_input_data$split$data <- screened_input_data$split$data %>% 
+    select(COMID, GAGES_ID, all_of(names_unique), {{metric_name}})
   
   # metric name, all 3 brf models and the input dataset (IDs, features, metric)
-  return(list(metric = metric_name, brf_noCAT = brf_noCAT, brf_noTOT = brf_noTOT, 
+  return(list(metric = metric_name, brf_noCAT = brf_noCAT, brf_noACC = brf_noACC, 
               brf_All = brf_All, input_data = screened_input_data))
 }
 
-train_models_grid <- function(brf_output, ncores){
+train_models_grid <- function(brf_output, v_folds, ncores){
   #' 
   #' @description optimizes hyperparameters using a grid search
   #'
   #' @param brf_output output of the screen_Boruta function
+  #' @param v_folds number of cross validation folds to use
   #' @param ncores number of cores to use
   #' 
   #' @value Returns...
@@ -190,22 +188,21 @@ train_models_grid <- function(brf_output, ncores){
                            min_n = tune(), 
                            trees = tune()) %>% 
     set_engine(engine = "ranger", 
-               verbose = TRUE, importance = 'permutation', 
+               verbose = FALSE, importance = 'permutation', 
                probability = FALSE)
   
-  grid <- grid_regular(mtry(range = c(10L, 100L)), 
-                       min_n(range = c(2L, 10L)), 
-                       trees(range = c(500L, 2000L)), 
-                       levels = 5)
-  # grid <- grid_max_entropy(mtry(range = c(5L, 50L)), 
-  #                          min_n(range = c(2L, 20L)), 
-  #                          trees(range = c(500L, 5000L)),
-  #                          size = 100, 
-  #                          iter = 1000)
+  #Set parameter ranges
+  params <- parameters(list(mtry = mtry() %>% range_set(c(10,100)), 
+                            min_n = min_n() %>% range_set(c(2,10)),
+                            trees = trees() %>% range_set(c(500,2000))))
+  
+  #Space filled grid to search
+  grid <- grid_max_entropy(params,
+                           size = 100,
+                           iter = 1000)
   
   #number of cross validation folds (v)
-  #Datasets are fairly small, so using 5 for now
-  cv_folds <- vfold_cv(data = brf_output$input_data$training, v = 5)
+  cv_folds <- vfold_cv(data = brf_output$input_data$training, v = v_folds)
   
   #specify workflow to tune the grid
   wf <- workflow() %>%
@@ -224,7 +221,7 @@ train_models_grid <- function(brf_output, ncores){
                            grid = grid, 
                            metrics = metric_set(rmse, mae, rsq),
                            control = control_grid(
-                             verbose = TRUE,
+                             verbose = FALSE,
                              allow_par = TRUE,
                              extract = NULL,
                              save_pred = FALSE,
@@ -232,49 +229,49 @@ train_models_grid <- function(brf_output, ncores){
                              save_workflow = FALSE,
                              event_level = "first",
                              parallel_over = "everything"
-                           ))
-  
-  #plot the results 
-  # add symbols for number of trees
-  # add flow metric name from brf_output$metric
-  grid_result %>% 
-    collect_metrics() %>%
-    mutate(mtry = factor(mtry)) %>%
-    ggplot(aes(min_n, mean, color = mtry)) +
-    geom_line(size = 1.5, alpha = 0.6) +
-    geom_point(size = 2) +
-    facet_wrap(~ .metric, scales = "free", nrow = 2) +
-    scale_x_log10(labels = scales::label_number()) +
-    scale_color_viridis_d(option = "plasma", begin = .9, end = 0)
-  
-  #Get the best model
-  grid_result %>%
-    show_best("rsq", n = 20)
-  
-  best_grid_result <- select_best(grid_result, metric = "rsq")
+                           )
+  )
+  #refine hyperparameters with a Bayesian optimizaton
+  # Seems to be an error in the tune_Bayes function when initial is a previous
+  # model run (extremely slow to get to step of generating candidates, and also
+  # slow on that step). So, not using this method for now.
+  # Bayes_result <- tune_bayes(wf,
+  #                            resamples = cv_folds,
+  #                            iter = 100,
+  #                            metrics = metric_set(rmse, mae, rsq),
+  #                            initial = grid_result,
+  #                            param_info = params,
+  #                            objective = exp_improve(),
+  #                            control = control_bayes(
+  #                              verbose = TRUE,
+  #                              no_improve = 10L,
+  #                              uncertain = 5,
+  #                              parallel_over = NULL
+  #                            )
+  # )
+    
+  best_grid_result <- select_best(grid_result, metric = "rmse")
   
   final_wf <- finalize_workflow(wf, best_grid_result)
   
   #Fit to all training data with best hyperparameters
   #test on testing dataset
-  final_fit <- last_fit(final_wf, split = brf_output$input_data$split) 
+  # would help to repeat over X random seeds to get model error
+  final_fit <- last_fit(final_wf, 
+                        split = brf_output$input_data$split,
+                        metrics = metric_set(rmse, mae, rsq)) 
   
-  final_fit %>%
-    collect_metrics()
+  #test set performance metrics
+  #collect_metrics(final_fit)
   
-  final_fit %>%
-    collect_predictions()
-  
-  #Variable importance plot
-  final_tree %>% 
-    extract_fit_parsnip() %>% 
-    vip()
-  
-  #Predict with best hyperparameters over 100 random seeds to get model error
+  #test set predictions
+  #collect_predictions(final_fit)
   
   parallel::stopCluster(cl)
   
-  return()
+  return(list(grid_params = grid_result, 
+              best_fit = final_fit, 
+              workflow = final_wf))
 }
 
 #Test with and without WB model variables

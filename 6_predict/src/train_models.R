@@ -179,7 +179,8 @@ train_models_grid <- function(brf_output, v_folds, ncores){
   #' @param v_folds number of cross validation folds to use
   #' @param ncores number of cores to use
   #' 
-  #' @value Returns...
+  #' @value Returns a list of the evaluated grid parameters, the 
+  #' best fit parameters, and the workflow for those parameters.
   
   #Set the parameters to be tuned
   #Test with and without write.forest
@@ -214,14 +215,15 @@ train_models_grid <- function(brf_output, v_folds, ncores){
   cl = parallel::makeCluster(ncores)
   doParallel::registerDoParallel(cl)
   #Send variables to worker environments
-  parallel::clusterExport(cl = cl, varlist = c('brf_output'))
+  parallel::clusterExport(cl = cl, varlist = c('brf_output'), 
+                          envir = environment())
   
   grid_result <- tune_grid(wf, 
                            resamples = cv_folds, 
                            grid = grid, 
                            metrics = metric_set(rmse, mae, rsq),
                            control = control_grid(
-                             verbose = FALSE,
+                             verbose = TRUE,
                              allow_par = TRUE,
                              extract = NULL,
                              save_pred = FALSE,
@@ -305,18 +307,3 @@ train_models_grid <- function(brf_output, v_folds, ncores){
 #                   holdout = FALSE,
 #                   importance = 'permutation',
 #                   num.trees = 500)
-
-# rf <- ranger(x = input_data %>%
-#                select(all_of(names_unique)) %>%
-#                as.data.frame(),
-#              y = input_data %>%
-#                pull({{metric_name}}),
-#              oob.error = TRUE,
-#              num.threads = ncores,
-#              write.forest = FALSE,
-#              replace = TRUE,
-#              sample.fraction = 1,
-#              holdout = FALSE,
-#              importance = 'permutation',
-#              num.trees = 500,
-#              verbose = FALSE)

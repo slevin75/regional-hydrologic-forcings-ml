@@ -64,9 +64,11 @@ plot_vip <- function(RF_model, metric, region, num_features, out_dir){
   
   fileout <- file.path(out_dir, paste0('vip_', metric, '_', region, '.png'))
   
-  png(fileout, width = 5, height = 5, units = 'in', res = 200)
-  vip(RF_model %>% extract_fit_parsnip(), num_features = num_features)
-  dev.off()
+  p1 <- vip(RF_model %>% extract_fit_parsnip(), 
+            num_features = num_features) + 
+    ggtitle(metric)
+  
+  ggsave(filename = fileout, plot = p1, device = 'png')
   
   return(fileout)
 }

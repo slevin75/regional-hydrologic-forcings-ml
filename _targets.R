@@ -1035,7 +1035,7 @@ list(
   # RF variable importance plot 
   #Should add error bars over X random seeds
   tar_target(p6_vip_rain_png,
-             plot_vip(p6_train_RF_rain$best_fit,
+             plot_vip(RF_model = p6_train_RF_rain$best_fit,
                       metric = p6_Boruta_rain$metric,
                       region = 'rain',
                       num_features = 20,

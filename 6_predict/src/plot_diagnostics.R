@@ -7,7 +7,7 @@ plot_Boruta <- function(brf_model, metric, region, out_dir){
   #' @param region region name for file name
   #' @param out_dir output directory
   #'
-  #' @value filepath to resulting plot
+  #' @return filepath to resulting plot
   #' 
   
   fileout <- file.path(out_dir, paste0('Boruta_', metric, '_', region, '.png'))
@@ -29,7 +29,7 @@ plot_hyperparam_opt_results_RF <- function(opt_result, metric, region, out_dir){
   #' @param region region name for file name
   #' @param out_dir output directory
   #'
-  #' @value filepath to resulting plot
+  #' @return filepath to resulting plot
   #' 
   
   fileout <- file.path(out_dir, paste0('hyperparam_diagnostic_', 
@@ -59,7 +59,7 @@ plot_vip <- function(RF_model, metric, region, num_features, out_dir){
   #' @param num_features select the top num_features number of features to plot
   #' @param out_dir output directory
   #' 
-  #' @value filepath to resulting plot
+  #' @return filepath to resulting plot
   #' 
   
   fileout <- file.path(out_dir, paste0('vip_', metric, '_', region, '.png'))
@@ -84,7 +84,7 @@ barplot_compare_RF <- function(rain_mod, snow_mod, rain_snow_mod, CONUS_mod,
   #' @param metric metric name
   #' @param out_dir output directory
   #' 
-  #' @value filepath to resulting plot
+  #' @return filepath to resulting plot
   #' 
   
   #3 plots:

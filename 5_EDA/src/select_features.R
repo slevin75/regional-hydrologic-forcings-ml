@@ -8,7 +8,7 @@ refine_features <- function(nhdv2_attr, drop_columns){
   #' @param nhdv2_attr the tbl of static attributes (columns) for each COMID (rows)
   #' @param drop_columns character vector of column names to remove from nhdv2_attr
   #' 
-  #' @value Returns a refined nhdv2_attr based on the columns to drop
+  #' @return Returns a refined nhdv2_attr based on the columns to drop
   
   #Convert -9999 to NA
   nhdv2_attr[nhdv2_attr == -9999] <- NA
@@ -32,7 +32,7 @@ drop_high_corr_ACCTOT <- function(features, threshold_corr, drop_var){
   #' @param threshold_corr correlation threshold used to drop ACC attributes
   #' @param drop_var the variable prefix to drop. "ACC" or "TOT"
   #' 
-  #' @value Returns features without highly correlated drop_var attributes
+  #' @return Returns features without highly correlated drop_var attributes
   
   #Correlation matrix
   cor_mat <- cor(features %>% select(-COMID, -GAGES_ID))

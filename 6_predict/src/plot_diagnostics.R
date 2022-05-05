@@ -77,16 +77,16 @@ barplot_compare_RF <- function(rain_mod, snow_mod, rain_snow_mod, CONUS_mod,
                           test_rain_snow, test_snow_rain, test_rain_snow_rain,
                           test_rain_snow_snow, test_CONUS_rain, test_CONUS_snow,
                           metric, out_dir){
-  #' 
+  #'
   #' @description makes barplots of RMSEs for each of the supplied models
   #'
-  #' @param 
+  #' @param
   #' @param metric metric name
   #' @param out_dir output directory
-  #' 
+  #'
   #' @return filepath to resulting plot
-  #' 
-  
+  #'
+
   #3 plots:
   #only rain region
   #only snow region
@@ -94,17 +94,17 @@ barplot_compare_RF <- function(rain_mod, snow_mod, rain_snow_mod, CONUS_mod,
   fileout <- c(file.path(out_dir, paste0('compare_models_RF_', metric, '_rain.png')),
                file.path(out_dir, paste0('compare_models_RF_', metric, '_snow.png')),
                file.path(out_dir, paste0('compare_models_RF_', metric, '_rain+snow.png')))
-  
+
   #Rain region performance
   #rain_mod, test_snow_rain, test_rain_snow_rain, test_CONUS_rain
-  
+
   #Snow region performance
   #snow_mod, test_rain_snow, test_rain_snow_snow, test_CONUS_snow
-  
+
   #Overall performance, also showing rain and snow performance
   #rain_mod, snow_mod, rain_snow_mod, CONUS_mod,
   #test_rain_snow, test_snow_rain, test_rain_snow_rain,
   #test_rain_snow_snow, test_CONUS_rain, test_CONUS_snow
-  
+
   return(fileout)
 }

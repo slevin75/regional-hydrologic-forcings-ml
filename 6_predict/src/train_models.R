@@ -1,7 +1,7 @@
 #Random split for now.
 # Should add an argument to make train/test split based on nestedness matrix
 # p4_nested_gages
-split_data <- function(data){
+split_data <- function(data, train_prop){
   #' 
   #' @description splits the data into training and testing
   #'
@@ -9,10 +9,10 @@ split_data <- function(data){
   #' COMID and GAGES_ID columns.
   #' @param train_prop proportion of the data to use for training
   #' 
-  #' @value Returns a list of the dataset split, the training dataset and 
+  #' @return Returns a list of the dataset split, the training dataset and 
   #' the testing dataset
   
-  split <- initial_split(data, prop = 0.8)
+  split <- initial_split(data, prop = train_prop)
   training <- training(split)
   testing <- testing(split)
   
@@ -20,7 +20,7 @@ split_data <- function(data){
 }
 
 screen_Boruta <- function(features, cluster_table, metrics_table, metric_name,
-                          train_region, ncores, brf_runs, ntrees){
+                          train_region, ncores, brf_runs, ntrees, train_prop){
   #' 
   #' @description Applies Boruta screening to the features. Makes a train/test
   #' split before applying the screening.
@@ -37,8 +37,9 @@ screen_Boruta <- function(features, cluster_table, metrics_table, metric_name,
   #' @param ncores number of cores to use
   #' @param brf_runs maximum number of RF runs
   #' @param ntrees number of trees to use
+  #' @param train_prop proportion of the data to use for training
   #' 
-  #' @value Returns a list of the metric name, all 3 brf models, and 
+  #' @return Returns a list of the metric name, all 3 brf models, and 
   #' the input dataset (IDs, features, metric) as a list with train/test splits
   #' as the elements of the list.
   
@@ -95,7 +96,7 @@ screen_Boruta <- function(features, cluster_table, metrics_table, metric_name,
                           by = c('GAGES_ID' = 'site_num'))
   
   #Split into training and testing datasets
-  input_data_split <- split_data(input_data)
+  input_data_split <- split_data(input_data, train_prop = train_prop)
   
   #Apply Boruta to down-select features
   #This is parallelized by default
@@ -179,7 +180,7 @@ train_models_grid <- function(brf_output, v_folds, ncores){
   #' @param v_folds number of cross validation folds to use
   #' @param ncores number of cores to use
   #' 
-  #' @value Returns a list of the evaluated grid parameters, the 
+  #' @return Returns a list of the evaluated grid parameters, the 
   #' best fit parameters, and the workflow for those parameters.
   
   #Set the parameters to be tuned
@@ -307,3 +308,23 @@ train_models_grid <- function(brf_output, v_folds, ncores){
 #                   holdout = FALSE,
 #                   importance = 'permutation',
 #                   num.trees = 500)
+
+
+#' predict_test_data <- function(model_wf, test_data, perf_metrics){
+#'   #' 
+#'   #' @description uses the provided model to predict on the test dataset and
+#'   #' compute performance metrics
+#'   #'
+#'   #' @param model_wf model workflow containing a single model that will be used
+#'   #' to predict on the test_data.
+#'   #' @param test_data test dataset containing features and the metric to be predicted
+#'   #' @param perf_metrics character vector of the yardstick performance metrics to use
+#'   #' 
+#'   #' @return Returns the predictions and the performance metrics
+#'   
+#'   preds <- predict(model_wf, new_data = test_data, type = 'numeric')
+#'   
+#'   perf_metrics <- metrics(preds, test_data$metric, perf_metrics)
+#'   
+#'   return(list(pred = preds, metrics = perf_metrics))
+#' }

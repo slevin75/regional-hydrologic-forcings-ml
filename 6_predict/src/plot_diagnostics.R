@@ -8,7 +8,6 @@ plot_Boruta <- function(brf_model, metric, region, out_dir){
   #' @param out_dir output directory
   #'
   #' @return filepath to resulting plot
-  #' 
   
   fileout <- file.path(out_dir, paste0('Boruta_', metric, '_', region, '.png'))
   
@@ -30,7 +29,6 @@ plot_hyperparam_opt_results_RF <- function(opt_result, metric, region, out_dir){
   #' @param out_dir output directory
   #'
   #' @return filepath to resulting plot
-  #' 
   
   fileout <- file.path(out_dir, paste0('hyperparam_diagnostic_', 
                                        metric, '_', region, '.png'))
@@ -60,7 +58,6 @@ plot_vip <- function(RF_model, metric, region, num_features, out_dir){
   #' @param out_dir output directory
   #' 
   #' @return filepath to resulting plot
-  #' 
   
   fileout <- file.path(out_dir, paste0('vip_', metric, '_', region, '.png'))
   
@@ -74,37 +71,129 @@ plot_vip <- function(RF_model, metric, region, num_features, out_dir){
 }
 
 barplot_compare_RF <- function(rain_mod, snow_mod, rain_snow_mod, CONUS_mod,
-                          test_rain_snow, test_snow_rain, test_rain_snow_rain,
-                          test_rain_snow_snow, test_CONUS_rain, test_CONUS_snow,
-                          metric, out_dir){
+                               test_rain_rain, test_rain_snow,
+                               test_snow_rain, test_snow_snow, 
+                               test_rain_snow_rain, test_rain_snow_snow, 
+                               test_CONUS_rain, test_CONUS_snow,
+                               flow_metric, perf_metric, out_dir){
   #'
   #' @description makes barplots of RMSEs for each of the supplied models
   #'
-  #' @param
-  #' @param metric metric name
+  #' @param rain_mod,snow_mod,rain_snow_mod,CONUS_mod best fit model evaluated 
+  #' on the test dataset for that model. 
+  #' example: rain_mod = p6_train_RF_rain
+  #' @param test_rain_rain,test_rain_snow,test_snow_rain,test_snow_snow,test_rain_snow_rain,test_rain_snow_snow,test_CONUS_rain,test_CONUS_snow 
+  #' These are the best fit model for each region evaluated in another region
+  #' format is test_model-name_region-name. 
+  #' example: test_snow_rain = p6_test_RF_snow_rain$perf_metrics
+  #' @param flow_metric flow metric name
+  #' @param perf_metric performance metric name
   #' @param out_dir output directory
   #'
-  #' @return filepath to resulting plot
-  #'
+  #' @return filepath to 3 resulting plots: 1. Validation and Testing performance
+  #' 2. test performance in full rain region, 3. test performance in full snow region
 
   #3 plots:
-  #only rain region
-  #only snow region
-  #all regions
-  fileout <- c(file.path(out_dir, paste0('compare_models_RF_', metric, '_rain.png')),
-               file.path(out_dir, paste0('compare_models_RF_', metric, '_snow.png')),
-               file.path(out_dir, paste0('compare_models_RF_', metric, '_rain+snow.png')))
-
-  #Rain region performance
-  #rain_mod, test_snow_rain, test_rain_snow_rain, test_CONUS_rain
-
+  #1 validation and testing within each region
+  #2 test in full rain region
+  #3 test in full snow region
+  fileout <- c(file.path(out_dir, paste0('compare_models_RF_', flow_metric, '_', perf_metric, '_CV.png')),
+               file.path(out_dir, paste0('compare_models_RF_', flow_metric, '_', perf_metric, '_rain.png')),
+               file.path(out_dir, paste0('compare_models_RF_', flow_metric, '_', perf_metric, '_snow.png')))
+  
+  #CV performances dataframe
+  plt_df <- data.frame(perf = c(show_best(rain_mod$grid_params, n = 1, metric = perf_metric)$mean,
+                                get_perf_metric(rain_mod$best_fit$.metrics[[1]], perf_metric = perf_metric),
+                                show_best(snow_mod$grid_params, n = 1, metric = perf_metric)$mean,
+                                get_perf_metric(snow_mod$best_fit$.metrics[[1]], perf_metric = perf_metric),
+                                show_best(rain_snow_mod$grid_params, n = 1, metric = perf_metric)$mean,
+                                get_perf_metric(rain_snow_mod$best_fit$.metrics[[1]], perf_metric = perf_metric),
+                                show_best(CONUS_mod$grid_params, n = 1, metric = perf_metric)$mean,
+                                get_perf_metric(CONUS_mod$best_fit$.metrics[[1]], perf_metric = perf_metric)),
+                       sd = c(show_best(rain_mod$grid_params, n = 1, metric = perf_metric)$std_err,
+                              NA,
+                              show_best(snow_mod$grid_params, n = 1, metric = perf_metric)$std_err,
+                              NA,
+                              show_best(rain_snow_mod$grid_params, n = 1, metric = perf_metric)$std_err,
+                              NA,
+                              show_best(CONUS_mod$grid_params, n = 1, metric = perf_metric)$std_err,
+                              NA),
+                       Dataset = c('Val', 'Test', 
+                                      'Val', 'Test',
+                                      'Val', 'Test', 
+                                      'Val', 'Test'),
+                       grp = c("Rain","Rain","Snow","Snow",
+                               "Rain+Snow","Rain+Snow","CONUS","CONUS"))
+  
+  p1 <- ggplot(data = plt_df, aes(x = grp, y = perf, fill = Dataset)) +
+    geom_bar(stat="identity", position=position_dodge(), width = 0.6) +
+    theme_bw() +
+    scale_fill_brewer(palette="Paired") +
+    geom_errorbar(aes(ymin = perf - 2*sd, ymax = perf + 2*sd), width = .2,
+                  position = position_dodge(0.6)) +
+    xlab('') +
+    ylab('RMSE') + 
+    scale_x_discrete(limits=c("Rain","Snow","Rain+Snow","CONUS")) +
+    theme(axis.title.y = element_text(size = 14),
+          axis.text.x = element_text(size = 14))
+  
+  ggsave(filename = fileout[1], plot = p1, device = 'png')
+  
+  #Rain region test performance
+  plt_df <- data.frame(perf = c(get_perf_metric(test_rain_rain$metrics, perf_metric = perf_metric),
+                                get_perf_metric(test_snow_rain$metrics, perf_metric = perf_metric),
+                                get_perf_metric(test_rain_snow_rain$metrics, perf_metric = perf_metric),
+                                get_perf_metric(test_CONUS_rain$metrics, perf_metric = perf_metric)),
+                       grp = c("Rain","Snow","Rain+Snow","CONUS"))
+  
+  p2 <- ggplot(data = plt_df, aes(x = grp, y = perf)) +
+    geom_bar(stat="identity", width = 0.6) +
+    theme_bw() +
+    xlab('Training Region') +
+    ylab('RMSE') +
+    ggtitle('Testing Region: Rainfall-Dominated') +
+    scale_x_discrete(limits=c("Rain","Snow","Rain+Snow","CONUS")) +
+    theme(axis.title.x = element_text(size = 20),
+          axis.title.y = element_text(size = 20),
+          axis.text.x = element_text(size = 18),
+          plot.title = element_text(size = 20)) +
+    geom_text(aes(label = round(perf,1)), vjust=-0.3, size=3.5)
+  
+  ggsave(filename = fileout[2], plot = p2, device = 'png')
+  
   #Snow region performance
-  #snow_mod, test_rain_snow, test_rain_snow_snow, test_CONUS_snow
-
-  #Overall performance, also showing rain and snow performance
-  #rain_mod, snow_mod, rain_snow_mod, CONUS_mod,
-  #test_rain_snow, test_snow_rain, test_rain_snow_rain,
-  #test_rain_snow_snow, test_CONUS_rain, test_CONUS_snow
+  plt_df <- data.frame(perf = c(get_perf_metric(test_rain_snow$metrics, perf_metric = perf_metric),
+                                get_perf_metric(test_snow_snow$metrics, perf_metric = perf_metric),
+                                get_perf_metric(test_rain_snow_snow$metrics, perf_metric = perf_metric),
+                                get_perf_metric(test_CONUS_snow$metrics, perf_metric = perf_metric)),
+                       grp = c("Rain","Snow","Rain+Snow","CONUS"))
+  
+  p3 <- ggplot(data = plt_df, aes(x = grp, y = perf)) +
+    geom_bar(stat="identity", width = 0.6) +
+    theme_bw() +
+    xlab('Training Region') +
+    ylab('RMSE') +
+    ggtitle('Testing Region: Snowmelt-Dominated') +
+    scale_x_discrete(limits=c("Rain","Snow","Rain+Snow","CONUS")) +
+    theme(axis.title.x = element_text(size = 20),
+          axis.title.y = element_text(size = 20),
+          axis.text.x = element_text(size = 18),
+          plot.title = element_text(size = 20)) +
+    geom_text(aes(label = round(perf,1)), vjust=-0.3, size=3.5)
+  
+  ggsave(filename = fileout[3], plot = p3, device = 'png')
 
   return(fileout)
+}
+
+get_perf_metric <- function(model_fit, perf_metric){
+  #'
+  #' @description returns the performance metric for the fitted model
+  #'
+  #' @param model_fit fitted model
+  #' @param perf_metric performance metric name
+  #'
+  #' @return performance metric value
+  
+  model_fit$.estimate[model_fit$.metric == perf_metric]
 }

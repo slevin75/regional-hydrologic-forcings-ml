@@ -66,7 +66,7 @@ screen_Boruta <- function(features, cluster_table, metrics_table, metric_name,
     #select only gages for high and mid-high model regions
     if (region == 'high'){
       metrics_table <- mutate(metrics_table,
-                              region = case_when(site_num %in% cluster_table$ID[cluster_table$high == 5] ~ 'snow',
+                              region = case_when(site_num %in% cluster_table$ID[cluster_table$high == 4] ~ 'snow',
                                                  site_num %in% cluster_table$ID[cluster_table$high == 2] ~ 'rain')) %>%
         drop_na()
     }else{
@@ -270,11 +270,14 @@ train_models_grid <- function(brf_output, v_folds, ncores){
   #test set predictions
   #collect_predictions(final_fit)
   
+  #extract workflow for best hyperparameters
+  final_wf_trained <- extract_workflow(final_fit)
+  
   parallel::stopCluster(cl)
   
   return(list(grid_params = grid_result, 
               best_fit = final_fit, 
-              workflow = final_wf))
+              workflow = final_wf_trained))
 }
 
 #Test with and without WB model variables
@@ -310,21 +313,74 @@ train_models_grid <- function(brf_output, v_folds, ncores){
 #                   num.trees = 500)
 
 
-#' predict_test_data <- function(model_wf, test_data, perf_metrics){
-#'   #' 
-#'   #' @description uses the provided model to predict on the test dataset and
-#'   #' compute performance metrics
-#'   #'
-#'   #' @param model_wf model workflow containing a single model that will be used
-#'   #' to predict on the test_data.
-#'   #' @param test_data test dataset containing features and the metric to be predicted
-#'   #' @param perf_metrics character vector of the yardstick performance metrics to use
-#'   #' 
-#'   #' @return Returns the predictions and the performance metrics
-#'   
-#'   preds <- predict(model_wf, new_data = test_data, type = 'numeric')
-#'   
-#'   perf_metrics <- metrics(preds, test_data$metric, perf_metrics)
-#'   
-#'   return(list(pred = preds, metrics = perf_metrics))
-#' }
+predict_test_data <- function(model_wf, features, cluster_table, metrics_table, 
+                              metric_name, test_region){
+  #'
+  #' @description uses the provided model to predict on the test dataset and
+  #' compute performance metrics
+  #'
+  #' @param model_wf model workflow containing a single model that will be used
+  #' to predict on the test_data.
+  #' @param features table of gages (rows) and features (columns). Must include
+  #' COMID and GAGES_ID columns.
+  #' @param cluster_table table of gages (rows) and cluster columns. Must include 
+  #' columns for gage ID, and regions named midhigh and high.
+  #' @param metrics_table table of metrics computed for each gage. Must include
+  #' site_num column.
+  #' @param metric_name character string of the column name in metrics_table to use
+  #' @param test_region vector of 'rain', 'snow', or both. Can use 'all' to 
+  #' use all gages in the metrics_table.
+  #' 
+  #' @return Returns the predictions and the performance metrics
+  
+  #Get only the metric_name metric
+  metrics_table <- select(metrics_table, site_num, .data[[metric_name]])
+  
+  #determine if the metric should use the high flow region or mid-high flow region
+  if (metric_name %in% c('ma','ml17', 'ml18')){
+    region <- 'midhigh'
+  } else if (!grepl("_q", metric_name)){
+    ##other metrics from HIT
+    region <- 'high'
+  }else{
+    ##get quantile from FDC metric name
+    metric_quantile <- as.numeric(str_split(metric_name, pattern="_q")[[1]][2])
+    region <- ifelse(metric_quantile < 0.75, 'midhigh', 'high')
+  }
+  
+  #Select training region
+  if(test_region == 'all'){
+    metrics_table$region = 'all'
+  }else{
+    #select only gages for high and mid-high model regions
+    if (region == 'high'){
+      metrics_table <- mutate(metrics_table,
+                              region = case_when(site_num %in% cluster_table$ID[cluster_table$high == 4] ~ 'snow',
+                                                 site_num %in% cluster_table$ID[cluster_table$high == 2] ~ 'rain')) %>%
+        drop_na()
+    }else{
+      metrics_table <- mutate(metrics_table,
+                              region = case_when(site_num %in% cluster_table$ID[cluster_table$midhigh == 5] ~ 'snow',
+                                                 site_num %in% cluster_table$ID[cluster_table$midhigh == 3] ~ 'rain'))  %>%
+        drop_na()
+    }
+  }
+  
+  #Select the features for these gages
+  features <- filter(features, GAGES_ID %in% metrics_table$site_num) %>%
+    left_join(metrics_table %>% select(site_num, region), c('GAGES_ID' = 'site_num')) %>%
+    filter(region %in% test_region)
+  
+  #Join dataframe to match the features to the metrics
+  test_data <- left_join(features, metrics_table %>% select(-region), 
+                          by = c('GAGES_ID' = 'site_num')) %>%
+    #select only the features in model_wf
+    select(model_wf$fit$fit$fit$forest$independent.variable.names, contains(metric_name))
+  
+  test_preds <- predict(model_wf, new_data = test_data, type = 'numeric') %>%
+    mutate(obs = test_data[[metric_name]])
+  
+  perf_metrics <- metrics(test_preds, truth = 'obs', estimate = '.pred')
+
+  return(list(metric = metric_name, pred = test_preds, metrics = perf_metrics))
+}

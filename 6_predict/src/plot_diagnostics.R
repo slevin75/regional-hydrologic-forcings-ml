@@ -62,8 +62,10 @@ plot_vip <- function(RF_model, metric, region, num_features, out_dir){
   fileout <- file.path(out_dir, paste0('vip_', metric, '_', region, '.png'))
   
   p1 <- vip(RF_model %>% extract_fit_parsnip(), 
-            num_features = num_features) + 
-    ggtitle(metric)
+            num_features = num_features, aesthetics = list(width = 0.6)) + 
+    ggtitle(metric) +
+    theme(axis.title.x = element_text(size = 18),
+          axis.text.y = element_text(size = 18))
   
   ggsave(filename = fileout, plot = p1, device = 'png')
   
@@ -197,3 +199,67 @@ get_perf_metric <- function(model_fit, perf_metric){
   
   model_fit$.estimate[model_fit$.metric == perf_metric]
 }
+
+plot_metric_boxplot <- function(data_split, metric, region, out_dir){
+  #'
+  #' @description returns boxplots comparing the training and testing splits
+  #' for the metric.
+  #'
+  #' @param data_split the training and testing split. Example: p6_Boruta_CONUS_g2$input_data
+  #' @param metric performance metric name
+  #' @param region the modeling region
+  #'
+  #' @return filepath to the resulting plot
+  
+  fileout <- file.path(out_dir, paste0('train_test_boxplot_', metric, '_', region, '.png'))
+  
+  png(filename = fileout, width = 4, height = 4, units = 'in', res = 200)
+  boxplot(data_split$training[[metric]],
+          data_split$testing[[metric]], 
+          names = c('Training', 'Testing'))
+  dev.off()
+  
+  return(fileout)
+}
+
+
+plot_pred_obs <- function(df_pred_obs, metric, region, out_dir,
+                          from_predict = FALSE, model_wf = NULL, pred_data = NULL){
+  #'
+  #' @description returns boxplots comparing the training and testing splits
+  #' for the metric.
+  #'
+  #' @param df_pred_obs df with obs and .pred columns
+  #' @param metric performance metric name
+  #' @param region the modeling region
+  #'
+  #' @return filepath to the resulting plot
+  
+  fileout <- file.path(out_dir, paste0('pred_obs_scatter', metric, '_', region, '.png'))
+  
+  if(from_predict){
+    #predict from provided workflow and data
+    df_pred_obs <- predict(model_wf, new_data = pred_data, type = 'numeric') %>%
+      mutate(obs = pred_data[[metric]])
+  }
+  
+  plt_lim <- max(c(df_pred_obs$obs, df_pred_obs$.pred))
+  
+  png(filename = fileout, width = 4, height = 4, units = 'in', res = 200)
+  plot(df_pred_obs$obs, df_pred_obs$.pred,
+       xlim = c(0,plt_lim), ylim = c(0,plt_lim),
+       xlab = 'Observed', ylab = 'Predicted', cex = 0.4, pch = 16)
+  lines(c(0,plt_lim), c(0,plt_lim), col = 'red')
+  dev.off()
+  
+  return(fileout)
+}
+
+
+#Residual error boxplots
+# boxplot(p6_test_RF_snow_snow$pred$.pred - p6_test_RF_snow_snow$pred$obs,
+#                    p6_test_RF_rain_snow_snow$pred$.pred - p6_test_RF_rain_snow_snow$pred$obs,
+#                    p6_test_RF_CONUS_g2_snow$pred$.pred - p6_test_RF_CONUS_g2_snow$pred$obs, names = c('Rain', 'Rain+Snow', 'CONUS'))
+# boxplot(p6_test_RF_snow_snow$pred$.pred - p6_test_RF_snow_snow$pred$obs,
+#                    p6_test_RF_rain_snow_snow$pred$.pred - p6_test_RF_rain_snow_snow$pred$obs,
+#                    p6_test_RF_CONUS_g2_snow$pred$.pred - p6_test_RF_CONUS_g2_snow$pred$obs, names = c('Snow', 'Rain+Snow', 'CONUS'))

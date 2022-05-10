@@ -13,6 +13,9 @@ _targets
 rstudio*
 .config
 
+#HPC output files
+*.out
+
 #Gages data
 Gages2.1_RefSiteList.xlsx
 

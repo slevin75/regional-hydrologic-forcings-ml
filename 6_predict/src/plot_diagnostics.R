@@ -13,7 +13,7 @@ plot_Boruta <- function(brf_model, metric, region, out_dir){
   
   png(fileout, width = 8, height = 4, units = 'in', res = 200)
   #plot without outlier points
-  plot(brf_model, outpch = NA, show.names = FALSE)
+  plot(brf_model, outpch = NA, show.names = FALSE, main = metric)
   dev.off()
   
   return(fileout)
@@ -40,7 +40,7 @@ plot_hyperparam_opt_results_RF <- function(opt_result, metric, region, out_dir){
     geom_point(size = 2) +
     facet_wrap(~ .metric, scales = "free", nrow = 2) +
     scale_color_viridis_c(option = "plasma", begin = .9, end = 0) +
-    ggtitle(metric)
+    ggtitle(metric, subtitle = region)
   
   ggsave(filename = fileout, plot = p1, device = 'png')
   
@@ -63,7 +63,7 @@ plot_vip <- function(RF_model, metric, region, num_features, out_dir){
   
   p1 <- vip(RF_model %>% extract_fit_parsnip(), 
             num_features = num_features, aesthetics = list(width = 0.6)) + 
-    ggtitle(metric) +
+    ggtitle(metric, subtitle = region) +
     theme(axis.title.x = element_text(size = 18),
           axis.text.y = element_text(size = 18))
   
@@ -137,7 +137,8 @@ barplot_compare_RF <- function(rain_mod, snow_mod, rain_snow_mod, CONUS_mod,
     ylab('RMSE') + 
     scale_x_discrete(limits=c("Rain","Snow","Rain+Snow","CONUS")) +
     theme(axis.title.y = element_text(size = 14),
-          axis.text.x = element_text(size = 14))
+          axis.text.x = element_text(size = 14)) +
+    ggtitle(flow_metric)
   
   ggsave(filename = fileout[1], plot = p1, device = 'png')
   
@@ -153,7 +154,7 @@ barplot_compare_RF <- function(rain_mod, snow_mod, rain_snow_mod, CONUS_mod,
     theme_bw() +
     xlab('Training Region') +
     ylab('RMSE') +
-    ggtitle('Testing Region: Rainfall-Dominated') +
+    ggtitle('Testing Region: Rainfall-Dominated', subtitle = flow_metric) +
     scale_x_discrete(limits=c("Rain","Snow","Rain+Snow","CONUS")) +
     theme(axis.title.x = element_text(size = 20),
           axis.title.y = element_text(size = 20),
@@ -175,7 +176,7 @@ barplot_compare_RF <- function(rain_mod, snow_mod, rain_snow_mod, CONUS_mod,
     theme_bw() +
     xlab('Training Region') +
     ylab('RMSE') +
-    ggtitle('Testing Region: Snowmelt-Dominated') +
+    ggtitle('Testing Region: Snowmelt-Dominated', subtitle = flow_metric) +
     scale_x_discrete(limits=c("Rain","Snow","Rain+Snow","CONUS")) +
     theme(axis.title.x = element_text(size = 20),
           axis.title.y = element_text(size = 20),
@@ -216,7 +217,9 @@ plot_metric_boxplot <- function(data_split, metric, region, out_dir){
   png(filename = fileout, width = 4, height = 4, units = 'in', res = 200)
   boxplot(data_split$training[[metric]],
           data_split$testing[[metric]], 
-          names = c('Training', 'Testing'))
+          names = c('Training', 'Testing'),
+          main = paste0('Metric: ', metric, '\nRegion: ', region),
+          cex.main = 0.8)
   dev.off()
   
   return(fileout)
@@ -248,7 +251,9 @@ plot_pred_obs <- function(df_pred_obs, metric, region, out_dir,
   png(filename = fileout, width = 4, height = 4, units = 'in', res = 200)
   plot(df_pred_obs$obs, df_pred_obs$.pred,
        xlim = c(0,plt_lim), ylim = c(0,plt_lim),
-       xlab = 'Observed', ylab = 'Predicted', cex = 0.4, pch = 16)
+       xlab = 'Observed', ylab = 'Predicted', cex = 0.4, pch = 16,
+       main = paste0('Metric: ', metric, '\nRegion: ', region),
+       cex.main = 0.8)
   lines(c(0,plt_lim), c(0,plt_lim), col = 'red')
   dev.off()
   

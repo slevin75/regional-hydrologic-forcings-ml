@@ -1,5 +1,3 @@
-
-
 ##function to make maps and violin plots for all metrics by cluster
 make_EDA_metric_plots <- function(metric,k,cluster_table, metrics_table, gages,out_dir){
   

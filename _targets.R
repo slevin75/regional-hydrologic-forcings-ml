@@ -11,10 +11,11 @@ tar_option_set(packages = c("fasstr", "EflowStats", "dataRetrieval",
                             "lubridate", "cluster", "factoextra", "NbClust",
                             "sf", "cowplot", "gridGraphics", "stringi",
                             "dendextend", "scico", "tidyverse", "nhdplusTools",
-                            "sbtools", "maps", "mapproj"),
+                            "sbtools", "maps", "mapproj", "ranger", "Boruta",
+                            "tidymodels", "doParallel", "vip"),
                imports = c("fasstr", "EflowStats", "dataRetrieval", 
                            "cluster","factoextra", "NbClust", "dendextend",
-                           "tidyverse"))
+                           "tidyverse", "ranger", "Boruta", "tidymodels"))
 
 ##Create output file directories
 dir.create('1_fetch/out', showWarnings = FALSE)
@@ -39,6 +40,12 @@ dir.create('3_cluster/out/seasonal_plots/maps', showWarnings = FALSE)
 dir.create('3_cluster/out/seasonal_plots/maps/by_quantiles', showWarnings = FALSE)
 dir.create('3_cluster/out/seasonal_plots/maps/by_agg_quantiles', showWarnings = FALSE)
 dir.create('5_EDA/out/metrics_plots', showWarnings = FALSE)
+dir.create('6_predict/out', showWarnings = FALSE)
+dir.create('6_predict/out/Boruta', showWarnings = FALSE)
+dir.create('6_predict/out/vip', showWarnings = FALSE)
+dir.create('6_predict/out/hypopt', showWarnings = FALSE)
+dir.create('6_predict/out/split_boxplots', showWarnings = FALSE)
+dir.create('6_predict/out/pred_obs', showWarnings = FALSE)
 
 ##Load user defined functions
 source("1_fetch/src/get_nwis_data.R")
@@ -49,6 +56,9 @@ source("1_fetch/src/moving_window_functions.R")
 source("3_cluster/src/seasonal_metric_cluster.R")
 source("4_setup_crossval/src/cross_validation_functions.R")
 source("5_EDA/src/EDA_metric_plots.R")
+source("5_EDA/src/select_features.R")
+source("6_predict/src/train_models.R")
+source("6_predict/src/plot_diagnostics.R")
 
 ###Define parameters
 NWIS_parameter <- '00060'
@@ -111,8 +121,15 @@ drop_gages <- c('02084557', '09406300', '09512200', '10143500', '10172200')
 ##value is 10000 or greater.
 nav_distance_km <- 4500
 
-#set random seed for project
-set.seed(12422)
+#Random Forest Parameters
+#maximum number of runs for Boruta feature screening algorithm
+Boruta_runs <- 300
+#number of trees
+Boruta_trees <- 500
+#number of cores
+Boruta_cores <- 35
+#Cross validation folds
+cv_folds <- 5
 
 
 ##targets
@@ -141,23 +158,7 @@ list(
   #ID numbers for sites to use
   tar_target(
     p1_sites_list,
-    {p1_sites_g2$ID
-     ## not sure yet how we'll be selecting gages so I'm not putting this in a function yet.
-     ##since there is no state attribution in the gagesii list, for East River, I am taking 
-     ##AggEco==WestMnts and LON > -117 which cuts off the pacific northwest and cA areas
-     
-     #p1_sites_g2 %>%
-     #  filter(AggEco == "WestMnts") %>%
-     #  filter(LON > -117) %>%
-     #  filter(LAT > 36) %>%
-     #  pull(ID)
-     
-     #DE - just pulling a bounding box of sites here
-     #p1_sites_g2 %>%
-     #  filter(LAT < 42) %>%
-     #  filter(LON > -76) %>%
-     #  pull(ID)
-   },
+    p1_sites_g2$ID,
    deployment = 'main'
   ),
   
@@ -208,11 +209,11 @@ list(
              map(p1_has_data),
              deployment = 'main'
   ),
-  tar_target(p1_screen_daily_flow_season_high,
-             screen_daily_data(p1_has_data, p1_prescreen_daily_data, season_year_start_high),
-             map(p1_has_data),
-             deployment = 'main'
-  ),
+  # tar_target(p1_screen_daily_flow_season_high,
+  #            screen_daily_data(p1_has_data, p1_prescreen_daily_data, season_year_start_high),
+  #            map(p1_has_data),
+  #            deployment = 'main'
+  # ),
   
   ##select sites with enough complete years
   tar_target(p1_screened_site_list,
@@ -224,10 +225,10 @@ list(
              filter_complete_years(p1_screen_daily_flow_season, complete_years),
              deployment = 'main'
   ),
-  tar_target(p1_screened_site_list_season_high,
-             filter_complete_years(p1_screen_daily_flow_season_high, complete_years),
-             deployment = 'main'
-  ),
+  # tar_target(p1_screened_site_list_season_high,
+  #            filter_complete_years(p1_screen_daily_flow_season_high, complete_years),
+  #            deployment = 'main'
+  # ),
   
   ##clean and format daily data so it can be used in EflowStats 
   tar_target(p1_clean_daily_flow,
@@ -243,13 +244,13 @@ list(
              map(p1_screened_site_list_season),
              deployment = 'main'
   ),
-  tar_target(p1_clean_daily_flow_season_high,
-             clean_daily_data(p1_screened_site_list_season_high, p1_prescreen_daily_data, 
-                              p1_screen_daily_flow_season_high, yearType, 
-                              season_year_start_high),
-             map(p1_screened_site_list_season_high),
-             deployment = 'main'
-  ),
+  # tar_target(p1_clean_daily_flow_season_high,
+  #            clean_daily_data(p1_screened_site_list_season_high, p1_prescreen_daily_data, 
+  #                             p1_screen_daily_flow_season_high, yearType, 
+  #                             season_year_start_high),
+  #            map(p1_screened_site_list_season_high),
+  #            deployment = 'main'
+  # ),
   
   #get drainage area from NWIS
   #this is deployed on main to avoid overloading the NWIS server with download requests
@@ -307,7 +308,7 @@ list(
              iteration = "list",
              deployment = 'main',
              format = "file"
-             ),
+  ),
   
   ##generate log file to track updates to sb variables
   tar_target(p1_sb_data_g2_log,
@@ -315,7 +316,7 @@ list(
                              file_out = "1_fetch/out/logs/sb_update_log.csv"),
              deployment = "main",
              format = "file"
-             ),
+  ),
   
   ##merge and select feature variables from gagesii list
   tar_target(p1_feature_vars_g2, 
@@ -324,7 +325,7 @@ list(
                                retain_vars = c("ID", "LAT", "LON",
                                  "npdes", "fwwd", "strg", "devl", "cndp")), 
              deployment = "main"
-             ),
+  ),
   
   ##get flood threshold from NWIS for eflowstats
   #this is deployed on main to avoid overloading the NWIS server with download requests
@@ -366,6 +367,25 @@ list(
              deployment = 'worker'
   ),
   
+  ##combined metrics tables
+  tar_target(p2_all_metrics,
+             inner_join(p1_FDC_metrics,p1_HIT_metrics)
+  ),
+  #Metrics ml17 and 18 have NAs for some gages, so we will not predict them.
+  #also dropping 0.98, 0.99, and 0.995 metrics
+  tar_target(p2_all_metrics_predict,
+             p2_all_metrics %>% 
+               select(-ml17, -ml18, -contains('0.98'),
+                      -contains('0.99'), -contains('0.995'))
+  ),
+  ##list of all the metrics names - for dynamic branching
+  tar_target(p2_all_metrics_names,
+             colnames(p2_all_metrics)[-1]
+  ),
+  tar_target(p2_all_metrics_names_predict,
+             colnames(p2_all_metrics_predict)[-1]
+  ),
+  
   ##compute seasonal FDC-based metrics using water year seasons
   tar_target(p1_FDC_metrics_season,
              calc_FDCmetrics(site_num = p1_screened_site_list_season, 
@@ -383,20 +403,20 @@ list(
   ),
   
   ##compute seasonal FDC-based metrics using high flow seasons
-  tar_target(p1_FDC_metrics_season_high,
-             calc_FDCmetrics(site_num = p1_screened_site_list_season_high, 
-                             clean_daily_flow = p1_clean_daily_flow_season_high, 
-                             yearType = yearType,
-                             drainArea_tab = NULL,
-                             NE_probs = NE_quants,
-                             seasonal = TRUE,
-                             season_months = season_months_high,
-                             stat_type = 'POR',
-                             year_start = season_year_start_high,
-                             out_format = 'pivot'),
-             map(p1_screened_site_list_season_high),
-             deployment = 'worker'
-  ),
+  # tar_target(p1_FDC_metrics_season_high,
+  #            calc_FDCmetrics(site_num = p1_screened_site_list_season_high, 
+  #                            clean_daily_flow = p1_clean_daily_flow_season_high, 
+  #                            yearType = yearType,
+  #                            drainArea_tab = NULL,
+  #                            NE_probs = NE_quants,
+  #                            seasonal = TRUE,
+  #                            season_months = season_months_high,
+  #                            stat_type = 'POR',
+  #                            year_start = season_year_start_high,
+  #                            out_format = 'pivot'),
+  #            map(p1_screened_site_list_season_high),
+  #            deployment = 'worker'
+  # ),
   
   ##Cluster analysis to make model regions from FDC metrics
   tar_target(p3_metric_names,
@@ -424,7 +444,8 @@ list(
                                    dir_out = '3_cluster/out/seasonal_plots/barplots/CONUS/'),
              map(p3_metric_names),
              deployment = 'worker',
-             format = 'file'),
+             format = 'file'
+  ),
 
   #Compute clusters
   tar_target(p3_FDC_clusters,
@@ -432,32 +453,38 @@ list(
                                      metric = p3_metric_names,
                                      dist_method = 'euclidean'),
              map(p3_metric_names),
-             deployment = 'worker'),
+             deployment = 'worker'
+  ),
   tar_target(p3_FDC_clusters_quants,
              seasonal_metric_cluster(metric_mat = p1_FDC_metrics_season,
                                      metric = p3_metric_names_quants,
                                      dist_method = 'euclidean'),
              map(p3_metric_names_quants),
-             deployment = 'worker'),
+             deployment = 'worker'
+  ),
   tar_target(p3_FDC_clusters_quants_agg,
              seasonal_metric_cluster(metric_mat = p1_FDC_metrics_season,
                                      metric = p3_metric_names_quants_agg,
                                      dist_method = 'euclidean',
                                      quantile_agg = TRUE),
              map(p3_metric_names_quants_agg),
-             deployment = 'worker'),
+             deployment = 'worker'
+  ),
   
   #Select only the best clustering method
   tar_target(p3_FDC_best_cluster_method,
              select_cluster_method(clusts = p3_FDC_clusters),
-             deployment = 'main'),
+             deployment = 'main'
+  ),
   tar_target(p3_FDC_best_cluster_method_quants,
              select_cluster_method(clusts = p3_FDC_clusters_quants),
-             deployment = 'main'),
+             deployment = 'main'
+  ),
   tar_target(p3_FDC_best_cluster_method_quants_agg,
              select_cluster_method(clusts = p3_FDC_clusters_quants_agg, 
                                    quantile_agg = TRUE),
-             deployment = 'main'),
+             deployment = 'main'
+  ),
   
   #Compute cluster diagnostics
   tar_target(p3_FDC_cluster_diagnostics,
@@ -469,7 +496,8 @@ list(
                                          dist_method = 'euclidean',
                                          clust_method = 'ward.D2'),
              map(p3_FDC_clusters),
-             deployment = 'worker'),
+             deployment = 'worker'
+  ),
   tar_target(p3_FDC_cluster_diagnostics_quants,
              compute_cluster_diagnostics(clusts = p3_FDC_clusters_quants,
                                          metric_mat = p1_FDC_metrics_season,
@@ -479,7 +507,8 @@ list(
                                          dist_method = 'euclidean',
                                          clust_method = 'ward.D2'),
              map(p3_FDC_clusters_quants),
-             deployment = 'worker'),
+             deployment = 'worker'
+  ),
   tar_target(p3_FDC_cluster_diagnostics_quants_agg,
              compute_cluster_diagnostics(clusts = p3_FDC_clusters_quants_agg,
                                          metric_mat = p1_FDC_metrics_season,
@@ -490,7 +519,8 @@ list(
                                          clust_method = 'ward.D2',
                                          quantile_agg = TRUE),
              map(p3_FDC_clusters_quants_agg),
-             deployment = 'worker'),
+             deployment = 'worker'
+  ),
   
   #Plot diagnostics for clusters
   tar_target(p3_FDC_cluster_diagnostics_png,
@@ -502,7 +532,8 @@ list(
                                       dir_out = '3_cluster/out/seasonal_plots/diagnostics/'),
              map(p3_FDC_clusters, p3_FDC_cluster_diagnostics),
              deployment = 'worker',
-             format = 'file'),
+             format = 'file'
+  ),
   tar_target(p3_FDC_cluster_diagnostics_quants_png,
              plot_cluster_diagnostics(clusts = p3_FDC_clusters_quants,
                                       metric_mat = p1_FDC_metrics_season,
@@ -512,7 +543,8 @@ list(
                                       dir_out = '3_cluster/out/seasonal_plots/diagnostics/by_quantiles'),
              map(p3_FDC_clusters_quants, p3_FDC_cluster_diagnostics_quants),
              deployment = 'worker',
-             format = 'file'),
+             format = 'file'
+  ),
   tar_target(p3_FDC_cluster_diagnostics_quants_agg_png,
              plot_cluster_diagnostics(clusts = p3_FDC_clusters_quants_agg,
                                       metric_mat = p1_FDC_metrics_season,
@@ -523,7 +555,8 @@ list(
                                       quantile_agg = TRUE),
              map(p3_FDC_clusters_quants_agg, p3_FDC_cluster_diagnostics_quants_agg),
              deployment = 'worker',
-             format = 'file'),
+             format = 'file'
+  ),
   
   #Assign cluster numbers to gages
   tar_target(p3_gages_clusters,
@@ -532,14 +565,16 @@ list(
                                   screened_sites = p1_screened_site_list_season,
                                   best_clust = p3_FDC_best_cluster_method,
                                   min_clusts = 3, max_clusts = 15, by_clusts = 4),
-             deployment = 'main'),
+             deployment = 'main'
+  ),
   tar_target(p3_gages_clusters_quants,
              add_cluster_to_gages(gages = p1_sites_g2,
                                   clusts = p3_FDC_clusters_quants,
                                   screened_sites = p1_screened_site_list_season,
                                   best_clust = p3_FDC_best_cluster_method_quants,
                                   min_clusts = 3, max_clusts = 15, by_clusts = 4),
-             deployment = 'main'),
+             deployment = 'main'
+  ),
   tar_target(p3_gages_clusters_quants_agg,
              add_cluster_to_gages(gages = p1_sites_g2,
                                   clusts = p3_FDC_clusters_quants_agg,
@@ -547,7 +582,8 @@ list(
                                   best_clust = p3_FDC_best_cluster_method_quants_agg,
                                   min_clusts = 3, max_clusts = 15, by_clusts = 4,
                                   quantile_agg = TRUE),
-             deployment = 'main'),
+             deployment = 'main'
+  ),
   tar_target(p3_gages_clusters_quants_agg_selected,
              add_cluster_to_gages(gages = p1_sites_g2,
                                   clusts = p3_FDC_clusters_quants_agg,
@@ -555,21 +591,26 @@ list(
                                   best_clust = p3_FDC_best_cluster_method_quants_agg,
                                   min_clusts = 4, max_clusts = 6, by_clusts = 1,
                                   quantile_agg = TRUE),
-             deployment = 'main'),
+             deployment = 'main'
+  ),
   
   #Assign cluster column names to a target for later branch iteration
   tar_target(p3_cluster_cols,
              colnames(p3_gages_clusters)[-1],
-             deployment = 'main'),
+             deployment = 'main'
+  ),
   tar_target(p3_cluster_cols_quants,
              colnames(p3_gages_clusters_quants)[-1],
-             deployment = 'main'),
+             deployment = 'main'
+  ),
   tar_target(p3_cluster_cols_quants_agg,
              colnames(p3_gages_clusters_quants_agg)[-1],
-             deployment = 'main'),
+             deployment = 'main'
+  ),
   tar_target(p3_cluster_cols_quants_agg_selected,
              colnames(p3_gages_clusters_quants_agg_selected)[-1],
-             deployment = 'main'),
+             deployment = 'main'
+  ),
   
   #Plot maps of gages with clusters
   tar_target(p3_cluster_map_png,
@@ -578,14 +619,16 @@ list(
                               screened_sites = p1_screened_site_list_season,
                               dir_out = '3_cluster/out/seasonal_plots/maps/'),
              deployment = 'main',
-             format = 'file'),
+             format = 'file'
+  ),
   tar_target(p3_cluster_map_quants_png,
              plot_cluster_map(gages = p1_sites_g2_sf,
                               cluster_table = p3_gages_clusters_quants,
                               screened_sites = p1_screened_site_list_season,
                               dir_out = '3_cluster/out/seasonal_plots/maps/by_quantiles'),
              deployment = 'main',
-             format = 'file'),
+             format = 'file'
+  ),
   tar_target(p3_cluster_map_quants_agg_png,
              plot_cluster_map(gages = p1_sites_g2_sf,
                               cluster_table = p3_gages_clusters_quants_agg,
@@ -593,7 +636,8 @@ list(
                               dir_out = '3_cluster/out/seasonal_plots/maps/by_agg_quantiles',
                               facet=FALSE),
              deployment = 'main',
-             format = 'file'),
+             format = 'file'
+  ),
   tar_target(p3_cluster_map_quants_agg_facet_png,
              plot_cluster_map(gages = p1_sites_g2_sf,
                               cluster_table = p3_gages_clusters_quants_agg,
@@ -601,7 +645,8 @@ list(
                               dir_out = '3_cluster/out/seasonal_plots/maps/by_agg_quantiles',
                               facet = TRUE),
              deployment = 'main',
-             format = 'file'),
+             format = 'file'
+  ),
   tar_target(p3_cluster_map_quants_agg_selected_png,
              plot_cluster_map(gages = p1_sites_g2_sf,
                               cluster_table = p3_gages_clusters_quants_agg_selected,
@@ -609,7 +654,8 @@ list(
                               dir_out = '3_cluster/out/seasonal_plots/maps/by_agg_quantiles',
                               facet=FALSE),
              deployment = 'main',
-             format = 'file'),
+             format = 'file'
+  ),
   tar_target(p3_cluster_map_quants_agg_facet_selected_png,
              plot_cluster_map(gages = p1_sites_g2_sf,
                               cluster_table = p3_gages_clusters_quants_agg_selected,
@@ -617,7 +663,8 @@ list(
                               dir_out = '3_cluster/out/seasonal_plots/maps/by_agg_quantiles',
                               facet = TRUE),
              deployment = 'main',
-             format = 'file'),
+             format = 'file'
+  ),
   
   #barplot for all metrics, averaged over cluster gages
   tar_target(p3_seasonal_barplot_clusters_png,
@@ -630,7 +677,8 @@ list(
                                    dir_out = '3_cluster/out/seasonal_plots/barplots/'),
              map(p3_metric_names),
              deployment = 'worker',
-             format = 'file'),
+             format = 'file'
+  ),
   tar_target(p3_seasonal_barplot_clusters_quants_png,
              plot_seasonal_barplot(metric_mat = p1_FDC_metrics_season,
                                    metric = p3_metric_names_quants,
@@ -642,7 +690,8 @@ list(
                                    by_quantile = TRUE),
              map(p3_metric_names_quants),
              deployment = 'worker',
-             format = 'file'),
+             format = 'file'
+  ),
   tar_target(p3_seasonal_barplot_clusters_quants_agg_png,
              plot_seasonal_barplot(metric_mat = p1_FDC_metrics_season,
                                    metric = p3_metric_names_quants_agg,
@@ -655,7 +704,8 @@ list(
                                    by_quantile = TRUE),
              map(p3_metric_names_quants_agg),
              deployment = 'worker',
-             format = 'file'),
+             format = 'file'
+  ),
   tar_target(p3_seasonal_barplot_clusters_quants_agg_selected_png,
              plot_seasonal_barplot(metric_mat = p1_FDC_metrics_season,
                                    metric = p3_metric_names_quants_agg,
@@ -668,7 +718,8 @@ list(
                                    by_quantile = TRUE),
              map(p3_metric_names_quants_agg),
              deployment = 'worker',
-             format = 'file'),
+             format = 'file'
+  ),
 
   
   ########moving window nonstationarity stuff
@@ -750,21 +801,13 @@ list(
              get_nested_gages(gagesii = p1_sites_g2,
                               nav_distance_km = nav_distance_km),
              deployment = 'worker'
-            )  ,
+  ),
   
   ###EDA plots
-  ##list of all the metrics names - for dynamic branching
-  tar_target(p2_all_metrics_names,
-             c(colnames(p1_HIT_metrics)[-1],colnames(p1_FDC_metrics)[-1])),
-  
-  ##combined metrics tables
-  tar_target(p2_all_metrics,
-             inner_join(p1_FDC_metrics,p1_HIT_metrics)),
-  
   ##maps and violin plots of all metrics by cluster.  k is the number of clusters to use in 
   ##the cluster table
   tar_target(p5_EDA_plots_metrics,
-             make_EDA_metric_plots(metric=p2_all_metrics_names,
+             make_EDA_metric_plots(metric = p2_all_metrics_names,
                                    k = 5,
                                   cluster_table = p3_gages_clusters_quants_agg_selected,
                                   metrics_table = p2_all_metrics,
@@ -772,5 +815,1003 @@ list(
                                   out_dir = "5_EDA/out/metrics_plots"
                                    ),
              map(p2_all_metrics_names),
-             format="file")
+             format="file"
+  ),
+  
+  #Down select features from full database
+  tar_target(p5_screen_attr_g2,
+             refine_features(nhdv2_attr = p1_feature_vars_g2, 
+                             drop_columns = c('NO10AVE', 'NO200AVE', 'NO4AVE',
+                                              'LAT', 'LON',
+                                              # using ACC because CAT is highly correlated
+                                              'CAT_PHYSIO',
+                                              #CAT soils have NAs. Using TOT instead
+                                              "CAT_HGA", "CAT_HGAC", "CAT_HGAD", "CAT_HGB", 
+                                              "CAT_HGBC", "CAT_HGBD", "CAT_HGC", "CAT_HGCD",
+                                              "CAT_HGD", "CAT_HGVAR", 
+                                              #Duplicate with RF7100
+                                              "RFACT",
+                                              #Keeping shallow and deep soil info. Dropping middle 2.
+                                              "SRL35AG", "SRL45AG",
+                                              #Min elevation nearly identical for ACC and CAT
+                                              "CAT_ELEV_MIN",
+                                              #Canal ditch cndp better than ACC_CANALDITCH (no 0s)
+                                              "TOT_CANALDITCH", "ACC_CANALDITCH",
+                                              #storage available everywhere with NID and NORM STORAGE
+                                              "strg",
+                                              #CAT storage almost same for NID and NORM
+                                              "CAT_NORM_STORAGE",
+                                              #ACC and TOT correlations strange:
+                                              'TOT_STRM_DENS', 
+                                              #CAT hydrologic attributes very correlated with ACC
+                                              'CAT_CWD', 'CAT_BFI', 'CAT_RF7100', 'CAT_SATOF', 
+                                              'CAT_RH', 'CAT_WDANN', 'CAT_ET', 'CAT_PET', 'CAT_MINP6190', 
+                                              'CAT_MAXP6190', 'CAT_FSTFZ6190', 'CAT_LSTFZ6190', 
+                                              #5 odd TOT waterbody variables - using ACC instead
+                                              'TOT_PLAYA', 'TOT_ICEMASS', 'TOT_LAKEPOND', 
+                                              'TOT_RESERVOIR', 'TOT_SWAMPMARSH')),
+             deployment = 'main'
+  ),
+  # remove TOT variables that are highly correlated with other variables (> 0.9)
+  tar_target(p5_attr_g2,
+             drop_high_corr_ACCTOT(features = p5_screen_attr_g2, 
+                                   threshold_corr = 0.9,
+                                   drop_var = 'TOT'),
+             deployment = 'main'
+  ),
+  
+  #########
+  #Predict
+  #Note - may be best to select features again using the local region databases
+  #values can have different correlations in a region
+  # Rain dominated region
+  #Boruta screening
+  # Not using the target map argument for now so that we get only the vhfdc1_q0.9 metric
+  tar_target(p6_Boruta_rain,
+             screen_Boruta(features = p5_attr_g2,
+                           cluster_table = p3_gages_clusters_quants_agg_selected %>%
+                             select(ID, contains('_k5')) %>%
+                             rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
+                                    high = '0.75,0.8,0.85,0.9,0.95_k5'),
+                           metrics_table = p2_all_metrics_predict,
+                           metric_name = 'vhfdc1_q0.9',
+                           train_region = 'rain',
+                           ncores = Boruta_cores, 
+                           brf_runs = Boruta_runs, 
+                           ntrees = Boruta_trees,
+                           train_prop = 0.8
+             ),
+             #map(p2_all_metrics_names_predict),
+             deployment = 'worker'
+  ),
+  #RF train
+  tar_target(p6_train_RF_rain,
+             train_models_grid(brf_output = p6_Boruta_rain,
+                               ncores = Boruta_cores,
+                               v_folds = cv_folds
+             ),
+             #map(p6_Boruta_rain),
+             deployment = 'worker'
+  ),
+  #Test rain-dominated flood model in full rain-dominated region
+  tar_target(p6_test_RF_rain_rain,
+             predict_test_data(model_wf = p6_train_RF_rain$workflow,
+                               features = p5_attr_g2,
+                               cluster_table = p3_gages_clusters_quants_agg_selected %>%
+                                 select(ID, contains('_k5')) %>%
+                                 rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
+                                        high = '0.75,0.8,0.85,0.9,0.95_k5'),
+                               metrics_table = p2_all_metrics_predict,
+                               metric_name = 'vhfdc1_q0.9',
+                               test_region = 'rain'),
+             deployment = 'main'
+  ),
+  #Test rain-dominated flood model in snow-dominated region
+  tar_target(p6_test_RF_rain_snow,
+            predict_test_data(model_wf = p6_train_RF_rain$workflow,
+                              features = p5_attr_g2,
+                              cluster_table = p3_gages_clusters_quants_agg_selected %>%
+                                select(ID, contains('_k5')) %>%
+                                rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
+                                       high = '0.75,0.8,0.85,0.9,0.95_k5'),
+                              metrics_table = p2_all_metrics_predict,
+                              metric_name = 'vhfdc1_q0.9',
+                              test_region = 'snow'),
+            deployment = 'main'
+  ),
+  # Test on rain test region
+  tar_target(p6_test_RF_rain_test_rain,
+             predict_test_data_from_data(model_wf = p6_train_RF_rain$workflow,
+                                         features = p5_attr_g2,
+                                         cluster_table = p3_gages_clusters_quants_agg_selected %>%
+                                           select(ID, contains('_k5')) %>%
+                                           rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
+                                                  high = '0.75,0.8,0.85,0.9,0.95_k5'),
+                                         metrics_table = p2_all_metrics_predict,
+                                         metric_name = 'vhfdc1_q0.9',
+                                         test_region = 'rain',
+                                         test_gages = p6_Boruta_rain$input_data$testing$GAGES_ID),
+             deployment = 'main'
+  ),
+  # Test on snow test region
+  tar_target(p6_test_RF_rain_test_snow,
+             predict_test_data_from_data(model_wf = p6_train_RF_rain$workflow,
+                                         features = p5_attr_g2,
+                                         cluster_table = p3_gages_clusters_quants_agg_selected %>%
+                                           select(ID, contains('_k5')) %>%
+                                           rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
+                                                  high = '0.75,0.8,0.85,0.9,0.95_k5'),
+                                         metrics_table = p2_all_metrics_predict,
+                                         metric_name = 'vhfdc1_q0.9',
+                                         test_region = 'snow',
+                                         test_gages = p6_Boruta_snow$input_data$testing$GAGES_ID),
+             deployment = 'main'
+  ),
+  # Snow dominated region
+  # Boruta screening
+  tar_target(p6_Boruta_snow,
+             screen_Boruta(features = p5_attr_g2,
+                          cluster_table = p3_gages_clusters_quants_agg_selected %>%
+                            select(ID, contains('_k5')) %>%
+                            rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
+                                   high = '0.75,0.8,0.85,0.9,0.95_k5'),
+                          metrics_table = p2_all_metrics_predict,
+                          metric_name = 'vhfdc1_q0.9',
+                          train_region = 'snow',
+                          ncores = Boruta_cores,
+                          brf_runs = Boruta_runs,
+                          ntrees = Boruta_trees,
+                          train_prop = 0.8
+            ),
+            #map(p2_all_metrics_names_predict),
+            deployment = 'worker'
+  ),
+  #RF train
+  tar_target(p6_train_RF_snow,
+            train_models_grid(brf_output = p6_Boruta_snow,
+                              ncores = Boruta_cores,
+                              v_folds = cv_folds
+            ),
+            #map(p6_Boruta_snow),
+            deployment = 'worker'
+  ),
+  # Test on rain
+  tar_target(p6_test_RF_snow_rain,
+             predict_test_data(model_wf = p6_train_RF_snow$workflow,
+                               features = p5_attr_g2,
+                               cluster_table = p3_gages_clusters_quants_agg_selected %>%
+                                 select(ID, contains('_k5')) %>%
+                                 rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
+                                        high = '0.75,0.8,0.85,0.9,0.95_k5'),
+                               metrics_table = p2_all_metrics_predict,
+                               metric_name = 'vhfdc1_q0.9',
+                               test_region = 'rain'),
+             deployment = 'main'
+  ),
+  # Test on full snow region
+  tar_target(p6_test_RF_snow_snow,
+             predict_test_data(model_wf = p6_train_RF_snow$workflow,
+                               features = p5_attr_g2,
+                               cluster_table = p3_gages_clusters_quants_agg_selected %>%
+                                 select(ID, contains('_k5')) %>%
+                                 rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
+                                        high = '0.75,0.8,0.85,0.9,0.95_k5'),
+                               metrics_table = p2_all_metrics_predict,
+                               metric_name = 'vhfdc1_q0.9',
+                               test_region = 'snow'),
+             deployment = 'main'
+  ),
+  # Test on rain test region
+  tar_target(p6_test_RF_snow_test_rain,
+             predict_test_data_from_data(model_wf = p6_train_RF_snow$workflow,
+                                         features = p5_attr_g2,
+                                         cluster_table = p3_gages_clusters_quants_agg_selected %>%
+                                           select(ID, contains('_k5')) %>%
+                                           rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
+                                                  high = '0.75,0.8,0.85,0.9,0.95_k5'),
+                                         metrics_table = p2_all_metrics_predict,
+                                         metric_name = 'vhfdc1_q0.9',
+                                         test_region = 'rain',
+                                         test_gages = p6_Boruta_rain$input_data$testing$GAGES_ID),
+             deployment = 'main'
+  ),
+  # Test on snow test region
+  tar_target(p6_test_RF_snow_test_snow,
+             predict_test_data_from_data(model_wf = p6_train_RF_snow$workflow,
+                                         features = p5_attr_g2,
+                                         cluster_table = p3_gages_clusters_quants_agg_selected %>%
+                                           select(ID, contains('_k5')) %>%
+                                           rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
+                                                  high = '0.75,0.8,0.85,0.9,0.95_k5'),
+                                         metrics_table = p2_all_metrics_predict,
+                                         metric_name = 'vhfdc1_q0.9',
+                                         test_region = 'snow',
+                                         test_gages = p6_Boruta_snow$input_data$testing$GAGES_ID),
+             deployment = 'main'
+  ),
+  # All data in both regions
+  # Boruta screening
+  tar_target(p6_Boruta_rain_snow,
+             screen_Boruta(features = p5_attr_g2,
+                          cluster_table = p3_gages_clusters_quants_agg_selected %>%
+                            select(ID, contains('_k5')) %>%
+                            rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
+                                   high = '0.75,0.8,0.85,0.9,0.95_k5'),
+                          metrics_table = p2_all_metrics_predict,
+                          metric_name = 'vhfdc1_q0.9',
+                          train_region = c('rain', 'snow'),
+                          ncores = Boruta_cores,
+                          brf_runs = Boruta_runs,
+                          ntrees = Boruta_trees,
+                          train_prop = 0.8
+            ),
+            #map(p2_all_metrics_names_predict),
+            deployment = 'worker'
+  ),
+  #RF train
+  tar_target(p6_train_RF_rain_snow,
+            train_models_grid(brf_output = p6_Boruta_rain_snow,
+                              ncores = Boruta_cores,
+                              v_folds = cv_folds
+            ),
+            #map(p6_Boruta_rain_snow),
+            deployment = 'worker'
+  ),
+  # Test on rain
+  tar_target(p6_test_RF_rain_snow_rain,
+             predict_test_data(model_wf = p6_train_RF_rain_snow$workflow,
+                               features = p5_attr_g2,
+                               cluster_table = p3_gages_clusters_quants_agg_selected %>%
+                                 select(ID, contains('_k5')) %>%
+                                 rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
+                                        high = '0.75,0.8,0.85,0.9,0.95_k5'),
+                               metrics_table = p2_all_metrics_predict,
+                               metric_name = 'vhfdc1_q0.9',
+                               test_region = 'rain'),
+             deployment = 'main'
+  ),
+  # Test on snow
+  tar_target(p6_test_RF_rain_snow_snow,
+             predict_test_data(model_wf = p6_train_RF_rain_snow$workflow,
+                               features = p5_attr_g2,
+                               cluster_table = p3_gages_clusters_quants_agg_selected %>%
+                                 select(ID, contains('_k5')) %>%
+                                 rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
+                                        high = '0.75,0.8,0.85,0.9,0.95_k5'),
+                               metrics_table = p2_all_metrics_predict,
+                               metric_name = 'vhfdc1_q0.9',
+                               test_region = 'snow'),
+             deployment = 'main'
+  ),
+  # Exact same testing data as rain and snow regions above
+  # Boruta screening
+  tar_target(p6_Boruta_rain_snow_exact,
+             screen_Boruta_exact(features = p5_attr_g2,
+                           cluster_table = p3_gages_clusters_quants_agg_selected %>%
+                             select(ID, contains('_k5')) %>%
+                             rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
+                                    high = '0.75,0.8,0.85,0.9,0.95_k5'),
+                           metrics_table = p2_all_metrics_predict,
+                           metric_name = 'vhfdc1_q0.9',
+                           train_region = c('rain', 'snow'),
+                           ncores = Boruta_cores,
+                           brf_runs = Boruta_runs,
+                           ntrees = Boruta_trees,
+                           train_prop = 0.8,
+                           exact_test_data = c(p6_Boruta_rain$input_data$testing$GAGES_ID,
+                                               p6_Boruta_snow$input_data$testing$GAGES_ID)
+             ),
+             #map(p2_all_metrics_names_predict),
+             deployment = 'worker'
+  ),
+  #RF train
+  tar_target(p6_train_RF_rain_snow_exact,
+             train_models_grid(brf_output = p6_Boruta_rain_snow_exact,
+                               ncores = Boruta_cores,
+                               v_folds = cv_folds),
+             #map(p6_Boruta_rain_snow_exact),
+             deployment = 'worker'
+  ),
+  # Test on full rain region
+  tar_target(p6_test_RF_rain_snow_exact_rain,
+             predict_test_data(model_wf = p6_train_RF_rain_snow_exact$workflow,
+                               features = p5_attr_g2,
+                               cluster_table = p3_gages_clusters_quants_agg_selected %>%
+                                 select(ID, contains('_k5')) %>%
+                                 rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
+                                        high = '0.75,0.8,0.85,0.9,0.95_k5'),
+                               metrics_table = p2_all_metrics_predict,
+                               metric_name = 'vhfdc1_q0.9',
+                               test_region = 'rain'),
+             deployment = 'main'
+  ),
+  # Test on full snow region
+  tar_target(p6_test_RF_rain_snow_exact_snow,
+             predict_test_data(model_wf = p6_train_RF_rain_snow_exact$workflow,
+                               features = p5_attr_g2,
+                               cluster_table = p3_gages_clusters_quants_agg_selected %>%
+                                 select(ID, contains('_k5')) %>%
+                                 rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
+                                        high = '0.75,0.8,0.85,0.9,0.95_k5'),
+                               metrics_table = p2_all_metrics_predict,
+                               metric_name = 'vhfdc1_q0.9',
+                               test_region = 'snow'),
+             deployment = 'main'
+  ),
+  # Test on rain test region
+  tar_target(p6_test_RF_rain_snow_exact_test_rain,
+             predict_test_data_from_data(model_wf = p6_train_RF_rain_snow_exact$workflow,
+                               features = p5_attr_g2,
+                               cluster_table = p3_gages_clusters_quants_agg_selected %>%
+                                 select(ID, contains('_k5')) %>%
+                                 rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
+                                        high = '0.75,0.8,0.85,0.9,0.95_k5'),
+                               metrics_table = p2_all_metrics_predict,
+                               metric_name = 'vhfdc1_q0.9',
+                               test_region = 'rain',
+                               test_gages = p6_Boruta_rain$input_data$testing$GAGES_ID),
+             deployment = 'main'
+  ),
+  # Test on snow test region
+  tar_target(p6_test_RF_rain_snow_exact_test_snow,
+             predict_test_data_from_data(model_wf = p6_train_RF_rain_snow_exact$workflow,
+                               features = p5_attr_g2,
+                               cluster_table = p3_gages_clusters_quants_agg_selected %>%
+                                 select(ID, contains('_k5')) %>%
+                                 rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
+                                        high = '0.75,0.8,0.85,0.9,0.95_k5'),
+                               metrics_table = p2_all_metrics_predict,
+                               metric_name = 'vhfdc1_q0.9',
+                               test_region = 'snow',
+                               test_gages = p6_Boruta_snow$input_data$testing$GAGES_ID),
+             deployment = 'main'
+  ),
+  # All data CONUS OOB error
+  # Boruta screening
+  tar_target(p6_Boruta_CONUS_g2,
+             screen_Boruta(features = p5_attr_g2,
+                          cluster_table = p3_gages_clusters_quants_agg_selected %>%
+                            select(ID, contains('_k5')) %>%
+                            rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
+                                   high = '0.75,0.8,0.85,0.9,0.95_k5'),
+                          metrics_table = p2_all_metrics_predict,
+                          metric_name = 'vhfdc1_q0.9',
+                          train_region = 'all',
+                          ncores = Boruta_cores,
+                          brf_runs = Boruta_runs,
+                          ntrees = Boruta_trees,
+                          train_prop = 0.8
+            ),
+            #map(p2_all_metrics_names_predict),
+            deployment = 'worker'
+  ),
+  #RF train
+  tar_target(p6_train_RF_CONUS_g2,
+            train_models_grid(brf_output = p6_Boruta_CONUS_g2,
+                              ncores = Boruta_cores,
+                              v_folds = cv_folds
+            ),
+            #map(p6_Boruta_CONUS_g2),
+            deployment = 'worker'
+  ),
+  # Test on rain
+  tar_target(p6_test_RF_CONUS_g2_rain,
+             predict_test_data(model_wf = p6_train_RF_CONUS_g2$workflow,
+                               features = p5_attr_g2,
+                               cluster_table = p3_gages_clusters_quants_agg_selected %>%
+                                 select(ID, contains('_k5')) %>%
+                                 rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
+                                        high = '0.75,0.8,0.85,0.9,0.95_k5'),
+                               metrics_table = p2_all_metrics_predict,
+                               metric_name = 'vhfdc1_q0.9',
+                               test_region = 'rain'),
+             deployment = 'main'
+  ),
+  # Test on snow
+  tar_target(p6_test_RF_CONUS_g2_snow,
+             predict_test_data(model_wf = p6_train_RF_CONUS_g2$workflow,
+                               features = p5_attr_g2,
+                               cluster_table = p3_gages_clusters_quants_agg_selected %>%
+                                 select(ID, contains('_k5')) %>%
+                                 rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
+                                        high = '0.75,0.8,0.85,0.9,0.95_k5'),
+                               metrics_table = p2_all_metrics_predict,
+                               metric_name = 'vhfdc1_q0.9',
+                               test_region = 'snow'),
+             deployment = 'main'
+  ),
+  # Exact same testing data as rain and snow regions above
+  # Boruta screening
+  tar_target(p6_Boruta_CONUS_g2_exact,
+             screen_Boruta_exact(features = p5_attr_g2,
+                                 cluster_table = p3_gages_clusters_quants_agg_selected %>%
+                                   select(ID, contains('_k5')) %>%
+                                   rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
+                                          high = '0.75,0.8,0.85,0.9,0.95_k5'),
+                                 metrics_table = p2_all_metrics_predict,
+                                 metric_name = 'vhfdc1_q0.9',
+                                 train_region = c('all'),
+                                 ncores = Boruta_cores,
+                                 brf_runs = Boruta_runs,
+                                 ntrees = Boruta_trees,
+                                 train_prop = 0.8,
+                                 exact_test_data = c(p6_Boruta_rain$input_data$testing$GAGES_ID,
+                                                     p6_Boruta_snow$input_data$testing$GAGES_ID)
+             ),
+             #map(p2_all_metrics_names_predict),
+             deployment = 'worker'
+  ),
+  #RF train
+  tar_target(p6_train_RF_CONUS_g2_exact,
+             train_models_grid(brf_output = p6_Boruta_CONUS_g2_exact,
+                               ncores = Boruta_cores,
+                               v_folds = cv_folds),
+             #map(p6_Boruta_CONUS_g2_exact),
+             deployment = 'worker'
+  ),
+  # Test on full rain region
+  tar_target(p6_test_RF_CONUS_g2_exact_rain,
+             predict_test_data(model_wf = p6_train_RF_CONUS_g2_exact$workflow,
+                               features = p5_attr_g2,
+                               cluster_table = p3_gages_clusters_quants_agg_selected %>%
+                                 select(ID, contains('_k5')) %>%
+                                 rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
+                                        high = '0.75,0.8,0.85,0.9,0.95_k5'),
+                               metrics_table = p2_all_metrics_predict,
+                               metric_name = 'vhfdc1_q0.9',
+                               test_region = 'rain'),
+             deployment = 'main'
+  ),
+  # Test on full snow region
+  tar_target(p6_test_RF_CONUS_g2_exact_snow,
+             predict_test_data(model_wf = p6_train_RF_CONUS_g2_exact$workflow,
+                               features = p5_attr_g2,
+                               cluster_table = p3_gages_clusters_quants_agg_selected %>%
+                                 select(ID, contains('_k5')) %>%
+                                 rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
+                                        high = '0.75,0.8,0.85,0.9,0.95_k5'),
+                               metrics_table = p2_all_metrics_predict,
+                               metric_name = 'vhfdc1_q0.9',
+                               test_region = 'snow'),
+             deployment = 'main'
+  ),
+  # Test on rain test region
+  tar_target(p6_test_RF_CONUS_g2_exact_test_rain,
+             predict_test_data_from_data(model_wf = p6_train_RF_CONUS_g2_exact$workflow,
+                               features = p5_attr_g2,
+                               cluster_table = p3_gages_clusters_quants_agg_selected %>%
+                                 select(ID, contains('_k5')) %>%
+                                 rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
+                                        high = '0.75,0.8,0.85,0.9,0.95_k5'),
+                               metrics_table = p2_all_metrics_predict,
+                               metric_name = 'vhfdc1_q0.9',
+                               test_region = 'rain',
+                               test_gages = p6_Boruta_rain$input_data$testing$GAGES_ID),
+             deployment = 'main'
+  ),
+  # Test on snow test region
+  tar_target(p6_test_RF_CONUS_g2_exact_test_snow,
+             predict_test_data_from_data(model_wf = p6_train_RF_CONUS_g2_exact$workflow,
+                               features = p5_attr_g2,
+                               cluster_table = p3_gages_clusters_quants_agg_selected %>%
+                                 select(ID, contains('_k5')) %>%
+                                 rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
+                                        high = '0.75,0.8,0.85,0.9,0.95_k5'),
+                               metrics_table = p2_all_metrics_predict,
+                               metric_name = 'vhfdc1_q0.9',
+                               test_region = 'snow',
+                               test_gages = p6_Boruta_snow$input_data$testing$GAGES_ID),
+             deployment = 'main'
+  ),
+  # With cluster regions as input feature
+  # Boruta screening
+  tar_target(p6_Boruta_CONUS_g2_exact_clust,
+             screen_Boruta_exact(features = left_join(p5_attr_g2, p3_gages_clusters_quants_agg_selected %>% 
+                                                        select(ID, '0.75,0.8,0.85,0.9,0.95_k5') %>%
+                                                        rename(clusters = '0.75,0.8,0.85,0.9,0.95_k5'), 
+                                                      by = c('GAGES_ID' = 'ID')) %>% 
+                                   na.omit(),
+                                 cluster_table = p3_gages_clusters_quants_agg_selected %>%
+                                   select(ID, contains('_k5')) %>%
+                                   rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
+                                          high = '0.75,0.8,0.85,0.9,0.95_k5'),
+                                 metrics_table = p2_all_metrics_predict,
+                                 metric_name = 'vhfdc1_q0.9',
+                                 train_region = c('all'),
+                                 ncores = Boruta_cores,
+                                 brf_runs = Boruta_runs,
+                                 ntrees = Boruta_trees,
+                                 train_prop = 0.8,
+                                 exact_test_data = c(p6_Boruta_rain$input_data$testing$GAGES_ID,
+                                                     p6_Boruta_snow$input_data$testing$GAGES_ID)
+             ),
+             #map(p2_all_metrics_names_predict),
+             deployment = 'worker'
+  ),
+  #RF train
+  tar_target(p6_train_RF_CONUS_g2_exact_clust,
+             train_models_grid(brf_output = p6_Boruta_CONUS_g2_exact_clust,
+                               ncores = Boruta_cores,
+                               v_folds = cv_folds),
+             #map(p6_Boruta_CONUS_g2_exact_clust),
+             deployment = 'worker'
+  ),
+  # Test on full rain region
+  tar_target(p6_test_RF_CONUS_g2_exact_clust_rain,
+             predict_test_data(model_wf = p6_train_RF_CONUS_g2_exact_clust$workflow,
+                               features = left_join(p5_attr_g2, p3_gages_clusters_quants_agg_selected %>% 
+                                                      select(ID, '0.75,0.8,0.85,0.9,0.95_k5') %>%
+                                                      rename(clusters = '0.75,0.8,0.85,0.9,0.95_k5'), 
+                                                    by = c('GAGES_ID' = 'ID')) %>% 
+                                 na.omit(),
+                               cluster_table = p3_gages_clusters_quants_agg_selected %>%
+                                 select(ID, contains('_k5')) %>%
+                                 rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
+                                        high = '0.75,0.8,0.85,0.9,0.95_k5'),
+                               metrics_table = p2_all_metrics_predict,
+                               metric_name = 'vhfdc1_q0.9',
+                               test_region = 'rain'),
+             deployment = 'main'
+  ),
+  # Test on full snow region
+  tar_target(p6_test_RF_CONUS_g2_exact_clust_snow,
+             predict_test_data(model_wf = p6_train_RF_CONUS_g2_exact_clust$workflow,
+                               features = left_join(p5_attr_g2, p3_gages_clusters_quants_agg_selected %>% 
+                                                      select(ID, '0.75,0.8,0.85,0.9,0.95_k5') %>%
+                                                      rename(clusters = '0.75,0.8,0.85,0.9,0.95_k5'), 
+                                                    by = c('GAGES_ID' = 'ID')) %>% 
+                                 na.omit(),
+                               cluster_table = p3_gages_clusters_quants_agg_selected %>%
+                                 select(ID, contains('_k5')) %>%
+                                 rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
+                                        high = '0.75,0.8,0.85,0.9,0.95_k5'),
+                               metrics_table = p2_all_metrics_predict,
+                               metric_name = 'vhfdc1_q0.9',
+                               test_region = 'snow'),
+             deployment = 'main'
+  ),
+  # Test on rain test region
+  tar_target(p6_test_RF_CONUS_g2_exact_clust_test_rain,
+             predict_test_data_from_data(model_wf = p6_train_RF_CONUS_g2_exact_clust$workflow,
+                                         features = left_join(p5_attr_g2, p3_gages_clusters_quants_agg_selected %>% 
+                                                                select(ID, '0.75,0.8,0.85,0.9,0.95_k5') %>%
+                                                                rename(clusters = '0.75,0.8,0.85,0.9,0.95_k5'), 
+                                                              by = c('GAGES_ID' = 'ID')) %>% 
+                                           na.omit(),
+                                         cluster_table = p3_gages_clusters_quants_agg_selected %>%
+                                           select(ID, contains('_k5')) %>%
+                                           rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
+                                                  high = '0.75,0.8,0.85,0.9,0.95_k5'),
+                                         metrics_table = p2_all_metrics_predict,
+                                         metric_name = 'vhfdc1_q0.9',
+                                         test_region = 'rain',
+                                         test_gages = p6_Boruta_rain$input_data$testing$GAGES_ID),
+             deployment = 'main'
+  ),
+  # Test on snow test region
+  tar_target(p6_test_RF_CONUS_g2_exact_clust_test_snow,
+             predict_test_data_from_data(model_wf = p6_train_RF_CONUS_g2_exact_clust$workflow,
+                                         features = left_join(p5_attr_g2, p3_gages_clusters_quants_agg_selected %>% 
+                                                                select(ID, '0.75,0.8,0.85,0.9,0.95_k5') %>%
+                                                                rename(clusters = '0.75,0.8,0.85,0.9,0.95_k5'), 
+                                                              by = c('GAGES_ID' = 'ID')) %>% 
+                                           na.omit(),
+                                         cluster_table = p3_gages_clusters_quants_agg_selected %>%
+                                           select(ID, contains('_k5')) %>%
+                                           rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
+                                                  high = '0.75,0.8,0.85,0.9,0.95_k5'),
+                                         metrics_table = p2_all_metrics_predict,
+                                         metric_name = 'vhfdc1_q0.9',
+                                         test_region = 'snow',
+                                         test_gages = p6_Boruta_snow$input_data$testing$GAGES_ID),
+             deployment = 'main'
+  ),
+  
+  
+  # Visualize Model Diagnostics:
+  
+  # Boruta screening
+  tar_target(p6_Boruta_rain_png,
+             plot_Boruta(p6_Boruta_rain$brf_All,
+                         metric = p6_Boruta_rain$metric,
+                         region = 'rain',
+                         out_dir = '6_predict/out/Boruta'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_Boruta_snow_png,
+             plot_Boruta(p6_Boruta_snow$brf_All,
+                         metric = p6_Boruta_snow$metric,
+                         region = 'snow',
+                         out_dir = '6_predict/out/Boruta'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_Boruta_rain_snow_png,
+             plot_Boruta(p6_Boruta_rain_snow$brf_All,
+                         metric = p6_Boruta_rain_snow$metric,
+                         region = 'rain_snow',
+                         out_dir = '6_predict/out/Boruta'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_Boruta_rain_snow_exact_png,
+             plot_Boruta(p6_Boruta_rain_snow_exact$brf_All,
+                         metric = p6_Boruta_rain_snow_exact$metric,
+                         region = 'rain_snow_exact',
+                         out_dir = '6_predict/out/Boruta'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_Boruta_CONUS_g2_png,
+             plot_Boruta(p6_Boruta_CONUS_g2$brf_All,
+                         metric = p6_Boruta_CONUS_g2$metric,
+                         region = 'CONUS_g2',
+                         out_dir = '6_predict/out/Boruta'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_Boruta_CONUS_g2_exact_png,
+             plot_Boruta(p6_Boruta_CONUS_g2_exact$brf_All,
+                         metric = p6_Boruta_CONUS_g2_exact$metric,
+                         region = 'CONUS_g2_exact',
+                         out_dir = '6_predict/out/Boruta'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_Boruta_CONUS_g2_exact_clust_png,
+             plot_Boruta(p6_Boruta_CONUS_g2_exact_clust$brf_All,
+                         metric = p6_Boruta_CONUS_g2_exact_clust$metric,
+                         region = 'CONUS_g2_exact_clust',
+                         out_dir = '6_predict/out/Boruta'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  
+  # RF variable importance plot 
+  #Should add error bars over X random seeds
+  tar_target(p6_vip_rain_png,
+             plot_vip(RF_model = p6_train_RF_rain$best_fit,
+                      metric = p6_Boruta_rain$metric,
+                      region = 'rain',
+                      num_features = 10,
+                      out_dir = '6_predict/out/vip'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_vip_snow_png,
+             plot_vip(RF_model = p6_train_RF_snow$best_fit,
+                      metric = p6_Boruta_snow$metric,
+                      region = 'snow',
+                      num_features = 10,
+                      out_dir = '6_predict/out/vip'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_vip_rain_snow_png,
+             plot_vip(RF_model = p6_train_RF_rain_snow$best_fit,
+                      metric = p6_Boruta_rain_snow$metric,
+                      region = 'rain_snow',
+                      num_features = 10,
+                      out_dir = '6_predict/out/vip'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_vip_rain_snow_exact_png,
+             plot_vip(RF_model = p6_train_RF_rain_snow_exact$best_fit,
+                      metric = p6_Boruta_rain_snow_exact$metric,
+                      region = 'rain_snow_exact',
+                      num_features = 10,
+                      out_dir = '6_predict/out/vip'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_vip_CONUS_g2_png,
+             plot_vip(RF_model = p6_train_RF_CONUS_g2$best_fit,
+                      metric = p6_Boruta_CONUS_g2$metric,
+                      region = 'CONUS_g2',
+                      num_features = 10,
+                      out_dir = '6_predict/out/vip'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_vip_CONUS_g2_exact_png,
+             plot_vip(RF_model = p6_train_RF_CONUS_g2_exact$best_fit,
+                      metric = p6_Boruta_CONUS_g2_exact$metric,
+                      region = 'CONUS_g2_exact',
+                      num_features = 10,
+                      out_dir = '6_predict/out/vip'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_vip_CONUS_g2_exact_clust_png,
+             plot_vip(RF_model = p6_train_RF_CONUS_g2_exact_clust$best_fit,
+                      metric = p6_Boruta_CONUS_g2_exact_clust$metric,
+                      region = 'CONUS_g2_exact_clust',
+                      num_features = 10,
+                      out_dir = '6_predict/out/vip'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  
+  # RF hyperparameter optimization
+  tar_target(p6_hypopt_rain_png,
+             plot_hyperparam_opt_results_RF(p6_train_RF_rain$grid_params,
+                      metric = p6_Boruta_rain$metric,
+                      region = 'rain',
+                      out_dir = '6_predict/out/hypopt'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_hypopt_snow_png,
+             plot_hyperparam_opt_results_RF(p6_train_RF_snow$grid_params,
+                      metric = p6_Boruta_snow$metric,
+                      region = 'snow',
+                      out_dir = '6_predict/out/hypopt'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_hypopt_rain_snow_png,
+             plot_hyperparam_opt_results_RF(p6_train_RF_rain_snow$grid_params,
+                      metric = p6_Boruta_rain_snow$metric,
+                      region = 'rain_snow',
+                      out_dir = '6_predict/out/hypopt'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_hypopt_rain_snow_exact_png,
+             plot_hyperparam_opt_results_RF(p6_train_RF_rain_snow_exact$grid_params,
+                                            metric = p6_Boruta_rain_snow_exact$metric,
+                                            region = 'rain_snow_exact',
+                                            out_dir = '6_predict/out/hypopt'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_hypopt_CONUS_g2_png,
+             plot_hyperparam_opt_results_RF(p6_train_RF_CONUS_g2$grid_params,
+                      metric = p6_Boruta_CONUS_g2$metric,
+                      region = 'CONUS_g2',
+                      out_dir = '6_predict/out/hypopt'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_hypopt_CONUS_g2_exact_png,
+             plot_hyperparam_opt_results_RF(p6_train_RF_CONUS_g2_exact$grid_params,
+                                            metric = p6_Boruta_CONUS_g2_exact$metric,
+                                            region = 'CONUS_g2_exact',
+                                            out_dir = '6_predict/out/hypopt'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_hypopt_CONUS_g2_exact_clust_png,
+             plot_hyperparam_opt_results_RF(p6_train_RF_CONUS_g2_exact_clust$grid_params,
+                                            metric = p6_Boruta_CONUS_g2_exact_clust$metric,
+                                            region = 'CONUS_g2_exact_clust',
+                                            out_dir = '6_predict/out/hypopt'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  
+  # Train test split boxplots for metric
+  tar_target(p6_split_boxplot_rain_png,
+             plot_metric_boxplot(data_split = p6_Boruta_rain$input_data,
+                                 metric = p6_Boruta_rain$metric,
+                                 region = 'rain',
+                                 out_dir = '6_predict/out/split_boxplots'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_split_boxplot_snow_png,
+             plot_metric_boxplot(data_split = p6_Boruta_snow$input_data,
+                                 metric = p6_Boruta_snow$metric,
+                                 region = 'snow',
+                                 out_dir = '6_predict/out/split_boxplots'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_split_boxplot_rain_snow_png,
+             plot_metric_boxplot(data_split = p6_Boruta_rain_snow$input_data,
+                                 metric = p6_Boruta_rain_snow$metric,
+                                 region = 'rain_snow',
+                                 out_dir = '6_predict/out/split_boxplots'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_split_boxplot_rain_snow_exact_png,
+             plot_metric_boxplot(data_split = p6_Boruta_rain_snow_exact$input_data,
+                                 metric = p6_Boruta_rain_snow_exact$metric,
+                                 region = 'rain_snow_exact',
+                                 out_dir = '6_predict/out/split_boxplots'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_split_boxplot_CONUS_g2_png,
+             plot_metric_boxplot(data_split = p6_Boruta_CONUS_g2$input_data,
+                                 metric = p6_Boruta_CONUS_g2$metric,
+                                 region = 'CONUS_g2',
+                                 out_dir = '6_predict/out/split_boxplots'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_split_boxplot_CONUS_g2_exact_png,
+             plot_metric_boxplot(data_split = p6_Boruta_CONUS_g2_exact$input_data,
+                                 metric = p6_Boruta_CONUS_g2_exact$metric,
+                                 region = 'CONUS_g2_exact',
+                                 out_dir = '6_predict/out/split_boxplots'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_split_boxplot_CONUS_g2_exact_clust_png,
+             plot_metric_boxplot(data_split = p6_Boruta_CONUS_g2_exact_clust$input_data,
+                                 metric = p6_Boruta_CONUS_g2_exact_clust$metric,
+                                 region = 'CONUS_g2_exact_clust',
+                                 out_dir = '6_predict/out/split_boxplots'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  
+  # RF prediction vs. observed
+  tar_target(p6_pred_obs_rain_png,
+             plot_pred_obs(df_pred_obs = p6_test_RF_rain_rain$pred,
+                           metric = p6_Boruta_rain$metric,
+                           region = 'rain',
+                           out_dir = '6_predict/out/pred_obs'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_pred_obs_snow_png,
+             plot_pred_obs(df_pred_obs = p6_test_RF_snow_snow$pred,
+                           metric = p6_Boruta_snow$metric,
+                           region = 'snow',
+                           out_dir = '6_predict/out/pred_obs'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_pred_obs_rain_snow_png,
+             plot_pred_obs(df_pred_obs = NULL,
+                           metric = p6_Boruta_rain_snow$metric,
+                           region = 'rain_snow',
+                           out_dir = '6_predict/out/pred_obs', 
+                           from_predict = TRUE, 
+                           model_wf = p6_train_RF_rain_snow$workflow,
+                           pred_data = p6_Boruta_rain_snow$input_data$split$data),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_pred_obs_rain_snow_exact_png,
+             plot_pred_obs(df_pred_obs = NULL,
+                           metric = p6_Boruta_rain_snow_exact$metric,
+                           region = 'rain_snow_exact',
+                           out_dir = '6_predict/out/pred_obs', 
+                           from_predict = TRUE, 
+                           model_wf = p6_train_RF_rain_snow_exact$workflow,
+                           pred_data = p6_Boruta_rain_snow_exact$input_data$split$data),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_pred_obs_CONUS_g2_png,
+             plot_pred_obs(df_pred_obs = NULL,
+                           metric = p6_Boruta_CONUS_g2$metric,
+                           region = 'CONUS_g2',
+                           out_dir = '6_predict/out/pred_obs', 
+                           from_predict = TRUE, 
+                           model_wf = p6_train_RF_CONUS_g2$workflow,
+                           pred_data = p6_Boruta_CONUS_g2$input_data$split$data),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_pred_obs_CONUS_g2_exact_png,
+             plot_pred_obs(df_pred_obs = NULL,
+                           metric = p6_Boruta_CONUS_g2_exact$metric,
+                           region = 'CONUS_g2_exact',
+                           out_dir = '6_predict/out/pred_obs', 
+                           from_predict = TRUE, 
+                           model_wf = p6_train_RF_CONUS_g2_exact$workflow,
+                           pred_data = p6_Boruta_CONUS_g2_exact$input_data$split$data),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_pred_obs_CONUS_g2_exact_clust_png,
+             plot_pred_obs(df_pred_obs = NULL,
+                           metric = p6_Boruta_CONUS_g2_exact_clust$metric,
+                           region = 'CONUS_g2_exact_clust',
+                           out_dir = '6_predict/out/pred_obs', 
+                           from_predict = TRUE, 
+                           model_wf = p6_train_RF_CONUS_g2_exact_clust$workflow,
+                           pred_data = p6_Boruta_CONUS_g2_exact_clust$input_data$split$data),
+             deployment = 'main',
+             format = 'file'
+  ),
+   
+  # RF residual vs. y 
+  #Should be for the mean over X random seeds
+  #May want to do some oversampling in extreme tails
+  # plot(x = input_data %>% 
+  #        filter(region == 'rain') %>% 
+  #        pull({{metric_name}}), y = abs(rf$predictions - input_data %>% 
+  #                                         filter(region == 'rain') %>% 
+  #                                         pull({{metric_name}})))
+  
+  # Spatial residuals
+  #Should be for the mean over X random seeds
+  
+  
+  # Model RMSE comparison boxplots / barplots
+  tar_target(p6_compare_RMSE_RF_png,
+             barplot_compare_RF(rain_mod = p6_train_RF_rain, 
+                                snow_mod = p6_train_RF_snow, 
+                                rain_snow_mod = p6_train_RF_rain_snow, 
+                                CONUS_mod = p6_train_RF_CONUS_g2,
+                                test_rain_rain = p6_test_RF_rain_rain, 
+                                test_rain_snow = p6_test_RF_rain_snow,
+                                test_snow_rain = p6_test_RF_snow_rain, 
+                                test_snow_snow = p6_test_RF_snow_snow, 
+                                test_rain_snow_rain = p6_test_RF_rain_snow_rain, 
+                                test_rain_snow_snow = p6_test_RF_rain_snow_snow, 
+                                test_CONUS_rain = p6_test_RF_CONUS_g2_rain, 
+                                test_CONUS_snow = p6_test_RF_CONUS_g2_snow,
+                                flow_metric = 'vhfdc1_q0.9', 
+                                perf_metric = 'rmse', 
+                                out_dir = '6_predict/out'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_compare_RMSE_RF_exact_full_png,
+             barplot_compare_RF(rain_mod = p6_train_RF_rain, 
+                                snow_mod = p6_train_RF_snow, 
+                                rain_snow_mod = p6_train_RF_rain_snow_exact, 
+                                CONUS_mod = p6_train_RF_CONUS_g2_exact,
+                                test_rain_rain = p6_test_RF_rain_rain, 
+                                test_rain_snow = p6_test_RF_rain_snow,
+                                test_snow_rain = p6_test_RF_snow_rain, 
+                                test_snow_snow = p6_test_RF_snow_snow, 
+                                test_rain_snow_rain = p6_test_RF_rain_snow_exact_rain, 
+                                test_rain_snow_snow = p6_test_RF_rain_snow_exact_snow, 
+                                test_CONUS_rain = p6_test_RF_CONUS_g2_exact_rain, 
+                                test_CONUS_snow = p6_test_RF_CONUS_g2_exact_snow,
+                                flow_metric = 'vhfdc1_q0.9_exact_full', 
+                                perf_metric = 'rmse', 
+                                out_dir = '6_predict/out'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_compare_RMSE_RF_exact_test_png,
+             barplot_compare_RF(rain_mod = p6_train_RF_rain, 
+                                snow_mod = p6_train_RF_snow, 
+                                rain_snow_mod = p6_train_RF_rain_snow_exact, 
+                                CONUS_mod = p6_train_RF_CONUS_g2_exact,
+                                test_rain_rain = p6_test_RF_rain_test_rain, 
+                                test_rain_snow = p6_test_RF_rain_test_snow,
+                                test_snow_rain = p6_test_RF_snow_test_rain, 
+                                test_snow_snow = p6_test_RF_snow_test_snow, 
+                                test_rain_snow_rain = p6_test_RF_rain_snow_exact_test_rain, 
+                                test_rain_snow_snow = p6_test_RF_rain_snow_exact_test_snow, 
+                                test_CONUS_rain = p6_test_RF_CONUS_g2_exact_test_rain, 
+                                test_CONUS_snow = p6_test_RF_CONUS_g2_exact_test_snow,
+                                flow_metric = 'vhfdc1_q0.9_exact_test', 
+                                perf_metric = 'rmse', 
+                                out_dir = '6_predict/out'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_compare_RMSE_RF_exact_clust_test_png,
+             barplot_compare_RF(rain_mod = p6_train_RF_rain, 
+                                snow_mod = p6_train_RF_snow, 
+                                rain_snow_mod = p6_train_RF_rain_snow_exact, 
+                                CONUS_mod = p6_train_RF_CONUS_g2_exact_clust,
+                                test_rain_rain = p6_test_RF_rain_test_rain, 
+                                test_rain_snow = p6_test_RF_rain_test_snow,
+                                test_snow_rain = p6_test_RF_snow_test_rain, 
+                                test_snow_snow = p6_test_RF_snow_test_snow, 
+                                test_rain_snow_rain = p6_test_RF_rain_snow_exact_test_rain, 
+                                test_rain_snow_snow = p6_test_RF_rain_snow_exact_test_snow, 
+                                test_CONUS_rain = p6_test_RF_CONUS_g2_exact_clust_test_rain, 
+                                test_CONUS_snow = p6_test_RF_CONUS_g2_exact_clust_test_snow,
+                                flow_metric = 'vhfdc1_q0.9_exact_clust_test', 
+                                perf_metric = 'rmse', 
+                                out_dir = '6_predict/out'),
+             deployment = 'main',
+             format = 'file'
+  )
+  
 ) #end list

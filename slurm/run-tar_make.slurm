@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=fhwa              # human-readable label for squeue output
-#SBATCH --time=4:00:00                  # maximum time for this job
+#SBATCH --time=14:00:00                  # maximum time for this job
 #SBATCH --output=fhwa_%u.out         # user's output file (password here!)
 #SBATCH --partition=cpu                 # which SLURM partition to use
 #SBATCH --nodes=1                       # only request one node

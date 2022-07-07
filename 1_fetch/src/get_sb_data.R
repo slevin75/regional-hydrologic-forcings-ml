@@ -266,16 +266,27 @@ prep_feature_vars <- function(sb_var_data, sites, retain_vars) {
     summarise_all(mean) %>%
     pivot_longer(!COMID, names_to = "name", values_to = "value") %>%
     mutate(unit = str_sub(name, 1, 3), 
-           region = str_sub(name, 12)) %>%
-    group_by(COMID, unit) %>%
-    summarise(dom_phys_reg_ind = which.max(value), .groups = "drop") %>%
-    mutate(dom_phys_reg = if_else(dom_phys_reg_ind < 3, 
-                                   as.numeric(dom_phys_reg_ind) - 1, 
-                                   as.numeric(dom_phys_reg_ind))) %>%
+           region = str_sub(name, 12))
+  
+  dom_phys_reg <- tibble()
+  for (i in unique(phys_region$COMID)) {
+    phys_reg_comid <- filter(phys_region, COMID == i)
+    dom_phys_reg_comid <- tibble()
+    for (j in unique(phys_reg_comid$unit)) {
+      phys_reg_comid_unit <- filter(phys_reg_comid, unit == j)
+      phys_reg_comid_unit <- 
+        phys_reg_comid_unit[which.max(phys_reg_comid_unit$value), ]
+      dom_phys_reg_comid <- bind_rows(dom_phys_reg_comid, phys_reg_comid_unit)
+    }
+    dom_phys_reg <- bind_rows(dom_phys_reg, dom_phys_reg_comid)
+  }
+  
+  dom_phys_reg$region <- as.numeric(dom_phys_reg$region)
+  phys_region <- dom_phys_reg %>%
     mutate(label = paste0(unit, "_PHYSIO")) %>%
     arrange(COMID, label) %>%
-    select(COMID, label, dom_phys_reg) %>%
-    pivot_wider(names_from = "label", values_from = "dom_phys_reg")
+    select(COMID, label, region) %>%
+    pivot_wider(names_from = "label", values_from = "region")
   
   #remove unwanted feature variables and re-join long-term average datasets
   data <- data %>%

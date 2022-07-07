@@ -258,11 +258,31 @@ prep_feature_vars <- function(sb_var_data, sites, retain_vars) {
     select(COMID, label, avg_annual) %>%
     pivot_wider(names_from = "label", values_from = "avg_annual")
   
+  #determine dominant physiographic region
+  phys_region <- data %>%
+    select(COMID, contains("_PHYSIO_")) %>%
+    select(-contains("AREA")) %>%
+    group_by(COMID) %>%
+    summarise_all(mean) %>%
+    pivot_longer(!COMID, names_to = "name", values_to = "value") %>%
+    mutate(unit = str_sub(name, 1, 3), 
+           region = str_sub(name, 12)) %>%
+    group_by(COMID, unit) %>%
+    summarise(dom_phys_reg_ind = which.max(value), .groups = "drop") %>%
+    mutate(dom_phys_reg = if_else(dom_phys_reg_ind < 3, 
+                                   as.numeric(dom_phys_reg_ind) - 1, 
+                                   as.numeric(dom_phys_reg_ind))) %>%
+    mutate(label = paste0(unit, "_PHYSIO")) %>%
+    arrange(COMID, label) %>%
+    select(COMID, label, dom_phys_reg) %>%
+    pivot_wider(names_from = "label", values_from = "dom_phys_reg")
+  
   #remove unwanted feature variables and re-join long-term average datasets
   data <- data %>%
-    select(-ends_with(".y"), -ID, -starts_with("..."), -contains("_S1"), -contains("PHYSIO_AREA"), 
+    select(-ends_with(".y"), -ID, -starts_with("..."), -contains("_S1"), -contains("_PHYSIO_"), 
            -contains("SOHL"), -contains("NDAMS"), -contains("STORAGE"), -contains("MAJOR"), 
            -contains("_TAV_"), -contains("_PPT_"), -contains("WILDFIRE")) %>%
+    left_join(phys_region, by = "COMID") %>%
     left_join(land_cover, by = "COMID") %>%
     left_join(dams, by = "COMID") %>%
     left_join(weather, by = "COMID") %>%

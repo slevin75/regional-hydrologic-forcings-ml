@@ -895,7 +895,8 @@ list(
   tar_target(p6_train_RF_rain,
              train_models_grid(brf_output = p6_Boruta_rain,
                                ncores = Boruta_cores,
-                               v_folds = cv_folds
+                               v_folds = cv_folds, 
+                               nested_groups = p4_nested_groups
              ),
              #map(p6_Boruta_rain),
              deployment = 'worker'
@@ -968,7 +969,8 @@ list(
                           ncores = Boruta_cores,
                           brf_runs = Boruta_runs,
                           ntrees = Boruta_trees,
-                          train_prop = 0.8
+                          train_prop = 0.8, 
+                          nested_groups = p4_nested_groups
             ),
             #map(p2_all_metrics_names_predict),
             deployment = 'worker'
@@ -977,7 +979,8 @@ list(
   tar_target(p6_train_RF_snow,
             train_models_grid(brf_output = p6_Boruta_snow,
                               ncores = Boruta_cores,
-                              v_folds = cv_folds
+                              v_folds = cv_folds,
+                              nested_groups = p4_nested_groups
             ),
             #map(p6_Boruta_snow),
             deployment = 'worker'
@@ -1050,7 +1053,8 @@ list(
                           ncores = Boruta_cores,
                           brf_runs = Boruta_runs,
                           ntrees = Boruta_trees,
-                          train_prop = 0.8
+                          train_prop = 0.8,
+                          nested_groups = p4_nested_groups
             ),
             #map(p2_all_metrics_names_predict),
             deployment = 'worker'
@@ -1059,7 +1063,8 @@ list(
   tar_target(p6_train_RF_rain_snow,
             train_models_grid(brf_output = p6_Boruta_rain_snow,
                               ncores = Boruta_cores,
-                              v_folds = cv_folds
+                              v_folds = cv_folds,
+                              nested_groups = p4_nested_groups
             ),
             #map(p6_Boruta_rain_snow),
             deployment = 'worker'
@@ -1116,7 +1121,8 @@ list(
   tar_target(p6_train_RF_rain_snow_exact,
              train_models_grid(brf_output = p6_Boruta_rain_snow_exact,
                                ncores = Boruta_cores,
-                               v_folds = cv_folds),
+                               v_folds = cv_folds,
+                               nested_groups = p4_nested_groups),
              #map(p6_Boruta_rain_snow_exact),
              deployment = 'worker'
   ),
@@ -1198,7 +1204,8 @@ list(
   tar_target(p6_train_RF_CONUS_g2,
             train_models_grid(brf_output = p6_Boruta_CONUS_g2,
                               ncores = Boruta_cores,
-                              v_folds = cv_folds
+                              v_folds = cv_folds,
+                              nested_groups = p4_nested_groups
             ),
             #map(p6_Boruta_CONUS_g2),
             deployment = 'worker'
@@ -1255,7 +1262,8 @@ list(
   tar_target(p6_train_RF_CONUS_g2_exact,
              train_models_grid(brf_output = p6_Boruta_CONUS_g2_exact,
                                ncores = Boruta_cores,
-                               v_folds = cv_folds),
+                               v_folds = cv_folds,
+                               nested_groups = p4_nested_groups),
              #map(p6_Boruta_CONUS_g2_exact),
              deployment = 'worker'
   ),
@@ -1343,7 +1351,8 @@ list(
   tar_target(p6_train_RF_CONUS_g2_exact_clust,
              train_models_grid(brf_output = p6_Boruta_CONUS_g2_exact_clust,
                                ncores = Boruta_cores,
-                               v_folds = cv_folds),
+                               v_folds = cv_folds,
+                               nested_groups = p4_nested_groups),
              #map(p6_Boruta_CONUS_g2_exact_clust),
              deployment = 'worker'
   ),

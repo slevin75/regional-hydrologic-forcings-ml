@@ -62,5 +62,3 @@ vignettes/*.pdf
 # R Environment Variables
 .Renviron
 
-#slurm files on hpc
-/slurm/

@@ -1,5 +1,18 @@
 
 get_nested_gages<-function(gagesii,nav_distance_km, screened_site_list){
+  
+  #' 
+  #' @description This function determines the area of overlap between each
+  #' gage in the gagesii data.
+  #' 
+  #'  @param gagesii gagesii database of streamgages
+  #'  @param nav_distance_km distance to search upstream to look for nested basins
+  #'  @param screened_site_list vector of streamgage ids that has been screened 
+  #'  
+  #'  @return Returns a matrix with proportion of overlapping area. Column name 
+  #'  gage is downstream of the row name gage.
+  
+  
   gage_IDs <- as.character(gagesii$ID[gagesii$ID %in% screened_site_list])
   COMIDs <- as.character(gagesii$COMID[gagesii$ID %in% screened_site_list])
   drainage_areas<-data.frame(gage_IDs=gage_IDs,
@@ -44,10 +57,18 @@ get_nested_gages<-function(gagesii,nav_distance_km, screened_site_list){
 
 
 add_nested_group_id <- function(nested_gages, drainage_area, nested_threshold){
-  
-  ##this function will take the matrix of nested gages, and output a dataframe
-  ##assigning unique group numbers to each un-nested gage and groups of gages 
-  ##that are nested with a minimum overlap equal to the nested_threshold.
+  #' 
+  #' @description this function assigns a unique group numbers to each un-nested 
+  #' gage and groups of gages that are nested with a minimum overlap threshold.
+  #' 
+  #' @param nested_gages is a matrix of the percentage of overlap between each pair
+  #' of gages. Column name gages are the downstream gage and row name is the upstream gage
+  #' @param drainage_area data frame containing the drainage area of each streamgage
+  #' @param nested_threshold is the minimum percentage of overlap needed to be considered
+  #' nested
+  #' 
+  #' @return Returns a data frame with a unique group id for each pair of nested gages.  Unnested
+  #' gages get their own unique nested_group_id.
   
   ##replace any number equal or greater than the nested_threshold to 1
   nested_gages<- as.data.frame(ifelse(nested_gages >= nested_threshold, 1, 0))

@@ -22,14 +22,38 @@ split_data <- function(data, train_prop, nested_groups){
   training <- merge(training, nested_groups, by.x= "GAGES_ID", by.y = "ID")
   testing <- merge(testing, nested_groups, by.x = "GAGES_ID", by.y = "ID")
   
-  ##find any nested group ids that are in both data sets
-  intersection_ids<-intersect(training$nested_group_id, testing$nested_group_id)
+
+  regrouped <- regroup_split_data(training, testing, nested_groups)
+  training <- regrouped[[1]]
+  testing <- regrouped[[2]]
   
+
+  ##replace split$in_id with re-grouped ids
+  split$in_id <- which(data$GAGES_ID %in% training$GAGES_ID)
+  return(list(split = split, training = training, testing = testing))
+}
+
+regroup_split_data<- function(training, testing, nested_groups){
+  #'
+  #' @description this function post identifies nested gages that are in both training
+  #' and testing datasets and moves the gages from any split nested groups from the testing
+  #' into the training. Used in post processing the initial_split function and cvfold function.
+  #' @param training data frame that has GAGE_ID and nested_group_id.  Can have other attributes
+  #' @param testing data frame of testing data with GAGE_ID and nested_group_id. Same attributes as training
+  #' @nested_groupss data frame that lists the unique nested_gage_id for each streamgage ID.
+  #'
+  #' @return list containing the updated training and testing data frames
+ 
+  ##find any nested group ids that are in both data sets
+  intersection_ids <- intersect(training$nested_group_id, testing$nested_group_id)
+  
+
   ##find all un-nested group ids
-  unnested<- nested_groups %>%
+  unnested <- nested_groups %>%
+    filter(nested_groups$ID %in% training$GAGES_ID | nested_groups$ID %in% testing$GAGES_ID) %>%
     group_by(nested_group_id) %>%
-    count()%>%
-    filter(n ==1)%>%
+    count() %>%
+    filter(n ==1) %>%
     select(nested_group_id)
   
   ##identify nested gages to move from testing to training and
@@ -38,17 +62,17 @@ split_data <- function(data, train_prop, nested_groups){
     filter(nested_group_id %in% intersection_ids)
   
   replacement_gages<-training %>%
-    filter(nested_group_id %in% unnested$nested_group_id)%>%
+    filter(nested_group_id %in% unnested$nested_group_id) %>%
     sample_n(size = nrow(move_gages))
   
   ##remove move_gages from testing and add replacement gages
   ##remove nested_group_id column from data so it doesn't
   ##mess up subsequent functions
   testing <- testing %>%
-    filter(!nested_group_id %in% intersection_ids)%>%
+    filter(!nested_group_id %in% intersection_ids) %>%
     bind_rows(replacement_gages) %>%
     select(-nested_group_id)
-
+  
   
   ##remove replacement gages from training and add move_gages
   training <- training %>%
@@ -56,8 +80,8 @@ split_data <- function(data, train_prop, nested_groups){
     bind_rows(move_gages) %>%
     select(-nested_group_id)
 
+  return(list(training, testing))
   
-  return(list(split = split, training = training, testing = testing))
 }
 
 screen_Boruta <- function(features, cluster_table, metrics_table, metric_name,
@@ -139,7 +163,7 @@ screen_Boruta <- function(features, cluster_table, metrics_table, metric_name,
   #Split into training and testing datasets
   input_data_split <- split_data(input_data, train_prop = train_prop,nested_groups)
 
-  
+
   #Apply Boruta to down-select features
   #This is parallelized by default
   #Noticed that there were switches when applied 2 times, probably due to correlation
@@ -158,7 +182,7 @@ screen_Boruta <- function(features, cluster_table, metrics_table, metric_name,
                       num.trees = ntrees,
                       oob.error = TRUE,
                       num.threads = ncores)
-  
+
   brf_noCAT <- Boruta(x = input_data_split$training %>% 
                         select(-COMID, -GAGES_ID, -{{metric_name}}, -starts_with('CAT_')) %>%
                         as.data.frame(),
@@ -205,8 +229,8 @@ screen_Boruta <- function(features, cluster_table, metrics_table, metric_name,
                               testing = input_data_split$testing %>% 
                                 select(COMID, GAGES_ID, all_of(names_unique), 
                                        {{metric_name}}))
-  #print("ok2")
-  
+
+
   #correcting the split table separately so that the class of the split object
   #is correct.
   screened_input_data$split$data <- screened_input_data$split$data %>% 
@@ -436,7 +460,7 @@ train_models_grid <- function(brf_output, v_folds, ncores,nested_groups){
   grid <- grid_max_entropy(params,
                            size = 100,
                            iter = 1000)
-  
+
   #number of cross validation folds (v)
   cv_folds <- vfold_cv(data = brf_output$input_data$training, v = v_folds)
   cv_folds <- post_process_cvfold(cv_folds, nested_groups)
@@ -697,20 +721,19 @@ predict_test_data_from_data <- function(model_wf, features, cluster_table, metri
 
 
 post_process_cvfold<-function(cv_folds, nested_groups){
-  ##this function post processes the vfold_cv function to ensure that any nested gages are
-  ##not separated between the in / out of sample data sets
+  #'
+  #' @description this function post processes the vfold_cv function to 
+  #' ensure that any nested gages are not separated between the in / out of sample data sets
+  #' 
+  #' @param cv_folds contains a list for each v_fold.  Each list has the full input data, in_id 
+  #' which is the line number from the input data for selected in-samples, out_id which is null 
+  #' and an id which is just the id of the v_fold.
+  #' @param nested_groups data frame with a unique nested_group_id for each unnested gage, nested groups
+  #' will have the same nested_group_id
   
-  ##cv_folds contains a list for each v_fold.  Each list has the full input data, in_id which 
-  ##is the line number from the input data for selected in-samples, out_id which is null (?),
-  #and an id which is just the id of the v_fold.
-  
-  ##this function will loop through each cv_folds list, identify any nested gages within the in_id,
-  ##check to make sure all the nested gages in any nested gage group are present in the selected
-  ##data.  If not, bring in the nested gages that were left out and use them to replace some 
-  ##unnested gages in the sample.
-  
-  ##will loop through number of folds (1:length(cv_folds$splits))
-  i<-1
+
+  ##loop through number of folds (1:length(cv_folds$splits))
+
   for (i in 1: length(cv_folds$splits)){
     in_ids<-cv_folds$splits[[i]]$in_id
     
@@ -725,37 +748,12 @@ post_process_cvfold<-function(cv_folds, nested_groups){
       filter(!in_id %in% in_ids)%>%
       inner_join(nested_groups, by = c("GAGES_ID" = "ID"))
     
-    ##find any nested groups that are split between in and out-sample
-    intersection_ids<-intersect(in_sample_gages$nested_group_id, out_sample_gages$nested_group_id)
-    
-    ##find all un-nested group ids in the cv_folds data
-    unnested<- nested_groups %>%
-      filter(ID %in% cv_folds$splits[[i]]$data$GAGES_ID)%>%
-      group_by(nested_group_id) %>%
-      count()%>%
-      filter(n ==1)%>%
-      select(nested_group_id)
-    
-    ##identify nested gages to move from out-sample (testing) to in-sample (training) and
-    ##unnested replacements to move from in-sample to out-sample
-    move_gages<- out_sample_gages %>%
-      filter(nested_group_id %in% intersection_ids)
-    
-    replacement_gages<-in_sample_gages %>%
-      filter(nested_group_id %in% unnested$nested_group_id)%>%
-      sample_n(size = nrow(move_gages))
-    
-    ##remove move_gages from out-sample-gages and add replacement gages
-    out_sample_gages <- out_sample_gages %>%
-      filter(!nested_group_id %in% intersection_ids)%>%
-      bind_rows(replacement_gages) 
-    
-    ##remove replacement gages from training and add move_gages
-    in_sample_gages <- in_sample_gages %>%
-      filter(!nested_group_id %in% replacement_gages$nested_group_id) %>%
-      bind_rows(move_gages)
+     regrouped <- regroup_split_data(in_sample_gages, out_sample_gages, nested_groups)
+   
+     in_sample_gages <- regrouped[[1]]
+     out_sample_gages <- regrouped[[2]]
     ##replace the index numbers in cv_folds 
-    cv_folds$splits[[i]]$in_id <-as.numeric(in_sample_gages$in_id)
+    cv_folds$splits[[i]]$in_id <- as.numeric(in_sample_gages$in_id)
   }##end i loop
   
   return(cv_folds)

@@ -271,11 +271,22 @@ prep_feature_vars <- function(sb_var_data, sites, retain_vars) {
   dom_phys_reg <- tibble()
   for (i in unique(phys_region$COMID)) {
     phys_reg_comid <- filter(phys_region, COMID == i)
+    
     dom_phys_reg_comid <- tibble()
     for (j in unique(phys_reg_comid$unit)) {
-      phys_reg_comid_unit <- filter(phys_reg_comid, unit == j)
-      phys_reg_comid_unit <- 
-        phys_reg_comid_unit[which.max(phys_reg_comid_unit$value), ]
+      phys_reg_comid_unit_ties <- filter(phys_reg_comid, unit == j) %>%
+        arrange(desc(value))
+      
+      #if tie for dominant phyiographic region, default to CAT value
+      if (phys_reg_comid_unit_ties[[1,3]] > phys_reg_comid_unit_ties[[2,3]]) {
+        phys_reg_comid_unit <- phys_reg_comid_unit_ties[1, ]
+      } else {
+        phys_reg_comid_unit_tied <- phys_reg_comid %>%
+          filter(unit == "CAT")
+        phys_reg_comid_unit <- 
+          phys_reg_comid_unit_tied[which.max(phys_reg_comid_unit_tied$value), ]
+        phys_reg_comid_unit <- mutate(phys_reg_comid_unit, unit == j)
+      }
       dom_phys_reg_comid <- bind_rows(dom_phys_reg_comid, phys_reg_comid_unit)
     }
     dom_phys_reg <- bind_rows(dom_phys_reg, dom_phys_reg_comid)
@@ -290,9 +301,10 @@ prep_feature_vars <- function(sb_var_data, sites, retain_vars) {
   
   #remove unwanted feature variables and re-join long-term average datasets
   data <- data %>%
-    select(-ends_with(".y"), -ID, -starts_with("..."), -contains("_S1"), -contains("_PHYSIO_"), 
-           -contains("SOHL"), -contains("NDAMS"), -contains("STORAGE"), -contains("MAJOR"), 
-           -contains("_TAV_"), -contains("_PPT_"), -contains("WILDFIRE")) %>%
+    select(-ends_with(".y"), -ID, -starts_with("..."), -contains("_S1"), 
+           -contains("_PHYSIO_"), -contains("SOHL"), -contains("NDAMS"), 
+           -contains("STORAGE"), -contains("MAJOR"), -contains("_TAV_"), 
+           -contains("_PPT_"), -contains("WILDFIRE")) %>%
     left_join(phys_region, by = "COMID") %>%
     left_join(land_cover, by = "COMID") %>%
     left_join(dams, by = "COMID") %>%

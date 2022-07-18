@@ -39,8 +39,20 @@ dir.create('3_cluster/out/seasonal_plots/diagnostics/by_agg_quantiles', showWarn
 dir.create('3_cluster/out/seasonal_plots/maps', showWarnings = FALSE)
 dir.create('3_cluster/out/seasonal_plots/maps/by_quantiles', showWarnings = FALSE)
 dir.create('3_cluster/out/seasonal_plots/maps/by_agg_quantiles', showWarnings = FALSE)
+dir.create('3_cluster/out/seasonal_plots_LowFlow', showWarnings = FALSE)
+dir.create('3_cluster/out/seasonal_plots_LowFlow/barplots', showWarnings = FALSE)
+dir.create('3_cluster/out/seasonal_plots_LowFlow/barplots/by_quantiles', showWarnings = FALSE)
+dir.create('3_cluster/out/seasonal_plots_LowFlow/barplots/by_agg_quantiles', showWarnings = FALSE)
+dir.create('3_cluster/out/seasonal_plots_LowFlow/barplots/CONUS', showWarnings = FALSE)
+dir.create('3_cluster/out/seasonal_plots_LowFlow/diagnostics', showWarnings = FALSE)
+dir.create('3_cluster/out/seasonal_plots_LowFlow/diagnostics/by_quantiles', showWarnings = FALSE)
+dir.create('3_cluster/out/seasonal_plots_LowFlow/diagnostics/by_agg_quantiles', showWarnings = FALSE)
+dir.create('3_cluster/out/seasonal_plots_LowFlow/maps', showWarnings = FALSE)
+dir.create('3_cluster/out/seasonal_plots_LowFlow/maps/by_quantiles', showWarnings = FALSE)
+dir.create('3_cluster/out/seasonal_plots_LowFlow/maps/by_agg_quantiles', showWarnings = FALSE)
 dir.create('5_EDA/out', showWarnings = FALSE)
 dir.create('5_EDA/out/metrics_plots', showWarnings = FALSE)
+dir.create('5_EDA/out/metrics_plots_LowFlow', showWarnings = FALSE)
 dir.create('6_predict/out', showWarnings = FALSE)
 dir.create('6_predict/out/Boruta', showWarnings = FALSE)
 dir.create('6_predict/out/vip', showWarnings = FALSE)
@@ -92,6 +104,7 @@ metrics_ml17 <- c('ml17')
 metrics_med_DA <- NULL
 #non-exceedance quantiles for additional metrics - daily flows
 NE_quants <- c(seq(0.5, 0.95, 0.05), 0.98, 0.99, 0.995)
+NE_quants_low <- c(0.005, 0.01, 0.02, seq(0.05, 0.5, 0.05))
 #Seasons to use in season analysis
 # matches water year
 season_months <- c(10, 11, 12, seq(1, 9, 1))
@@ -368,6 +381,20 @@ list(
              deployment = 'worker'
   ),
   
+  tar_target(p1_FDC_metrics_low,
+             calc_FDCmetrics(site_num = p1_screened_site_list, 
+                             clean_daily_flow = p1_clean_daily_flow, 
+                             yearType = yearType,
+                             drainArea_tab = p1_drainage_area,
+                             NE_probs = NE_quants_low,
+                             seasonal = FALSE,
+                             year_start = year_start,
+                             out_format = 'pivot',
+                             threshold_type = 'low'),
+             map(p1_screened_site_list),
+             deployment = 'worker'
+  ),
+  
   ##combined metrics tables
   tar_target(p2_all_metrics,
              inner_join(p1_FDC_metrics,p1_HIT_metrics)
@@ -399,6 +426,21 @@ list(
                              stat_type = 'POR',
                              year_start = season_year_start,
                              out_format = 'pivot'),
+             map(p1_screened_site_list_season),
+             deployment = 'worker'
+  ),
+  tar_target(p1_FDC_metrics_season_low,
+             calc_FDCmetrics(site_num = p1_screened_site_list_season, 
+                             clean_daily_flow = p1_clean_daily_flow_season, 
+                             yearType = yearType,
+                             drainArea_tab = NULL,
+                             NE_probs = NE_quants,
+                             seasonal = TRUE,
+                             season_months = season_months,
+                             stat_type = 'POR',
+                             year_start = season_year_start,
+                             out_format = 'pivot',
+                             threshold_type = 'low'),
              map(p1_screened_site_list_season),
              deployment = 'worker'
   ),
@@ -435,6 +477,22 @@ list(
                },
              deployment = 'main'
   ),
+  #Low flow regions
+  tar_target(p3_metric_names_low,
+             {colnames(p1_FDC_metrics_low)[-c(1,grep(colnames(p1_FDC_metrics_low), pattern = 'mhfdc'))]
+             },
+             deployment = 'main'
+  ),
+  tar_target(p3_metric_names_quants_low,
+             {as.character(NE_quants_low)},
+             deployment = 'main'
+  ),
+  tar_target(p3_metric_names_quants_agg_low,
+             {c(str_c(as.character(NE_quants_low)[4:8], collapse = ','), 
+                str_c(as.character(NE_quants_low)[9:13], collapse = ','))
+             },
+             deployment = 'main'
+  ),
   
   #barplot for all metrics, averaged over all gages
   tar_target(p3_seasonal_barplot_COUNS_png,
@@ -444,6 +502,17 @@ list(
                                    by_cluster = FALSE,
                                    dir_out = '3_cluster/out/seasonal_plots/barplots/CONUS/'),
              map(p3_metric_names),
+             deployment = 'worker',
+             format = 'file'
+  ),
+  #Low flow
+  tar_target(p3_seasonal_barplot_COUNS_low_png,
+             plot_seasonal_barplot(metric_mat = p1_FDC_metrics_season_low,
+                                   metric = p3_metric_names_low,
+                                   season_months = season_months,
+                                   by_cluster = FALSE,
+                                   dir_out = '3_cluster/out/seasonal_plots_LowFlow/barplots/CONUS/'),
+             map(p3_metric_names_low),
              deployment = 'worker',
              format = 'file'
   ),
@@ -471,6 +540,29 @@ list(
              map(p3_metric_names_quants_agg),
              deployment = 'worker'
   ),
+  #Low flow
+  tar_target(p3_FDC_clusters_low,
+             seasonal_metric_cluster(metric_mat = p1_FDC_metrics_season_low,
+                                     metric = p3_metric_names_low,
+                                     dist_method = 'euclidean'),
+             map(p3_metric_names_low),
+             deployment = 'worker'
+  ),
+  tar_target(p3_FDC_clusters_quants_low,
+             seasonal_metric_cluster(metric_mat = p1_FDC_metrics_season_low,
+                                     metric = p3_metric_names_quants_low,
+                                     dist_method = 'euclidean'),
+             map(p3_metric_names_quants_low),
+             deployment = 'worker'
+  ),
+  tar_target(p3_FDC_clusters_quants_agg_low,
+             seasonal_metric_cluster(metric_mat = p1_FDC_metrics_season_low,
+                                     metric = p3_metric_names_quants_agg_low,
+                                     dist_method = 'euclidean',
+                                     quantile_agg = TRUE),
+             map(p3_metric_names_quants_agg_low),
+             deployment = 'worker'
+  ),
   
   #Select only the best clustering method
   tar_target(p3_FDC_best_cluster_method,
@@ -483,6 +575,20 @@ list(
   ),
   tar_target(p3_FDC_best_cluster_method_quants_agg,
              select_cluster_method(clusts = p3_FDC_clusters_quants_agg, 
+                                   quantile_agg = TRUE),
+             deployment = 'main'
+  ),
+  #Low flow
+  tar_target(p3_FDC_best_cluster_method_low,
+             select_cluster_method(clusts = p3_FDC_clusters_low),
+             deployment = 'main'
+  ),
+  tar_target(p3_FDC_best_cluster_method_quants_low,
+             select_cluster_method(clusts = p3_FDC_clusters_quants_low),
+             deployment = 'main'
+  ),
+  tar_target(p3_FDC_best_cluster_method_quants_agg_low,
+             select_cluster_method(clusts = p3_FDC_clusters_quants_agg_low, 
                                    quantile_agg = TRUE),
              deployment = 'main'
   ),
@@ -522,6 +628,41 @@ list(
              map(p3_FDC_clusters_quants_agg),
              deployment = 'worker'
   ),
+  #Low flow
+  tar_target(p3_FDC_cluster_diagnostics_low,
+             compute_cluster_diagnostics(clusts = p3_FDC_clusters_low,
+                                         metric_mat = p1_FDC_metrics_season_low,
+                                         kmin = 2, kmax = 20,
+                                         alpha = 0.05, boot = 50,
+                                         index = 'all', 
+                                         dist_method = 'euclidean',
+                                         clust_method = 'ward.D2'),
+             map(p3_FDC_clusters_low),
+             deployment = 'worker'
+  ),
+  tar_target(p3_FDC_cluster_diagnostics_quants_low,
+             compute_cluster_diagnostics(clusts = p3_FDC_clusters_quants_low,
+                                         metric_mat = p1_FDC_metrics_season_low,
+                                         kmin = 2, kmax = 20,
+                                         alpha = 0.05, boot = 50,
+                                         index = 'all', 
+                                         dist_method = 'euclidean',
+                                         clust_method = 'ward.D2'),
+             map(p3_FDC_clusters_quants_low),
+             deployment = 'worker'
+  ),
+  tar_target(p3_FDC_cluster_diagnostics_quants_agg_low,
+             compute_cluster_diagnostics(clusts = p3_FDC_clusters_quants_agg_low,
+                                         metric_mat = p1_FDC_metrics_season_low,
+                                         kmin = 2, kmax = 20,
+                                         alpha = 0.05, boot = 50,
+                                         index = 'all', 
+                                         dist_method = 'euclidean',
+                                         clust_method = 'ward.D2',
+                                         quantile_agg = TRUE),
+             map(p3_FDC_clusters_quants_agg_low),
+             deployment = 'worker'
+  ),
   
   #Plot diagnostics for clusters
   tar_target(p3_FDC_cluster_diagnostics_png,
@@ -555,6 +696,41 @@ list(
                                       dir_out = '3_cluster/out/seasonal_plots/diagnostics/by_agg_quantiles',
                                       quantile_agg = TRUE),
              map(p3_FDC_clusters_quants_agg, p3_FDC_cluster_diagnostics_quants_agg),
+             deployment = 'worker',
+             format = 'file'
+  ),
+  #Low flow
+  tar_target(p3_FDC_cluster_diagnostics_low_png,
+             plot_cluster_diagnostics(clusts = p3_FDC_clusters_low,
+                                      metric_mat = p1_FDC_metrics_season_low,
+                                      nbclust_metrics = p3_FDC_cluster_diagnostics_low,
+                                      dist_method = 'euclidean',
+                                      clust_method = 'ward.D2',
+                                      dir_out = '3_cluster/out/seasonal_plots_LowFlow/diagnostics/'),
+             map(p3_FDC_clusters_low, p3_FDC_cluster_diagnostics_low),
+             deployment = 'worker',
+             format = 'file'
+  ),
+  tar_target(p3_FDC_cluster_diagnostics_quants_low_png,
+             plot_cluster_diagnostics(clusts = p3_FDC_clusters_quants_low,
+                                      metric_mat = p1_FDC_metrics_season_low,
+                                      nbclust_metrics = p3_FDC_cluster_diagnostics_quants_low,
+                                      dist_method = 'euclidean',
+                                      clust_method = 'ward.D2',
+                                      dir_out = '3_cluster/out/seasonal_plots_LowFlow/diagnostics/by_quantiles'),
+             map(p3_FDC_clusters_quants_low, p3_FDC_cluster_diagnostics_quants_low),
+             deployment = 'worker',
+             format = 'file'
+  ),
+  tar_target(p3_FDC_cluster_diagnostics_quants_agg_low_png,
+             plot_cluster_diagnostics(clusts = p3_FDC_clusters_quants_agg_low,
+                                      metric_mat = p1_FDC_metrics_season_low,
+                                      nbclust_metrics = p3_FDC_cluster_diagnostics_quants_agg_low,
+                                      dist_method = 'euclidean',
+                                      clust_method = 'ward.D2',
+                                      dir_out = '3_cluster/out/seasonal_plots_LowFlow/diagnostics/by_agg_quantiles',
+                                      quantile_agg = TRUE),
+             map(p3_FDC_clusters_quants_agg_low, p3_FDC_cluster_diagnostics_quants_agg_low),
              deployment = 'worker',
              format = 'file'
   ),
@@ -594,6 +770,41 @@ list(
                                   quantile_agg = TRUE),
              deployment = 'main'
   ),
+  #Low flow
+  tar_target(p3_gages_clusters_low,
+             add_cluster_to_gages(gages = p1_sites_g2,
+                                  clusts = p3_FDC_clusters_low,
+                                  screened_sites = p1_screened_site_list_season,
+                                  best_clust = p3_FDC_best_cluster_method_low,
+                                  min_clusts = 3, max_clusts = 15, by_clusts = 4),
+             deployment = 'main'
+  ),
+  tar_target(p3_gages_clusters_quants_low,
+             add_cluster_to_gages(gages = p1_sites_g2,
+                                  clusts = p3_FDC_clusters_quants_low,
+                                  screened_sites = p1_screened_site_list_season,
+                                  best_clust = p3_FDC_best_cluster_method_quants_low,
+                                  min_clusts = 3, max_clusts = 15, by_clusts = 4),
+             deployment = 'main'
+  ),
+  tar_target(p3_gages_clusters_quants_agg_low,
+             add_cluster_to_gages(gages = p1_sites_g2,
+                                  clusts = p3_FDC_clusters_quants_agg_low,
+                                  screened_sites = p1_screened_site_list_season,
+                                  best_clust = p3_FDC_best_cluster_method_quants_agg_low,
+                                  min_clusts = 3, max_clusts = 15, by_clusts = 4,
+                                  quantile_agg = TRUE),
+             deployment = 'main'
+  ),
+  tar_target(p3_gages_clusters_quants_agg_low_selected,
+             add_cluster_to_gages(gages = p1_sites_g2,
+                                  clusts = p3_FDC_clusters_quants_agg_low,
+                                  screened_sites = p1_screened_site_list_season,
+                                  best_clust = p3_FDC_best_cluster_method_quants_agg_low,
+                                  min_clusts = 4, max_clusts = 6, by_clusts = 1,
+                                  quantile_agg = TRUE),
+             deployment = 'main'
+  ),
   
   #Assign cluster column names to a target for later branch iteration
   tar_target(p3_cluster_cols,
@@ -610,6 +821,23 @@ list(
   ),
   tar_target(p3_cluster_cols_quants_agg_selected,
              colnames(p3_gages_clusters_quants_agg_selected)[-1],
+             deployment = 'main'
+  ),
+  #Low flow
+  tar_target(p3_cluster_cols_low,
+             colnames(p3_gages_clusters_low)[-1],
+             deployment = 'main'
+  ),
+  tar_target(p3_cluster_cols_quants_low,
+             colnames(p3_gages_clusters_quants_low)[-1],
+             deployment = 'main'
+  ),
+  tar_target(p3_cluster_cols_quants_agg_low,
+             colnames(p3_gages_clusters_quants_agg_low)[-1],
+             deployment = 'main'
+  ),
+  tar_target(p3_cluster_cols_quants_agg_low_selected,
+             colnames(p3_gages_clusters_quants_agg_low_selected)[-1],
              deployment = 'main'
   ),
   
@@ -666,6 +894,59 @@ list(
              deployment = 'main',
              format = 'file'
   ),
+  #Low flow
+  tar_target(p3_cluster_map_low_png,
+             plot_cluster_map(gages = p1_sites_g2_sf,
+                              cluster_table = p3_gages_clusters_low,
+                              screened_sites = p1_screened_site_list_season,
+                              dir_out = '3_cluster/out/seasonal_plots_LowFlow/maps/'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p3_cluster_map_quants_low_png,
+             plot_cluster_map(gages = p1_sites_g2_sf,
+                              cluster_table = p3_gages_clusters_quants_low,
+                              screened_sites = p1_screened_site_list_season,
+                              dir_out = '3_cluster/out/seasonal_plots_LowFlow/maps/by_quantiles'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p3_cluster_map_quants_agg_low_png,
+             plot_cluster_map(gages = p1_sites_g2_sf,
+                              cluster_table = p3_gages_clusters_quants_agg_low,
+                              screened_sites = p1_screened_site_list_season,
+                              dir_out = '3_cluster/out/seasonal_plots_LowFlow/maps/by_agg_quantiles',
+                              facet=FALSE),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p3_cluster_map_quants_agg_low_facet_png,
+             plot_cluster_map(gages = p1_sites_g2_sf,
+                              cluster_table = p3_gages_clusters_quants_agg_low,
+                              screened_sites = p1_screened_site_list_season,
+                              dir_out = '3_cluster/out/seasonal_plots_LowFlow/maps/by_agg_quantiles',
+                              facet = TRUE),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p3_cluster_map_quants_agg_selected_low_png,
+             plot_cluster_map(gages = p1_sites_g2_sf,
+                              cluster_table = p3_gages_clusters_quants_agg_low_selected,
+                              screened_sites = p1_screened_site_list_season,
+                              dir_out = '3_cluster/out/seasonal_plots_LowFlow/maps/by_agg_quantiles',
+                              facet=FALSE),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p3_cluster_map_quants_agg_facet_low_selected_png,
+             plot_cluster_map(gages = p1_sites_g2_sf,
+                              cluster_table = p3_gages_clusters_quants_agg_low_selected,
+                              screened_sites = p1_screened_site_list_season,
+                              dir_out = '3_cluster/out/seasonal_plots_LowFlow/maps/by_agg_quantiles',
+                              facet = TRUE),
+             deployment = 'main',
+             format = 'file'
+  ),
   
   #barplot for all metrics, averaged over cluster gages
   tar_target(p3_seasonal_barplot_clusters_png,
@@ -718,6 +999,60 @@ list(
                                    quantile_agg = TRUE,
                                    by_quantile = TRUE),
              map(p3_metric_names_quants_agg),
+             deployment = 'worker',
+             format = 'file'
+  ),
+  #Low flow
+  tar_target(p3_seasonal_barplot_clusters_low_png,
+             plot_seasonal_barplot(metric_mat = p1_FDC_metrics_season_low,
+                                   metric = p3_metric_names_low,
+                                   season_months = season_months,
+                                   by_cluster = TRUE,
+                                   panel_plot = TRUE,
+                                   cluster_table = p3_gages_clusters_low,
+                                   dir_out = '3_cluster/out/seasonal_plots_LowFlow/barplots/'),
+             map(p3_metric_names_low),
+             deployment = 'worker',
+             format = 'file'
+  ),
+  tar_target(p3_seasonal_barplot_clusters_quants_low_png,
+             plot_seasonal_barplot(metric_mat = p1_FDC_metrics_season_low,
+                                   metric = p3_metric_names_quants_low,
+                                   season_months = season_months,
+                                   by_cluster = TRUE,
+                                   panel_plot = TRUE,
+                                   cluster_table = p3_gages_clusters_quants_low,
+                                   dir_out = '3_cluster/out/seasonal_plots_LowFlow/barplots/by_quantiles',
+                                   by_quantile = TRUE),
+             map(p3_metric_names_quants_low),
+             deployment = 'worker',
+             format = 'file'
+  ),
+  tar_target(p3_seasonal_barplot_clusters_quants_agg_low_png,
+             plot_seasonal_barplot(metric_mat = p1_FDC_metrics_season_low,
+                                   metric = p3_metric_names_quants_agg_low,
+                                   season_months = season_months,
+                                   by_cluster = TRUE,
+                                   panel_plot = TRUE,
+                                   cluster_table = p3_gages_clusters_quants_agg_low,
+                                   dir_out = '3_cluster/out/seasonal_plots_LowFlow/barplots/by_agg_quantiles',
+                                   quantile_agg = TRUE,
+                                   by_quantile = TRUE),
+             map(p3_metric_names_quants_agg_low),
+             deployment = 'worker',
+             format = 'file'
+  ),
+  tar_target(p3_seasonal_barplot_clusters_quants_agg_low_selected_png,
+             plot_seasonal_barplot(metric_mat = p1_FDC_metrics_season_low,
+                                   metric = p3_metric_names_quants_agg_low,
+                                   season_months = season_months,
+                                   by_cluster = TRUE,
+                                   panel_plot = TRUE,
+                                   cluster_table = p3_gages_clusters_quants_agg_low_selected,
+                                   dir_out = '3_cluster/out/seasonal_plots_LowFlow/barplots/by_agg_quantiles',
+                                   quantile_agg = TRUE,
+                                   by_quantile = TRUE),
+             map(p3_metric_names_quants_agg_low),
              deployment = 'worker',
              format = 'file'
   ),
@@ -815,6 +1150,18 @@ list(
                                   gages = p1_sites_g2_sf,
                                   out_dir = "5_EDA/out/metrics_plots"
                                    ),
+             map(p2_all_metrics_names),
+             format="file"
+  ),
+  #Low flow
+  tar_target(p5_EDA_plots_metrics_low,
+             make_EDA_metric_plots(metric = p2_all_metrics_names_low,
+                                   k = 5,
+                                   cluster_table = p3_gages_clusters_quants_agg_low_selected,
+                                   metrics_table = p2_all_metrics_low,
+                                   gages = p1_sites_g2_sf,
+                                   out_dir = "5_EDA/out/metrics_plots_LowFlow"
+             ),
              map(p2_all_metrics_names),
              format="file"
   ),

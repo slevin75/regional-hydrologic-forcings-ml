@@ -697,11 +697,14 @@ calc_vhfdc_metrics <- function(data, NE_flow, stat_type = 'POR', seasonal = FALS
       vhfdc1[1:4] <- get_seasonal_frac(seasonal_volumes, TRUE)
       
       #Compute the average of the maximum flow in each season
-      seasonal_mnxQ <- dplyr::summarize(group_by(seasonal_mnxQ, season),
-                                        avg=ifelse(NE_flow == 0, volume_indicator(vhfdc1),
-                                                   mean(mnxQ, na.rm=TRUE))) %>%
-        arrange(season) %>%
-        pull(avg)
+      if (NE_flow == 0){
+        seasonal_mnxQ <- volume_indicator(vhfdc1)
+      }else{
+        seasonal_mnxQ <- dplyr::summarize(group_by(seasonal_mnxQ, season),
+                                          avg = mean(mnxQ, na.rm=TRUE)) %>%
+          arrange(season) %>%
+          pull(avg)
+      }
       
       vhfdc2[1:4] <- get_seasonal_frac(seasonal_mnxQ, TRUE)
     }

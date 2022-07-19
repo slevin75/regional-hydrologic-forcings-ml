@@ -71,7 +71,8 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
       inds_flow_i <- (1+(i-1)*4):(4+(i-1)*4)
       
       #prepare data for duration and volume calculations
-      data_processed <- prep_seasonal_data(data, NE_flows[i], type = threshold_type)
+      data_processed <- prep_seasonal_data(data, NE_flows[i], 
+                                           type = threshold_type, digits = digits)
       
       #calculate metrics
       dhfdc_s[inds_flow_i] <- calc_dhfdc_metrics(data_processed, NE_flows[i],
@@ -83,7 +84,8 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
       vhfdc2_s[inds_flow_i] <- vhfdc[[2]]
     }else{
       #prepare data for duration and volume calculations
-      data_processed <- prep_data(data, NE_flows[i], type = threshold_type)
+      data_processed <- prep_data(data, NE_flows[i], 
+                                  type = threshold_type, digits = digits)
       
       #calculate metrics
       dhfdc[i] <- calc_dhfdc_metrics(data_processed, NE_flows[i], stat_type, seasonal)
@@ -208,7 +210,7 @@ add_season_cols <- function(data, season_months){
   return(data)
 }
 
-prep_seasonal_data <- function(data, NE_flow, type = 'high'){
+prep_seasonal_data <- function(data, NE_flow, type = 'high', digits = 3){
   #' @description prepares the data by finding events that meet the NE_flow threshold,
   #' and adds a column of event numbers to data.
   #' 
@@ -223,7 +225,7 @@ prep_seasonal_data <- function(data, NE_flow, type = 'high'){
   #Find events within each group of continuous years
   data$event <- dplyr::do(dplyr::group_by(data, groups), 
                           {find_events(.$discharge, 
-                                       threshold = ifelse(type == 'high', NE_flow - 0.001, NE_flow + 0.001), 
+                                       threshold = ifelse(type == 'high', NE_flow, NE_flow + 10^-digits), 
                                        type = type)})$event
   
   #Trim events of unknown duration/volume
@@ -238,7 +240,7 @@ prep_seasonal_data <- function(data, NE_flow, type = 'high'){
   return(data)
 }
 
-prep_data <- function(data, NE_flow, type = 'high'){
+prep_data <- function(data, NE_flow, type = 'high', digits = 3){
   #' @description prepares the data by finding events that meet the NE_flow threshold,
   #' and adds a column of event numbers to data.
   #' 
@@ -253,7 +255,7 @@ prep_data <- function(data, NE_flow, type = 'high'){
   #Find events within each group of continuous years
   data <- dplyr::do(dplyr::group_by(data, groups), 
                     {find_events(.$discharge, 
-                                 threshold = ifelse(type == 'high', NE_flow - 0.001, NE_flow + 0.001), 
+                                 threshold = ifelse(type == 'high', NE_flow, NE_flow + 10^-digits), 
                                  type = type)})
   
   #Trim events of unknown duration/volume
@@ -397,34 +399,38 @@ get_seasonal_frac <- function(seasonal_metric, na_method = TRUE){
   return(fracs)
 }
 
-assign_max_event <- function(seasonal_maxQ){
-  #' @description When events overlap in season, this function assigns the max 
-  #' to the season with the larger max for that event.
+assign_mnx_event <- function(seasonal_mnxQ, type){
+  #' @description When events overlap in season, this function assigns the min (max) 
+  #' to the season with the smaller (larger) value for that event.
   #' 
-  #' @param seasonal_maxQ dataframe with columns for event and maxQ (max flow)
+  #' @param seasonal_mnxQ dataframe with columns for event and mnxQ (min or max flow)
+  #' @param type indicates if the second volume metric should be computed as 
+  #' "high" for computing max flow or "low" for computing min flow for the event
   #' 
-  #' @return seasonal_maxQ with reassigned events
+  #' @return seasonal_mnxQ with reassigned events
   
-  for(d in 1:length(unique(seasonal_maxQ$event))){
+  for(d in 1:length(unique(seasonal_mnxQ$event))){
     #get indices of event d
-    inds_event_d <- which(seasonal_maxQ$event == unique(seasonal_maxQ$event)[d])
+    inds_event_d <- which(seasonal_mnxQ$event == unique(seasonal_mnxQ$event)[d])
     if(length(inds_event_d) > 1){
-      #Find index of max flow
-      ind_max <- which(seasonal_maxQ$maxQ[inds_event_d] == max(seasonal_maxQ$maxQ[inds_event_d]))
-      if(length(ind_max) > 1){
+      #Find index of min or max flow
+      ind_mnx <- ifelse(type == 'high', 
+                        which(seasonal_mnxQ$mnxQ[inds_event_d] == max(seasonal_mnxQ$mnxQ[inds_event_d])),
+                        which(seasonal_mnxQ$mnxQ[inds_event_d] == min(seasonal_mnxQ$mnxQ[inds_event_d])))
+      if(length(ind_mnx) > 1){
         #Assign to the first season because that's when the event started
         #Other seasons get converted to NA (these are deleted later)
-        seasonal_maxQ[inds_event_d,][-1, 'maxQ'] <- NA
+        seasonal_mnxQ[inds_event_d,][-1, 'mnxQ'] <- NA
       }else{
-        #Assign to season in which the max occurred
+        #Assign to season in which the min or max occurred
         #Other season gets converted to NA (these are deleted later)
-        seasonal_maxQ[inds_event_d,][-ind_max, 'maxQ'] <- NA
+        seasonal_mnxQ[inds_event_d,][-ind_mnx, 'mnxQ'] <- NA
       }
-      rm(ind_max)
+      rm(ind_mnx)
     }
   }
   
-  return(seasonal_maxQ)
+  return(seasonal_mnxQ)
 }
 
 calc_dhfdc_metrics <- function(data, NE_flow, stat_type = 'POR', seasonal = FALSE){
@@ -559,7 +565,8 @@ calc_fhfdc_metrics <- function(data, NE_flow, stat_type = 'POR', seasonal = FALS
 }
 
 
-calc_vhfdc_metrics <- function(data, NE_flow, stat_type = 'POR', seasonal = FALSE){
+calc_vhfdc_metrics <- function(data, NE_flow, stat_type = 'POR', seasonal = FALSE,
+                               type2 = 'high'){
   #' @description Get the flow volume and average of the max flow for events above each of 
   #' the NE_flows (mh21 style metrics for total flow instead of flow above threshold, 
   #' and mh24 style metrics for max flow)
@@ -568,12 +575,14 @@ calc_vhfdc_metrics <- function(data, NE_flow, stat_type = 'POR', seasonal = FALS
   #' @param NE_flow numeric flow value
   #' @param stat_type 'ATS' for annual timeseries or 'POR' for period of record
   #' @param seasonal logical indicating if the metrics should be computed by season or not
+  #' @param type2 indicates if the second volume metric should be computed as 
+  #' "high" for computing max flow or "low" for computing min flow for the event
   #' 
   #' @return flow volume and peak flow metrics for NE_flow.
   
   if(seasonal){
     #vector to store the fractions for each season
-    #1 is for volume, 2 is for max flow
+    #1 is for volume, 2 is for max or min flow
     vhfdc1 <- vhfdc2 <- vector('numeric', length = 4)
     
     #This function splits event volume over seasons when they overlap in season.
@@ -583,19 +592,21 @@ calc_vhfdc_metrics <- function(data, NE_flow, stat_type = 'POR', seasonal = FALS
                                          .groups = 'keep') %>%
       mutate(flow_event = totalFlow/numEvents)
     
-    #Get the max flow for each event
-    seasonal_maxQ <- dplyr::summarize(dplyr::group_by(data, year_val,
+    #Get the min or max flow for each event
+    seasonal_mnxQ <- dplyr::summarize(dplyr::group_by(data, year_val,
                                                       season, event),
                                       .groups = 'drop_last', 
-                                      maxQ = max(discharge)) %>%
+                                      mnxQ = ifelse(type2 == 'high', 
+                                                    max(discharge),
+                                                    min(discharge))) %>%
       dplyr::arrange(year_val, season)
     
-    #Assign the max to the season with the larger max for that event.
-    seasonal_maxQ <- assign_max_event(seasonal_maxQ)
+    #Assign the min (max) to the season with the smaller (larger) value for that event.
+    seasonal_mnxQ <- assign_mnx_event(seasonal_mnxQ, type = type2)
     
     #Seasons with no events have flows reported. Want those to not be included 
     #in the calculation of average seasonal maximums
-    seasonal_maxQ[seasonal_maxQ$event == 0, c('event', 'maxQ')] <- NA
+    seasonal_mnxQ[seasonal_mnxQ$event == 0, c('event', 'mnxQ')] <- NA
     
     #Compute seasonal fractions using ATS or POR approach:
     #Computes annual fraction per season, then averages over all years
@@ -604,33 +615,37 @@ calc_vhfdc_metrics <- function(data, NE_flow, stat_type = 'POR', seasonal = FALS
       
       vhfdc1[1:4] <- seasonal_mean(seasonal_volumes)
       
-      #Compute the average of the maximum flow in each season
-      seasonal_maxQ <- dplyr::summarize(dplyr::group_by(seasonal_maxQ, year_val, season),
-                                        season_max = suppressWarnings(
-                                          max(maxQ, na.rm = TRUE)),
+      #Compute the average of the min or max flow in each season
+      seasonal_mnxQ <- dplyr::summarize(dplyr::group_by(seasonal_mnxQ, year_val, season),
+                                        season_mnx = suppressWarnings(
+                                          ifelse(type2 == 'high', 
+                                                 max(mnxQ, na.rm = TRUE),
+                                                 min(mnxQ, na.rm = TRUE))),
                                         .groups = 'keep')
       #Some seasons do not have events. Set to NA
-      seasonal_maxQ[seasonal_maxQ$season_max == -Inf, "season_max"] <- NA
+      seasonal_mnxQ[seasonal_mnxQ$season_mnx == -Inf, "season_mnx"] <- NA
       
-      seasonal_maxQ <- get_year_frac(seasonal_maxQ, 'season_max', 'season_max', TRUE)
+      seasonal_mnxQ <- get_year_frac(seasonal_mnxQ, 'season_mnx', 'season_mnx', TRUE)
       
-      vhfdc2[1:4] <- seasonal_mean(seasonal_maxQ)
+      vhfdc2[1:4] <- seasonal_mean(seasonal_mnxQ)
     }else{
       #Computes seasonal average over all years, then fraction per season.
       seasonal_volumes <- dplyr::summarize(group_by(seasonal_volumes, season),
-                                           avg=mean(flow_event, na.rm=TRUE)) %>%
+                                           avg=ifelse(NE_flow == 0, sum(numEvents), 
+                                                      mean(flow_event, na.rm=TRUE))) %>%
         arrange(season) %>%
         pull(avg)
       
       vhfdc1[1:4] <- get_seasonal_frac(seasonal_volumes, TRUE)
       
       #Compute the average of the maximum flow in each season
-      seasonal_maxQ <- dplyr::summarize(group_by(seasonal_maxQ, season),
-                                        avg=mean(maxQ, na.rm=TRUE)) %>%
+      seasonal_mnxQ <- dplyr::summarize(group_by(seasonal_mnxQ, season),
+                                        avg=ifelse(NE_flow == 0, volume_indicator(vhfdc1),
+                                                   mean(mnxQ, na.rm=TRUE))) %>%
         arrange(season) %>%
         pull(avg)
       
-      vhfdc2[1:4] <- get_seasonal_frac(seasonal_maxQ, TRUE)
+      vhfdc2[1:4] <- get_seasonal_frac(seasonal_mnxQ, TRUE)
     }
   }else{
     if (nrow(data) > 0){
@@ -639,10 +654,12 @@ calc_vhfdc_metrics <- function(data, NE_flow, stat_type = 'POR', seasonal = FALS
       total_flow <- sum(data$flow)
       vhfdc1 <- total_flow/num_events
       
-      #max flow 
-      event_max <- dplyr::group_by(data[c("flow", "event")], event)
-      event_max <- dplyr::summarize(event_max, maxQ = max(flow))
-      vhfdc2 <- mean(event_max$maxQ)
+      #min or max flow 
+      event_mnx <- dplyr::group_by(data[c("flow", "event")], event)
+      event_mnx <- dplyr::summarize(event_mnx, mnxQ = ifelse(type2 == 'high', 
+                                                             max(flow), 
+                                                             min(flow)))
+      vhfdc2 <- mean(event_mnx$mnxQ)
     }else{
       #no events
       vhfdc1 <- NA
@@ -653,6 +670,20 @@ calc_vhfdc_metrics <- function(data, NE_flow, stat_type = 'POR', seasonal = FALS
   return(list(vhfdc1, vhfdc2))
 }
 
+volume_indicator <- function(seasonal_volume){
+  #' @description binary indicator of if the seasonal volume is greater than 0.
+  #' 
+  #' @param seasonal_volume numeric vector
+  #' 
+  #' @return binary vector of same length as seasonal_volume
+  
+  ind = vector('numeric', length(seasonal_volume))
+  for(i in 1:length(seasonal_volume)){
+    ind[i] = ifelse(seasonal_volume[i] == 0, 0, 1)
+  }
+  
+  return(ind)
+}
 
 calc_season_average <- function(seasonal_var, metric_colname){
   #' @description computes the average of the metric for each season

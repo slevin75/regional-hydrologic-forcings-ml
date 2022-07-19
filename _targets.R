@@ -434,7 +434,7 @@ list(
                              clean_daily_flow = p1_clean_daily_flow_season, 
                              yearType = yearType,
                              drainArea_tab = NULL,
-                             NE_probs = NE_quants,
+                             NE_probs = NE_quants_low,
                              seasonal = TRUE,
                              season_months = season_months,
                              stat_type = 'POR',

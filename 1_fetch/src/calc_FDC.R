@@ -62,8 +62,16 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
   if(seasonal){
     dhfdc_s <- fhfdc_s <- vhfdc1_s <- vhfdc2_s <- vector('numeric', 
                                                          length=length(NE_flows)*4)
+    if(threshold_type == 'low'){
+      #volume greater than threshold
+      vhfdc3_s <- vector('numeric', length=length(NE_flows)*4)
+    }
   }else{
     dhfdc <- fhfdc <- vhfdc1 <- vhfdc2 <- vector('numeric', length=length(NE_flows))
+    if(threshold_type == 'low'){
+      #volume greater than threshold
+      vhfdc3 <- vector('numeric', length=length(NE_flows))
+    }
   }
   for (i in 1:length(NE_flows)){
     if(seasonal){
@@ -73,26 +81,50 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
       #prepare data for duration and volume calculations
       data_processed <- prep_seasonal_data(data, NE_flows[i], 
                                            type = threshold_type, digits = digits)
+      #to compute volume above threshold for low flow metrics
+      if(threshold_type == 'low'){
+        data_processed_high <- prep_seasonal_data(data, NE_flows[i], 
+                                             type = 'high', digits = digits)
+      }
       
       #calculate metrics
       dhfdc_s[inds_flow_i] <- calc_dhfdc_metrics(data_processed, NE_flows[i],
                                                              stat_type, seasonal)
       fhfdc_s[inds_flow_i] <- calc_fhfdc_metrics(data, NE_flows[i],
                                                              stat_type, seasonal)
-      vhfdc <- calc_vhfdc_metrics(data_processed, NE_flows[i], stat_type, seasonal)
+      vhfdc <- calc_vhfdc_metrics(data_processed, NE_flows[i], stat_type, seasonal,
+                                  type2 = threshold_type)
       vhfdc1_s[inds_flow_i] <- vhfdc[[1]]
       vhfdc2_s[inds_flow_i] <- vhfdc[[2]]
+      #compute volume above threshold for low flow metrics
+      if(threshold_type == 'low'){
+        vhfdc <- calc_vhfdc_metrics(data_processed_high, NE_flows[i], stat_type, seasonal,
+                                    type2 = 'high')
+        vhfdc3_s[inds_flow_i] <- vhfdc[[1]]
+      }
     }else{
       #prepare data for duration and volume calculations
       data_processed <- prep_data(data, NE_flows[i], 
                                   type = threshold_type, digits = digits)
+      #to compute volume above threshold for low flow metrics
+      if(threshold_type == 'low'){
+        data_processed_high <- prep_data(data, NE_flows[i], 
+                                         type = 'high', digits = digits)
+      }
       
       #calculate metrics
       dhfdc[i] <- calc_dhfdc_metrics(data_processed, NE_flows[i], stat_type, seasonal)
       fhfdc[i] <- calc_fhfdc_metrics(data, NE_flows[i], stat_type, seasonal)
-      vhfdc <- calc_vhfdc_metrics(data_processed, NE_flows[i], stat_type, seasonal)
+      vhfdc <- calc_vhfdc_metrics(data_processed, NE_flows[i], stat_type, seasonal,
+                                  type2 = threshold_type)
       vhfdc1[i] <- vhfdc[[1]][1]
       vhfdc2[i] <- vhfdc[[2]][1]
+      #compute volume above threshold for low flow metrics
+      if(threshold_type == 'low'){
+        vhfdc <- calc_vhfdc_metrics(data_processed_high, NE_flows[i], stat_type, seasonal,
+                                    type2 = 'high')
+        vhfdc3[i] <- vhfdc[[1]][1]
+      }
     }
   }
   rm(i)
@@ -105,6 +137,7 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
     fhfdc_s <- round(fhfdc_s, digits)
     vhfdc1_s <- round(vhfdc1_s, digits)
     vhfdc2_s <- round(vhfdc2_s, digits)
+    
     season_names <- c(unlist(lapply(X = paste0('dhfdc_q', NE_probs, '_s'), 
                                     FUN = paste0, seq(1,4,1))),
                       unlist(lapply(X = paste0('fhfdc_q', NE_probs, '_s'), 
@@ -113,6 +146,13 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
                                     FUN = paste0, seq(1,4,1))),
                       unlist(lapply(X = paste0('vhfdc2_q', NE_probs, '_s'), 
                                     FUN = paste0, seq(1,4,1))))
+    
+    if (threshold_type == 'low'){
+      vhfdc3_s <- round(vhfdc3_s, digits)
+      season_names <- c(season_names,
+                        unlist(lapply(X = paste0('vhfdc3_q', NE_probs, '_s'), 
+                                      FUN = paste0, seq(1,4,1))))
+    }
   }else{
     mhfdc <- round(NE_flows/drain_area, digits)
     dhfdc <- round(dhfdc, digits)
@@ -124,16 +164,26 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
                       paste0('fhfdc_q', NE_probs),
                       paste0('vhfdc1_q', NE_probs),
                       paste0('vhfdc2_q', NE_probs))
+    
+    if (threshold_type == 'low'){
+      vhfdc3 <- round(vhfdc3/drain_area, digits)
+      annual_names <- c(annual_names,
+                        paste0('vhfdc3_q', NE_probs))
+    }
   }
   
   #Make a data.frame of values to match the format of the EflowStats metrics
   if(seasonal){
     out_data <- data.frame(indice = season_names,
-                           statistic = c(dhfdc_s, fhfdc_s, vhfdc1_s, vhfdc2_s),
+                           statistic = ifelse(threshold_type == 'low',
+                                              c(dhfdc_s, fhfdc_s, vhfdc1_s, vhfdc2_s, vhfdc3_s),
+                                              c(dhfdc_s, fhfdc_s, vhfdc1_s, vhfdc2_s)),
                            site_num = site_num)
   }else{
     out_data <- data.frame(indice = annual_names,
-                           statistic = c(mhfdc, dhfdc, fhfdc, vhfdc1, vhfdc2),
+                           statistic = ifelse(threshold_type == 'low',
+                                              c(mhfdc, dhfdc, fhfdc, vhfdc1, vhfdc2, vhfdc3),
+                                              c(mhfdc, dhfdc, fhfdc, vhfdc1, vhfdc2)),
                            site_num = site_num)
   }
   

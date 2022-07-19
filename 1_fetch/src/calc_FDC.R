@@ -688,18 +688,27 @@ calc_vhfdc_metrics <- function(data, NE_flow, stat_type = 'POR', seasonal = FALS
       vhfdc2[1:4] <- seasonal_mean(seasonal_mnxQ)
     }else{
       #Computes seasonal average over all years, then fraction per season.
-      seasonal_volumes <- dplyr::summarize(group_by(seasonal_volumes, season),
-                                           avg=ifelse(NE_flow == 0, sum(numEvents), 
-                                                      mean(flow_event, na.rm=TRUE))) %>%
-        arrange(season) %>%
-        pull(avg)
-      
-      vhfdc1[1:4] <- get_seasonal_frac(seasonal_volumes, TRUE)
-      
-      #Compute the average of the maximum flow in each season
-      if (NE_flow == 0){
+      if (max(seasonal_volumes$totalFlow) == 0){
+        #Handle case when all flows are 0 to avoid a divide 0/0
+        seasonal_volumes <- dplyr::summarize(group_by(seasonal_volumes, season),
+                                             avg = sum(numEvents)) %>%
+          arrange(season) %>%
+          pull(avg)
+        
+        vhfdc1[1:4] <- get_seasonal_frac(seasonal_volumes, TRUE)
+        
+        #Compute the indicator of the flow events in each season
         seasonal_mnxQ <- volume_indicator(vhfdc1)
+        
       }else{
+        seasonal_volumes <- dplyr::summarize(group_by(seasonal_volumes, season),
+                                             avg = mean(flow_event, na.rm=TRUE)) %>%
+          arrange(season) %>%
+          pull(avg)
+        
+        vhfdc1[1:4] <- get_seasonal_frac(seasonal_volumes, TRUE)
+        
+        #Compute the average of the maximum flow in each season
         seasonal_mnxQ <- dplyr::summarize(group_by(seasonal_mnxQ, season),
                                           avg = mean(mnxQ, na.rm=TRUE)) %>%
           arrange(season) %>%

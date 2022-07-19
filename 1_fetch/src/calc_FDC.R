@@ -174,16 +174,22 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
   
   #Make a data.frame of values to match the format of the EflowStats metrics
   if(seasonal){
+    if (threshold_type == 'low'){
+      statistic <- c(dhfdc_s, fhfdc_s, vhfdc1_s, vhfdc2_s, vhfdc3_s)
+    }else{
+      statistic <- c(dhfdc_s, fhfdc_s, vhfdc1_s, vhfdc2_s)
+    }
     out_data <- data.frame(indice = season_names,
-                           statistic = ifelse(threshold_type == 'low',
-                                              c(dhfdc_s, fhfdc_s, vhfdc1_s, vhfdc2_s, vhfdc3_s),
-                                              c(dhfdc_s, fhfdc_s, vhfdc1_s, vhfdc2_s)),
+                           statistic = statistic,
                            site_num = site_num)
   }else{
+    if (threshold_type == 'low'){
+      statistic <- c(mhfdc, dhfdc, fhfdc, vhfdc1, vhfdc2, vhfdc3)
+    }else{
+      statistic <- c(mhfdc, dhfdc, fhfdc, vhfdc1, vhfdc2)
+    }
     out_data <- data.frame(indice = annual_names,
-                           statistic = ifelse(threshold_type == 'low',
-                                              c(mhfdc, dhfdc, fhfdc, vhfdc1, vhfdc2, vhfdc3),
-                                              c(mhfdc, dhfdc, fhfdc, vhfdc1, vhfdc2)),
+                           statistic = statistic,
                            site_num = site_num)
   }
   
@@ -464,9 +470,11 @@ assign_mnx_event <- function(seasonal_mnxQ, type){
     inds_event_d <- which(seasonal_mnxQ$event == unique(seasonal_mnxQ$event)[d])
     if(length(inds_event_d) > 1){
       #Find index of min or max flow
-      ind_mnx <- ifelse(type == 'high', 
-                        which(seasonal_mnxQ$mnxQ[inds_event_d] == max(seasonal_mnxQ$mnxQ[inds_event_d])),
-                        which(seasonal_mnxQ$mnxQ[inds_event_d] == min(seasonal_mnxQ$mnxQ[inds_event_d])))
+      if (type == 'high'){
+        ind_mnx <- which(seasonal_mnxQ$mnxQ[inds_event_d] == max(seasonal_mnxQ$mnxQ[inds_event_d]))
+      }else{
+        ind_mnx <- which(seasonal_mnxQ$mnxQ[inds_event_d] == min(seasonal_mnxQ$mnxQ[inds_event_d]))
+      }
       if(length(ind_mnx) > 1){
         #Assign to the first season because that's when the event started
         #Other seasons get converted to NA (these are deleted later)

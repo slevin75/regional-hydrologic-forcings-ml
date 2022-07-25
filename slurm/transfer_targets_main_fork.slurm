@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=tar_transfer         # human-readable label for squeue output
 #SBATCH --time=1:00:00                  # maximum time for this job
-#SBATCH --output=tar_transfer_%u.out    # user's output file
+#SBATCH --output=tar_transfer_main_fork_%u.out    # user's output file
 #SBATCH --partition=cpu                 # which SLURM partition to use
 #SBATCH --nodes=1                       # only request one node
 #SBATCH --ntasks=1                      # only request one core

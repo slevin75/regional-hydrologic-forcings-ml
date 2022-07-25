@@ -480,12 +480,19 @@ list(
   ),
   #Low flow regions
   tar_target(p3_metric_names_low,
-             {colnames(p1_FDC_metrics_low)[-c(1,grep(colnames(p1_FDC_metrics_low), pattern = 'mhfdc'))]
+             {colnames(p1_FDC_metrics_low)[
+               -c(1,
+                  grep(colnames(p1_FDC_metrics_low), pattern = 'mhfdc'),
+                  #Removing columns with NAs
+                  grep(colnames(p1_FDC_metrics_low), pattern = 'q0.005'),
+                  grep(colnames(p1_FDC_metrics_low), pattern = 'q0.01')
+                  )
+               ]
              },
              deployment = 'main'
   ),
   tar_target(p3_metric_names_quants_low,
-             {as.character(NE_quants_low)},
+             {as.character(NE_quants_low[-c(1,2)])},
              deployment = 'main'
   ),
   tar_target(p3_metric_names_quants_agg_low,

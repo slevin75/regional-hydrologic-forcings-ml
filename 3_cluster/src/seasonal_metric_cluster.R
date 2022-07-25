@@ -21,7 +21,8 @@ seasonal_metric_cluster <- function(metric_mat, metric,
     metric_mat <- metric_mat[, c(1,col_inds)]
   }else{
     metric_mat <- metric_mat[, c(1,grep(x = colnames(metric_mat), 
-                                        pattern = paste0(metric,'_')))]
+                                        pattern = paste0(metric,'_'),
+                                        fixed = TRUE))]
   }
   
   #Scaling of metrics should not be necessary because the metrics are on [0,1]
@@ -112,7 +113,8 @@ compute_cluster_diagnostics <- function(clusts, metric_mat,
     metric_mat <- metric_mat[, col_inds]
   }else{
     metric_mat <- metric_mat[, grep(x = colnames(metric_mat), 
-                                    pattern = paste0(clusts$metric,'_'))]
+                                    pattern = paste0(clusts$metric,'_'),
+                                    fixed = TRUE)]
   }
   
   #Compute NbClust cluster diagnostics
@@ -166,7 +168,8 @@ plot_cluster_diagnostics <- function(clusts, metric_mat, nbclust_metrics,
       clusts[[cl]]$metric <- str_c(clusts[[cl]]$metric, collapse = '-')
     }else{
       metric_mat <- metric_mat[, c(1,grep(x = colnames(metric_mat), 
-                                          pattern = paste0(clusts[[cl]]$metric,'_')))]
+                                          pattern = paste0(clusts[[cl]]$metric,'_'),
+                                          fixed = TRUE))]
     }
     
     fileout[cl] <- file.path(dir_out, 
@@ -287,7 +290,8 @@ plot_seasonal_barplot <- function(metric_mat, metric,
     metric_mat <- metric_mat[, c(1,col_inds)]
   }else{
     metric_mat <- metric_mat[, c(1,grep(x = colnames(metric_mat), 
-                                        pattern = paste0(metric,'_')))]
+                                        pattern = paste0(metric,'_'),
+                                        fixed = TRUE))]
   }
   
   #get the month labels
@@ -299,7 +303,8 @@ plot_seasonal_barplot <- function(metric_mat, metric,
   if (by_cluster){
     #Select all of the column names used for this metric
     cluster_table <- cluster_table[, c(1,grep(x = colnames(cluster_table), 
-                                              pattern = paste0(metric,'_')))]
+                                              pattern = paste0(metric,'_'),
+                                              fixed = TRUE))]
     
     #Get the total number of clusters in all of the columns. 
     #There will be 2 elements after splitting
@@ -525,7 +530,8 @@ get_column_inds <- function(metric, metric_mat){
   col_inds <- vector('numeric', length = 0L)
   for (m in 1:length(metric)){
     col_inds <- c(col_inds, grep(x = colnames(metric_mat), 
-                                 pattern = paste0(metric[m],'_')))
+                                 pattern = paste0(metric[m],'_'),
+                                 fixed = TRUE))
   }
   return(col_inds)
 }

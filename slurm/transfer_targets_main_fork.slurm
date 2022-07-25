@@ -41,7 +41,16 @@ fi
 rsync -a $USGS_DIR'/_targets' "$1"
 
 #copy output files (using rsync to copy only new files or updated files)
-rsync -a "$USGS_DIR"'1_fetch/out' $1'/1_fetch/'
-rsync -a "$USGS_DIR"'3_cluster/out' $1'/3_cluster/'
-rsync -a "$USGS_DIR"'5_EDA/out' $1'/5_EDA/'
-rsync -a "$USGS_DIR"'6_predict/out' $1'/6_predict/'
+#Gather all folder names with a /out directory. The last grep remove any files (. for file extension)
+cd $USGS_DIR
+SYNC_DIRS=$(ls | grep -E '[0-9]+_' | grep -Fv '.')
+for dir in $SYNC_DIRS
+do
+    #Check that this directory has an /out subdirectory
+    OUT_CHECK=$(ls "$USGS_DIR"$dir/ | grep -E 'out')
+    if [ ! -z $OUT_CHECK ]
+    then
+        #sync files
+        rsync -a "$USGS_DIR"$dir/'out' $1/$dir/
+    fi
+done

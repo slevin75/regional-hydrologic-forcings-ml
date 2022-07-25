@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=tar_transfer         # human-readable label for squeue output
-#SBATCH --time=1:00:00                  # maximum time for this job
+#SBATCH --time=12:00:00                  # maximum time for this job
 #SBATCH --output=tar_transfer_%u.out    # user's output file
 #SBATCH --partition=cpu                 # which SLURM partition to use
 #SBATCH --nodes=1                       # only request one node
@@ -40,7 +40,16 @@ fi
 rsync -a "$1"'/_targets' $USGS_DIR
 
 #copy output files (using rsync to copy only new files or updated files)
-rsync -a "$1"'/1_fetch/out' $USGS_DIR'1_fetch/'
-rsync -a "$1"'/3_cluster/out' $USGS_DIR'3_cluster/'
-rsync -a "$1"'/5_EDA/out' $USGS_DIR'5_EDA/'
-rsync -a "$1"'/6_predict/out' $USGS_DIR'6_predict/'
+#Gather all folder names with a /out directory. The last grep remove any files (. for file extension)
+cd $1
+SYNC_DIRS=$(ls | grep -E '[0-9]+_' | grep -Fv '.')
+for dir in $SYNC_DIRS
+do
+    #Check that this directory has an /out subdirectory
+    OUT_CHECK=$(ls "$1"/$dir/ | grep -E 'out')
+    if [ ! -z $OUT_CHECK ]
+    then
+        #sync files
+        rsync -a "$1"/$dir/'out' $USGS_DIR$dir/
+    fi
+done

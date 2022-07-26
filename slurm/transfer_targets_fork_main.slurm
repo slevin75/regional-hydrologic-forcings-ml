@@ -37,7 +37,7 @@ then
 fi
 
 #copy _targets folder (using rsync to copy only new targets or updated targets)
-rsync -a "$1"'/_targets' $USGS_DIR
+rsync -a --omit-dir-times "$1"'/_targets' $USGS_DIR
 
 #copy output files (using rsync to copy only new files or updated files)
 #Gather all folder names with a /out directory. The last grep remove any files (. for file extension)
@@ -50,6 +50,6 @@ do
     if [ ! -z $OUT_CHECK ]
     then
         #sync files
-        rsync -a "$1"/$dir/'out' $USGS_DIR$dir/
+        rsync -a --omit-dir-times "$1"/$dir/'out' $USGS_DIR$dir/
     fi
 done

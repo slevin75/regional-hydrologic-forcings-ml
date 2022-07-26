@@ -1326,8 +1326,7 @@ list(
   tar_target(p6_Boruta_CONUS_g2_exact_clust,
              screen_Boruta_exact(features = left_join(p5_attr_g2, p3_gages_clusters_quants_agg_selected %>% 
                                                         select(ID, '0.75,0.8,0.85,0.9,0.95_k5') %>%
-                                                        rename(clusters = '0.75,0.8,0.85,0.9,0.95_k5') %>%
-                                                        mutate(clusters = as.factor(clusters)), 
+                                                        rename(clusters = '0.75,0.8,0.85,0.9,0.95_k5'), 
                                                       by = c('GAGES_ID' = 'ID')) %>% 
                                    na.omit(),
                                  cluster_table = p3_gages_clusters_quants_agg_selected %>%
@@ -1362,8 +1361,7 @@ list(
              predict_test_data(model_wf = p6_train_RF_CONUS_g2_exact_clust$workflow,
                                features = left_join(p5_attr_g2, p3_gages_clusters_quants_agg_selected %>% 
                                                       select(ID, '0.75,0.8,0.85,0.9,0.95_k5') %>%
-                                                      rename(clusters = '0.75,0.8,0.85,0.9,0.95_k5') %>%
-                                                      mutate(clusters = as.factor(clusters)), 
+                                                      rename(clusters = '0.75,0.8,0.85,0.9,0.95_k5'), 
                                                     by = c('GAGES_ID' = 'ID')) %>% 
                                  na.omit(),
                                cluster_table = p3_gages_clusters_quants_agg_selected %>%
@@ -1380,8 +1378,7 @@ list(
              predict_test_data(model_wf = p6_train_RF_CONUS_g2_exact_clust$workflow,
                                features = left_join(p5_attr_g2, p3_gages_clusters_quants_agg_selected %>% 
                                                       select(ID, '0.75,0.8,0.85,0.9,0.95_k5') %>%
-                                                      rename(clusters = '0.75,0.8,0.85,0.9,0.95_k5') %>%
-                                                      mutate(clusters = as.factor(clusters)), 
+                                                      rename(clusters = '0.75,0.8,0.85,0.9,0.95_k5'), 
                                                     by = c('GAGES_ID' = 'ID')) %>% 
                                  na.omit(),
                                cluster_table = p3_gages_clusters_quants_agg_selected %>%
@@ -1398,8 +1395,7 @@ list(
              predict_test_data_from_data(model_wf = p6_train_RF_CONUS_g2_exact_clust$workflow,
                                          features = left_join(p5_attr_g2, p3_gages_clusters_quants_agg_selected %>% 
                                                                 select(ID, '0.75,0.8,0.85,0.9,0.95_k5') %>%
-                                                                rename(clusters = '0.75,0.8,0.85,0.9,0.95_k5') %>%
-                                                                mutate(clusters = as.factor(clusters)), 
+                                                                rename(clusters = '0.75,0.8,0.85,0.9,0.95_k5'), 
                                                               by = c('GAGES_ID' = 'ID')) %>% 
                                            na.omit(),
                                          cluster_table = p3_gages_clusters_quants_agg_selected %>%
@@ -1417,8 +1413,7 @@ list(
              predict_test_data_from_data(model_wf = p6_train_RF_CONUS_g2_exact_clust$workflow,
                                          features = left_join(p5_attr_g2, p3_gages_clusters_quants_agg_selected %>% 
                                                                 select(ID, '0.75,0.8,0.85,0.9,0.95_k5') %>%
-                                                                rename(clusters = '0.75,0.8,0.85,0.9,0.95_k5') %>%
-                                                                mutate(clusters = as.factor(clusters)), 
+                                                                rename(clusters = '0.75,0.8,0.85,0.9,0.95_k5'), 
                                                               by = c('GAGES_ID' = 'ID')) %>% 
                                            na.omit(),
                                          cluster_table = p3_gages_clusters_quants_agg_selected %>%

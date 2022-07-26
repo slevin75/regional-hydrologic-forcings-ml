@@ -51,6 +51,6 @@ do
     if [ ! -z $OUT_CHECK ]
     then
         #sync files
-        rsync -a --omit-dir-times "$USGS_DIR"$dir/'out' $1/$dir/
+        rsync -a --omit-dir-times --exclude logs "$USGS_DIR"$dir/'out' $1/$dir/
     fi
 done

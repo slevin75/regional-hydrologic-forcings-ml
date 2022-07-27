@@ -1476,20 +1476,25 @@ list(
   ##the cluster table
   tar_target(p5_EDA_plots_metrics,
              make_EDA_metric_plots(metric = p2_all_metrics_names,
-                                   k = 5,
-                                  cluster_table = p3_gages_clusters_quants_agg_selected,
-                                  metrics_table = p2_all_metrics,
-                                  gages = p1_sites_g2_sf,
-                                  out_dir = "5_EDA/out/metrics_plots"
-                                   ),
+                                   k = 5, 
+                                   cluster_table = p3_gages_clusters_quants_agg_selected,
+                                   high_q_grep = '0.9', 
+                                   low_q_grep = '0.5', 
+                                   high_q_start = 0.75, 
+                                   metrics_table = p2_all_metrics,
+                                   gages = p1_sites_g2_sf,
+                                   out_dir = "5_EDA/out/metrics_plots"),
              map(p2_all_metrics_names),
              format="file"
   ),
   #Low flow
-  tar_target(p5_EDA_plots_metrics_low,
+  tar_target(p5_EDA_plots_metrics_low_novhfdc3,
              make_EDA_metric_plots(metric = p2_all_metrics_names_low,
                                    k = 5,
-                                   cluster_table = p3_gages_clusters_quants_agg_low,
+                                   cluster_table = p3_gages_clusters_quants_agg_low_novhfdc3,
+                                   high_q_grep = '0.4',
+                                   low_q_grep = '0.1',
+                                   high_q_start = 0.25,
                                    metrics_table = p1_FDC_metrics_low,
                                    gages = p1_sites_g2_sf,
                                    out_dir = "5_EDA/out/metrics_plots_LowFlow"

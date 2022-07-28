@@ -641,7 +641,9 @@ predict_test_data <- function(model_wf, features, cluster_table, metrics_table,
   
   perf_metrics <- metrics(test_preds, truth = 'obs', estimate = '.pred')
 
-  return(list(metric = metric_name, pred = test_preds, metrics = perf_metrics))
+  pred_gage_ids <- features$GAGES_ID
+  
+  return(list(metric = metric_name, pred = test_preds, metrics = perf_metrics, pred_gage_ids=pred_gage_ids))
 }
 
 

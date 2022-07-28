@@ -258,11 +258,54 @@ prep_feature_vars <- function(sb_var_data, sites, retain_vars) {
     select(COMID, label, avg_annual) %>%
     pivot_wider(names_from = "label", values_from = "avg_annual")
   
+  #determine dominant physiographic region
+  phys_region <- data %>%
+    select(COMID, contains("_PHYSIO_")) %>%
+    select(-contains("AREA")) %>%
+    group_by(COMID) %>%
+    summarise_all(mean) %>%
+    pivot_longer(!COMID, names_to = "name", values_to = "value") %>%
+    mutate(unit = str_sub(name, 1, 3), 
+           region = str_sub(name, 12))
+  
+  dom_phys_reg <- tibble()
+  for (i in unique(phys_region$COMID)) {
+    phys_reg_comid <- filter(phys_region, COMID == i)
+    
+    dom_phys_reg_comid <- tibble()
+    for (j in unique(phys_reg_comid$unit)) {
+      phys_reg_comid_unit_ties <- filter(phys_reg_comid, unit == j) %>%
+        arrange(desc(value))
+      
+      #if tie for dominant phyiographic region, default to CAT value
+      if (phys_reg_comid_unit_ties[[1,3]] > phys_reg_comid_unit_ties[[2,3]]) {
+        phys_reg_comid_unit <- phys_reg_comid_unit_ties[1, ]
+      } else {
+        phys_reg_comid_unit_tied <- phys_reg_comid %>%
+          filter(unit == "CAT")
+        phys_reg_comid_unit <- 
+          phys_reg_comid_unit_tied[which.max(phys_reg_comid_unit_tied$value), ]
+        phys_reg_comid_unit <- mutate(phys_reg_comid_unit, unit == j)
+      }
+      dom_phys_reg_comid <- bind_rows(dom_phys_reg_comid, phys_reg_comid_unit)
+    }
+    dom_phys_reg <- bind_rows(dom_phys_reg, dom_phys_reg_comid)
+  }
+  
+  dom_phys_reg$region <- as.numeric(dom_phys_reg$region)
+  phys_region <- dom_phys_reg %>%
+    mutate(label = paste0(unit, "_PHYSIO")) %>%
+    arrange(COMID, label) %>%
+    select(COMID, label, region) %>%
+    pivot_wider(names_from = "label", values_from = "region")
+  
   #remove unwanted feature variables and re-join long-term average datasets
   data <- data %>%
-    select(-ends_with(".y"), -ID, -starts_with("..."), -contains("_S1"), -contains("PHYSIO_AREA"), 
-           -contains("SOHL"), -contains("NDAMS"), -contains("STORAGE"), -contains("MAJOR"), 
-           -contains("_TAV_"), -contains("_PPT_"), -contains("WILDFIRE")) %>%
+    select(-ends_with(".y"), -ID, -starts_with("..."), -contains("_S1"), 
+           -contains("_PHYSIO_"), -contains("SOHL"), -contains("NDAMS"), 
+           -contains("STORAGE"), -contains("MAJOR"), -contains("_TAV_"), 
+           -contains("_PPT_"), -contains("WILDFIRE")) %>%
+    left_join(phys_region, by = "COMID") %>%
     left_join(land_cover, by = "COMID") %>%
     left_join(dams, by = "COMID") %>%
     left_join(weather, by = "COMID") %>%

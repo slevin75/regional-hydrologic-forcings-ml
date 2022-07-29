@@ -121,6 +121,11 @@ gagesii_path <- "Gages2.1_RefSiteList.xlsx"
 drop_gages <- c('02084557', '09406300', '09512200', '10143500', '10172200', 
                 '01349711', '01362198', '01362380', '02322698', '04127918', 
                 '10336674', '10336675')
+#Combine the following gages from the dataset because they are located on same
+#comid with unique periods or record
+combine_03584000_03584020 <- c('03584000', '03584020')
+combine_06037000_06037100 <- c('06037000', '06037100')
+combine_12209490_12209500 <- c('12209490', '12209500')
 
 ##distance to search upstream for nested basins, in km.  note-the nhdplusTools function fails if this 
 ##value is 10000 or greater.

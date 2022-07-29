@@ -123,9 +123,8 @@ drop_gages <- c('02084557', '09406300', '09512200', '10143500', '10172200',
                 '10336674', '10336675')
 #Combine the following gages from the dataset because they are located on same
 #comid with unique periods or record
-combine_03584000_03584020 <- c('03584000', '03584020')
-combine_06037000_06037100 <- c('06037000', '06037100')
-combine_12209490_12209500 <- c('12209490', '12209500')
+combine_gages <- tibble(seek_out = c('03584000', '06037000', '12209500'), 
+                        renumber_to = c('03584020', '06037100', '12209490'))
 
 ##distance to search upstream for nested basins, in km.  note-the nhdplusTools function fails if this 
 ##value is 10000 or greater.
@@ -155,6 +154,7 @@ list(
              read_xlsx(p1_sites_g2_xlsx) %>% 
                mutate(ID = substr(ID, start=2, stop=nchar(ID))) %>%
                #drop 5 sites that are not representative (ditch, pipeline)
+               #and 7 sites that are duplicates on same comid
                filter(!(ID %in% drop_gages)),
              deployment = 'main'
   ),
@@ -198,9 +198,10 @@ list(
              format = "file"
   ),
   
-  ##prescreen data to remove provisional data and handle odd column names
+  ##prescreen data to remove provisional data and handle odd column names, and
+  ##combine records from gages with unique periods of record on same comid
   tar_target(p1_prescreen_daily_data, 
-             prescreen_daily_data(p1_daily_flow_csv, prov_rm = TRUE),
+             prescreen_daily_data(p1_daily_flow_csv, combine_gages, prov_rm = TRUE),
              map(p1_daily_flow_csv),
              deployment = 'worker'
   ),

@@ -117,8 +117,10 @@ sb_var_ids_path <- "1_fetch/in/sb_var_ids.csv"
 gagesii_path <- "Gages2.1_RefSiteList.xlsx"
 
 #Drop the following gages from the dataset because they are not representative
-#pipeline, ditch, etc.
-drop_gages <- c('02084557', '09406300', '09512200', '10143500', '10172200')
+#pipeline, ditch, duplicate comids in gages2.1, etc.
+drop_gages <- c('02084557', '09406300', '09512200', '10143500', '10172200', 
+                '01349711', '01362198', '01362380', '02322698', '04127918', 
+                '10336674', '10336675')
 
 ##distance to search upstream for nested basins, in km.  note-the nhdplusTools function fails if this 
 ##value is 10000 or greater.

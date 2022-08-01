@@ -105,7 +105,7 @@ catch_download_timeout_daily <- function(time, site_num, parameterCd,
 
 get_daily_flow_log <- function(files_in, file_out) {
   message(paste('generating log for dataRetrieval daily flow request'))
-  daily_flow_list <- purrr::map(files_in, prescreen_daily_data, prov_rm = FALSE)
+  daily_flow_list <- purrr::map(files_in, prescreen_daily_data, combine_gages, prov_rm = TRUE)
   daily_flow_df <- bind_rows(daily_flow_list)
   daily_flow_log <- daily_flow_df %>%
     group_by(site_no) %>%

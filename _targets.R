@@ -155,7 +155,7 @@ list(
   #create a spatial object 
   tar_target(p1_sites_g2_sf,
              st_as_sf(x = p1_sites_g2, coords = c('LON', 'LAT'), 
-                      remove = FALSE, dim = 'XY', na.fail = TRUE),
+                      crs = st_crs(4326),remove = FALSE, dim = 'XY', na.fail = TRUE),
              deployment = 'main'
   ),
   

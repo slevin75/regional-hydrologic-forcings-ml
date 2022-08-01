@@ -306,7 +306,7 @@ make_residual_map <- function(df_pred_obs, sites_g2_sf, metric, pred_gage_ids, r
     ggtitle(paste("metric= ",metric,"    region = ", region ))
   
   p2 <- plot(variogram(resid ~1, df,
-                       cutoff = 100, 
+                       cutoff = 1000, 
                        width = 2,
                        cressie = TRUE),
              asp=1)

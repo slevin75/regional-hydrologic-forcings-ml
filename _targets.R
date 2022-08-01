@@ -12,7 +12,7 @@ tar_option_set(packages = c("fasstr", "EflowStats", "dataRetrieval",
                             "sf", "cowplot", "gridGraphics", "stringi",
                             "dendextend", "scico", "tidyverse", "nhdplusTools",
                             "sbtools", "maps", "mapproj", "ranger", "Boruta",
-                            "tidymodels", "doParallel", "vip"),
+                            "tidymodels", "doParallel", "vip", "gstat"),
                imports = c("fasstr", "EflowStats", "dataRetrieval", 
                            "cluster","factoextra", "NbClust", "dendextend",
                            "tidyverse", "ranger", "Boruta", "tidymodels"))
@@ -47,6 +47,7 @@ dir.create('6_predict/out/vip', showWarnings = FALSE)
 dir.create('6_predict/out/hypopt', showWarnings = FALSE)
 dir.create('6_predict/out/split_boxplots', showWarnings = FALSE)
 dir.create('6_predict/out/pred_obs', showWarnings = FALSE)
+
 
 ##Load user defined functions
 source("1_fetch/src/get_nwis_data.R")
@@ -154,7 +155,7 @@ list(
   #create a spatial object 
   tar_target(p1_sites_g2_sf,
              st_as_sf(x = p1_sites_g2, coords = c('LON', 'LAT'), 
-                      remove = FALSE, dim = 'XY', na.fail = TRUE),
+                      crs = st_crs(4326),remove = FALSE, dim = 'XY', na.fail = TRUE),
              deployment = 'main'
   ),
   
@@ -1832,6 +1833,80 @@ list(
                                 out_dir = '6_predict/out'),
              deployment = 'main',
              format = 'file'
-  )
+  ),
+  
+  
+  
+  #####residual maps
+  tar_target(p6_residual_map_RF_rain,
+             make_residual_map(df_pred_obs = p6_test_RF_rain_rain$pred, 
+                               sites_g2_sf = p1_sites_g2_sf, 
+                               metric = p6_test_RF_rain_rain$metric, 
+                               pred_gage_ids = p6_test_RF_rain_rain$pred_gage_id, 
+                               region = "rain", 
+                               out_dir= "6_predict/out/pred_obs/")),
+  
+  tar_target(p6_residual_map_RF_snow,
+             make_residual_map(df_pred_obs = p6_test_RF_snow_snow$pred, 
+                               sites_g2_sf = p1_sites_g2_sf, 
+                               metric = p6_test_RF_snow_snow$metric, 
+                               pred_gage_ids = p6_test_RF_snow_snow$pred_gage_id, 
+                               region = "snow", 
+                               out_dir= "6_predict/out/pred_obs/")),
+  
+  tar_target(p6_residual_map_RF_rain_snow,
+             make_residual_map(df_pred_obs = NULL ,
+                               sites_g2_sf = p1_sites_g2_sf,
+                               metric = p6_Boruta_rain_snow$metric,
+                               pred_gage_ids = p6_Boruta_rain_snow$input_data$split$data$GAGES_ID,
+                               region = "rain_snow",
+                               out_dir = "6_predict/out/pred_obs/",
+                               from_predict = TRUE,
+                               model_wf = p6_train_RF_rain_snow$workflow,
+                               pred_data = p6_Boruta_rain_snow$input_data$split$data)),
+  tar_target(p6_residual_map_RF_rain_snow_exact,
+             make_residual_map(df_pred_obs = NULL ,
+                               sites_g2_sf = p1_sites_g2_sf,
+                               metric = p6_Boruta_rain_snow_exact$metric,
+                               pred_gage_ids = p6_Boruta_rain_snow_exact$input_data$split$data$GAGES_ID,
+                               region = "rain_snow_exact",
+                               out_dir = "6_predict/out/pred_obs/",
+                               from_predict = TRUE,
+                               model_wf = p6_train_RF_rain_snow_exact$workflow,
+                               pred_data = p6_Boruta_rain_snow_exact$input_data$split$data)),
+  
+  tar_target(p6_residual_map_RF_CONUS_g2,
+             make_residual_map(df_pred_obs = NULL ,
+                               sites_g2_sf = p1_sites_g2_sf,
+                               metric = p6_Boruta_CONUS_g2$metric,
+                               pred_gage_ids = p6_Boruta_CONUS_g2$input_data$split$data$GAGES_ID,
+                               region = "CONUS_g2",
+                               out_dir = "6_predict/out/pred_obs/",
+                               from_predict = TRUE,
+                               model_wf = p6_train_RF_CONUS_g2$workflow,
+                               pred_data = p6_Boruta_CONUS_g2$input_data$split$data)),
+  
+  tar_target(p6_residual_map_RF_CONUS_g2_exact,
+             make_residual_map(df_pred_obs = NULL ,
+                               sites_g2_sf = p1_sites_g2_sf,
+                               metric = p6_Boruta_CONUS_g2_exact$metric,
+                               pred_gage_ids = p6_Boruta_CONUS_g2_exact$input_data$split$data$GAGES_ID,
+                               region = "CONUS_g2_exact",
+                               out_dir = "6_predict/out/pred_obs/",
+                               from_predict = TRUE,
+                               model_wf = p6_train_RF_CONUS_g2_exact$workflow,
+                               pred_data = p6_Boruta_CONUS_g2_exact$input_data$split$data)),
+  
+  tar_target(p6_residual_map_RF_CONUS_g2_exact_clust,
+             make_residual_map(df_pred_obs = NULL ,
+                               sites_g2_sf = p1_sites_g2_sf,
+                               metric = p6_Boruta_CONUS_g2_exact_clust$metric,
+                               pred_gage_ids = p6_Boruta_CONUS_g2_exact_clust$input_data$split$data$GAGES_ID,
+                               region = "CONUS_g2_exact_clust",
+                               out_dir = "6_predict/out/pred_obs/",
+                               from_predict = TRUE,
+                               model_wf = p6_train_RF_CONUS_g2_exact_clust$workflow,
+                               pred_data = p6_Boruta_CONUS_g2_exact_clust$input_data$split$data))
+  
   
 ) #end list

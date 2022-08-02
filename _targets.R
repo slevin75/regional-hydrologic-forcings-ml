@@ -123,8 +123,9 @@ drop_gages <- c('02084557', '09406300', '09512200', '10143500', '10172200',
                 '10336674', '10336675', '06190540')
 #Combine the following gages from the dataset because they are located on same
 #comid with unique periods or record
-combine_gages <- tibble(seek_out = c('03584000', '06037000', '12209500'), 
-                        renumber_to = c('03584020', '06037100', '12209490'))
+combine_gages <- list(c('03584000', '06037000', '12209500'), 
+                      c('03584020', '06037100', '12209490'))
+names(combine_gages) <- c("to_be_combined", "assigned_rep")
 
 ##distance to search upstream for nested basins, in km.  note-the nhdplusTools function fails if this 
 ##value is 10000 or greater.
@@ -228,7 +229,7 @@ list(
   
   ##select sites with enough complete years
   tar_target(p1_screened_site_list,
-             filter_complete_years(p1_screen_daily_flow, complete_years),
+             filter_complete_years(p1_screen_daily_flow, combine_gages, complete_years),
              deployment = 'main'
   ),
   ##seasonal

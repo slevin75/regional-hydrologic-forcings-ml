@@ -234,7 +234,7 @@ list(
   ),
   ##seasonal
   tar_target(p1_screened_site_list_season,
-             filter_complete_years(p1_screen_daily_flow_season, complete_years),
+             filter_complete_years(p1_screen_daily_flow_season, combine_gages, complete_years),
              deployment = 'main'
   ),
   # tar_target(p1_screened_site_list_season_high,

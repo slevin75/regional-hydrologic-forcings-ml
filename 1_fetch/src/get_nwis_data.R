@@ -105,7 +105,7 @@ catch_download_timeout_daily <- function(time, site_num, parameterCd,
 
 get_daily_flow_log <- function(files_in, file_out) {
   message(paste('generating log for dataRetrieval daily flow request'))
-  daily_flow_list <- purrr::map(files_in, prescreen_daily_data, combine_gages, prov_rm = TRUE)
+  daily_flow_list <- purrr::map(files_in, prescreen_daily_data, prov_rm = TRUE)
   daily_flow_df <- bind_rows(daily_flow_list)
   daily_flow_log <- daily_flow_df %>%
     group_by(site_no) %>%
@@ -223,7 +223,7 @@ get_peak_flow_log <- function(files_in, file_out) {
   return(file_out)
 }
 
-prescreen_daily_data <- function(filename, combine_gages, prov_rm = TRUE){
+prescreen_daily_data <- function(filename, prov_rm = TRUE){
   #loads data from file and removes provisional and estimated data if prov_rm = TRUE
   message('loading ', filename)
   d0 <- read_csv(filename,
@@ -261,13 +261,6 @@ prescreen_daily_data <- function(filename, combine_gages, prov_rm = TRUE){
     ###remove any provisional data - this will be counted as 'no data'
     prov_data <- grep('P|e', data$discharge_cd)
     if(length(prov_data) > 0){data <- data[-prov_data, ]}
-  }
-  
-  ##Handle gages with unique periods of record on same comid
-  if (unique(data$site_no) %in% combine_gages$seek_out) {
-    gage_match <- combine_gages %>%
-      filter(seek_out == unique(data$site_no))
-    data <- mutate(data, site_no = gage_match$renumber_to)
   }
   
   return(data)

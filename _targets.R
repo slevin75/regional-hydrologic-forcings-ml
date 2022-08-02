@@ -201,7 +201,7 @@ list(
   ##prescreen data to remove provisional data and handle odd column names, and
   ##combine records from gages with unique periods of record on same comid
   tar_target(p1_prescreen_daily_data, 
-             prescreen_daily_data(p1_daily_flow_csv, combine_gages, prov_rm = TRUE),
+             prescreen_daily_data(p1_daily_flow_csv, prov_rm = TRUE),
              map(p1_daily_flow_csv),
              deployment = 'worker'
   ),

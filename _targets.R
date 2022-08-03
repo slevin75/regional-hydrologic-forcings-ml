@@ -333,7 +333,8 @@ list(
   ##merge and select feature variables from gagesii list
   tar_target(p1_feature_vars_g2, 
              prep_feature_vars(sb_var_data = p1_sb_data_g2_csv, 
-                               sites = p1_sites_g2, 
+                               sites_all = p1_sites_g2, 
+                               sites_screened = p1_screened_site_list, 
                                retain_vars = c("ID", "LAT", "LON",
                                  "npdes", "fwwd", "strg", "devl", "cndp")), 
              deployment = "main"

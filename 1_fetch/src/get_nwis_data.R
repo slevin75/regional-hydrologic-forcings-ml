@@ -193,18 +193,48 @@ catch_download_timeout_peak <- function(time, site_num,
   #'
   #'@return table of downloaded data if successful. NA if download resulted in an error
   
-  tryCatch(
-    expr = {result <- R.utils::withTimeout(expr = readNWISpeak(siteNumbers = site_num, 
-                                                               startDate = startDate, 
-                                                               endDate = endDate), 
-                                           timeout = time, 
-                                           onTimeout = 'error')
-    return(result)
-    },
-    error = function(e){
-      return(NULL)
-    }
-  )
+  
+  
+  
+  if (grepl("_", site_num)) {
+    site_1 <- str_split_fixed(site_num, pattern = "_", n = 2)[1]
+    site_2 <- str_split_fixed(site_num, pattern = "_", n = 2)[2]
+    tryCatch(
+      expr = {
+        result_1 <- R.utils::withTimeout(expr = readNWISpeak(siteNumbers = site_1, 
+                                                             startDate = startDate, 
+                                                             endDate = endDate), 
+                                         timeout = time, 
+                                         onTimeout = 'error')
+        result_2 <- R.utils::withTimeout(expr = readNWISpeak(siteNumbers = site_2, 
+                                                             startDate = startDate, 
+                                                             endDate = endDate), 
+                                         timeout = time, 
+                                         onTimeout = 'error')
+        result <- bind_rows(result_1, result_2) %>%
+          mutate(site_no = site_num) %>%
+          arrange(peak_dt)
+      return(result)
+      },
+      error = function(e){
+        return(NULL)
+      }
+    )
+  } else {
+    tryCatch(
+      expr = {
+        result <- R.utils::withTimeout(expr = readNWISpeak(siteNumbers = site_num, 
+                                                           startDate = startDate, 
+                                                           endDate = endDate), 
+                                       timeout = time, 
+                                       onTimeout = 'error')
+      return(result)
+      },
+      error = function(e){
+        return(NULL)
+      }
+    )
+  }
 }
 
 get_peak_flow_log <- function(files_in, file_out) {
@@ -421,8 +451,18 @@ validate_data_yr_start <- function(x, year_start){
 
 get_NWIS_drainArea <- function(site_num){
   message(paste('starting site', site_num))
-  data_out <- data.frame(site_no = as.character(site_num),
-                         drainArea = readNWISsite(siteNumbers = site_num)$drain_area_va)
+  if (grepl("_", site_num)) {
+    site_1 <- str_split_fixed(site_num, pattern = "_", n = 2)[1]
+    site_2 <- str_split_fixed(site_num, pattern = "_", n = 2)[2]
+    da_1 <- readNWISsite(siteNumbers = site_1)$drain_area_va
+    da_2 <- readNWISsite(siteNumbers = site_2)$drain_area_va
+    da_avg <- mean(c(da_1, da_2))
+    data_out <- data.frame(site_no = as.character(site_num), 
+                           drainArea = da_avg)
+  } else {
+    data_out <- data.frame(site_no = as.character(site_num),
+                           drainArea = readNWISsite(siteNumbers = site_num)$drain_area_va)
+  }
   return(data_out)
 }
 

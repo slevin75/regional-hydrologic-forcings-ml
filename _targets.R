@@ -811,9 +811,9 @@ list(
   
   #matrix of nested gages - proportion of overlapping area. Column name gage is downstream of the row name gage.
   tar_target(p4_nested_gages,
-             get_nested_gages(gagesii = p1_sites_g2,
-                              nav_distance_km = nav_distance_km,
-                              screened_site_list = p1_screened_site_list),
+             get_nested_gages(sites_and_comids = p1_feature_vars_g2,
+                              drainage_areas = p1_drainage_area,
+                              nav_distance_km = nav_distance_km),
              deployment = 'worker'
   ),
   

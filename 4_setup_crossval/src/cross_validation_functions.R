@@ -71,6 +71,7 @@ add_nested_group_id <- function(nested_gages, drainage_area, nested_threshold){
   
   ##replace any number equal or greater than the nested_threshold to 1
   nested_gages<- as.data.frame(ifelse(nested_gages >= nested_threshold, 1, 0))
+  drainage_area <- filter(drainage_area, site_no %in% rownames(nested_gages))
     
   ##get column sums, add drainage area and sort by descending DA so that
   ##we get the largest ones first and will work our way upstream

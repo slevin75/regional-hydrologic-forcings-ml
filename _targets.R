@@ -824,7 +824,7 @@ list(
                                    k = 5,
                                   cluster_table = p3_gages_clusters_quants_agg_selected,
                                   metrics_table = p2_all_metrics,
-                                  gages = p1_sites_g2_sf,
+                                  gages = p1_feature_vars_g2_sf,
                                   out_dir = "5_EDA/out/metrics_plots"
                                    ),
              map(p2_all_metrics_names),

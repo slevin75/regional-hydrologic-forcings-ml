@@ -173,11 +173,11 @@ plot_cluster_diagnostics <- function(clusts, metric_mat, nbclust_metrics,
 }
 
 #Function to add the cluster numbers to gages
-add_cluster_to_gages <- function(gages, screened_sites, clusts, best_clust,
+add_cluster_to_gages <- function(screened_sites, clusts, best_clust,
                                  min_clusts, max_clusts, by_clusts, 
                                  quantile_agg = FALSE){
   #Select the gages that have clusters computed
-  gages_clusts <- gages[gages$ID %in% screened_sites, "ID"]
+  gages_clusts <- data.frame(ID = screened_sites)
   
   #add columns with cluster numbers
   clust_nums <- seq(min_clusts, max_clusts, by_clusts)
@@ -396,15 +396,13 @@ plot_cuttree <- function(clusts, kmin, kmax, seq_by, dir_out){
 
 #Function to make a map of the resulting clusters
 #can add bounding boxes for clusters as argument
-plot_cluster_map <- function(gages, cluster_table, screened_sites, dir_out,
+plot_cluster_map <- function(gages, cluster_table, dir_out,
                              facet = FALSE){
-  ncol_gages <- ncol(gages)
   
-  #get only sites with metrics computed
-  gages <- gages[which(gages$ID %in% screened_sites),]
-  
-  #Add the cluster_table to gages by ID join
-  gages <- cbind(gages, cluster_table)
+  gages <- select(gages, 1:4, geometry) %>%
+    rename(ID = GAGES_ID) %>%
+    left_join(cluster_table, by = "ID")
+  ncol_gages <- 5
   
   #U.S. States
   states <- map_data("state")

@@ -159,12 +159,12 @@ list(
                filter(!(ID %in% drop_gages)),
              deployment = 'main'
   ),
-  #create a spatial object 
-  tar_target(p1_sites_g2_sf,
-             st_as_sf(x = p1_sites_g2, coords = c('LON', 'LAT'), 
-                      remove = FALSE, dim = 'XY', na.fail = TRUE),
-             deployment = 'main'
-  ),
+  # #create a spatial object 
+  # tar_target(p1_sites_g2_sf,
+  #            st_as_sf(x = p1_sites_g2, coords = c('LON', 'LAT'), 
+  #                     remove = FALSE, dim = 'XY', na.fail = TRUE),
+  #            deployment = 'main'
+  # ),
   
   #ID numbers for sites to use
   tar_target(
@@ -338,6 +338,13 @@ list(
                                retain_vars = c("ID", "LAT", "LON",
                                  "npdes", "fwwd", "strg", "devl", "cndp")), 
              deployment = "main"
+  ),
+  
+  #create a spatial object for remaining feature variables
+  tar_target(p1_feature_vars_g2_sf,
+             st_as_sf(x = p1_feature_vars_g2, coords = c('LON', 'LAT'), 
+                      remove = FALSE, dim = 'XY', na.fail = TRUE),
+             deployment = 'main'
   ),
   
   ##get flood threshold from NWIS for eflowstats
@@ -573,24 +580,21 @@ list(
   
   #Assign cluster numbers to gages
   tar_target(p3_gages_clusters,
-             add_cluster_to_gages(gages = p1_sites_g2,
-                                  clusts = p3_FDC_clusters,
+             add_cluster_to_gages(clusts = p3_FDC_clusters,
                                   screened_sites = p1_screened_site_list_season,
                                   best_clust = p3_FDC_best_cluster_method,
                                   min_clusts = 3, max_clusts = 15, by_clusts = 4),
              deployment = 'main'
   ),
   tar_target(p3_gages_clusters_quants,
-             add_cluster_to_gages(gages = p1_sites_g2,
-                                  clusts = p3_FDC_clusters_quants,
+             add_cluster_to_gages(clusts = p3_FDC_clusters_quants,
                                   screened_sites = p1_screened_site_list_season,
                                   best_clust = p3_FDC_best_cluster_method_quants,
                                   min_clusts = 3, max_clusts = 15, by_clusts = 4),
              deployment = 'main'
   ),
   tar_target(p3_gages_clusters_quants_agg,
-             add_cluster_to_gages(gages = p1_sites_g2,
-                                  clusts = p3_FDC_clusters_quants_agg,
+             add_cluster_to_gages(clusts = p3_FDC_clusters_quants_agg,
                                   screened_sites = p1_screened_site_list_season,
                                   best_clust = p3_FDC_best_cluster_method_quants_agg,
                                   min_clusts = 3, max_clusts = 15, by_clusts = 4,
@@ -598,8 +602,7 @@ list(
              deployment = 'main'
   ),
   tar_target(p3_gages_clusters_quants_agg_selected,
-             add_cluster_to_gages(gages = p1_sites_g2,
-                                  clusts = p3_FDC_clusters_quants_agg,
+             add_cluster_to_gages(clusts = p3_FDC_clusters_quants_agg,
                                   screened_sites = p1_screened_site_list_season,
                                   best_clust = p3_FDC_best_cluster_method_quants_agg,
                                   min_clusts = 4, max_clusts = 6, by_clusts = 1,
@@ -627,52 +630,46 @@ list(
   
   #Plot maps of gages with clusters
   tar_target(p3_cluster_map_png,
-             plot_cluster_map(gages = p1_sites_g2_sf,
+             plot_cluster_map(gages = p1_feature_vars_g2_sf,
                               cluster_table = p3_gages_clusters,
-                              screened_sites = p1_screened_site_list_season,
                               dir_out = '3_cluster/out/seasonal_plots/maps/'),
              deployment = 'main',
              format = 'file'
   ),
   tar_target(p3_cluster_map_quants_png,
-             plot_cluster_map(gages = p1_sites_g2_sf,
+             plot_cluster_map(gages = p1_feature_vars_g2_sf,
                               cluster_table = p3_gages_clusters_quants,
-                              screened_sites = p1_screened_site_list_season,
                               dir_out = '3_cluster/out/seasonal_plots/maps/by_quantiles'),
              deployment = 'main',
              format = 'file'
   ),
   tar_target(p3_cluster_map_quants_agg_png,
-             plot_cluster_map(gages = p1_sites_g2_sf,
+             plot_cluster_map(gages = p1_feature_vars_g2_sf,
                               cluster_table = p3_gages_clusters_quants_agg,
-                              screened_sites = p1_screened_site_list_season,
                               dir_out = '3_cluster/out/seasonal_plots/maps/by_agg_quantiles',
                               facet=FALSE),
              deployment = 'main',
              format = 'file'
   ),
   tar_target(p3_cluster_map_quants_agg_facet_png,
-             plot_cluster_map(gages = p1_sites_g2_sf,
+             plot_cluster_map(gages = p1_feature_vars_g2_sf,
                               cluster_table = p3_gages_clusters_quants_agg,
-                              screened_sites = p1_screened_site_list_season,
                               dir_out = '3_cluster/out/seasonal_plots/maps/by_agg_quantiles',
                               facet = TRUE),
              deployment = 'main',
              format = 'file'
   ),
   tar_target(p3_cluster_map_quants_agg_selected_png,
-             plot_cluster_map(gages = p1_sites_g2_sf,
+             plot_cluster_map(gages = p1_feature_vars_g2_sf,
                               cluster_table = p3_gages_clusters_quants_agg_selected,
-                              screened_sites = p1_screened_site_list_season,
                               dir_out = '3_cluster/out/seasonal_plots/maps/by_agg_quantiles',
                               facet=FALSE),
              deployment = 'main',
              format = 'file'
   ),
   tar_target(p3_cluster_map_quants_agg_facet_selected_png,
-             plot_cluster_map(gages = p1_sites_g2_sf,
+             plot_cluster_map(gages = p1_feature_vars_g2_sf,
                               cluster_table = p3_gages_clusters_quants_agg_selected,
-                              screened_sites = p1_screened_site_list_season,
                               dir_out = '3_cluster/out/seasonal_plots/maps/by_agg_quantiles',
                               facet = TRUE),
              deployment = 'main',

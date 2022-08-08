@@ -1848,7 +1848,7 @@ list(
   #####residual maps
   tar_target(p6_residual_map_RF_rain,
              make_residual_map(df_pred_obs = p6_test_RF_rain_rain$pred, 
-                               sites_g2_sf = p1_feature_vars_g2_sf, 
+                               sites = p1_feature_vars_g2_sf, 
                                metric = p6_test_RF_rain_rain$metric, 
                                pred_gage_ids = p6_test_RF_rain_rain$pred_gage_id, 
                                region = "rain", 
@@ -1856,7 +1856,7 @@ list(
   
   tar_target(p6_residual_map_RF_snow,
              make_residual_map(df_pred_obs = p6_test_RF_snow_snow$pred, 
-                               sites_g2_sf = p1_sites_g2_sf, 
+                               sites = p1_feature_vars_g2_sf, 
                                metric = p6_test_RF_snow_snow$metric, 
                                pred_gage_ids = p6_test_RF_snow_snow$pred_gage_id, 
                                region = "snow", 
@@ -1864,7 +1864,7 @@ list(
   
   tar_target(p6_residual_map_RF_rain_snow,
              make_residual_map(df_pred_obs = NULL ,
-                               sites_g2_sf = p1_sites_g2_sf,
+                               sites = p1_feature_vars_g2_sf,
                                metric = p6_Boruta_rain_snow$metric,
                                pred_gage_ids = p6_Boruta_rain_snow$input_data$split$data$GAGES_ID,
                                region = "rain_snow",
@@ -1874,7 +1874,7 @@ list(
                                pred_data = p6_Boruta_rain_snow$input_data$split$data)),
   tar_target(p6_residual_map_RF_rain_snow_exact,
              make_residual_map(df_pred_obs = NULL ,
-                               sites_g2_sf = p1_sites_g2_sf,
+                               sites = p1_feature_vars_g2_sf,
                                metric = p6_Boruta_rain_snow_exact$metric,
                                pred_gage_ids = p6_Boruta_rain_snow_exact$input_data$split$data$GAGES_ID,
                                region = "rain_snow_exact",
@@ -1885,7 +1885,7 @@ list(
   
   tar_target(p6_residual_map_RF_CONUS_g2,
              make_residual_map(df_pred_obs = NULL ,
-                               sites_g2_sf = p1_sites_g2_sf,
+                               sites = p1_feature_vars_g2_sf,
                                metric = p6_Boruta_CONUS_g2$metric,
                                pred_gage_ids = p6_Boruta_CONUS_g2$input_data$split$data$GAGES_ID,
                                region = "CONUS_g2",
@@ -1896,7 +1896,7 @@ list(
   
   tar_target(p6_residual_map_RF_CONUS_g2_exact,
              make_residual_map(df_pred_obs = NULL ,
-                               sites_g2_sf = p1_sites_g2_sf,
+                               sites = p1_feature_vars_g2_sf,
                                metric = p6_Boruta_CONUS_g2_exact$metric,
                                pred_gage_ids = p6_Boruta_CONUS_g2_exact$input_data$split$data$GAGES_ID,
                                region = "CONUS_g2_exact",
@@ -1907,7 +1907,7 @@ list(
   
   tar_target(p6_residual_map_RF_CONUS_g2_exact_clust,
              make_residual_map(df_pred_obs = NULL ,
-                               sites_g2_sf = p1_sites_g2_sf,
+                               sites = p1_feature_vars_g2_sf,
                                metric = p6_Boruta_CONUS_g2_exact_clust$metric,
                                pred_gage_ids = p6_Boruta_CONUS_g2_exact_clust$input_data$split$data$GAGES_ID,
                                region = "CONUS_g2_exact_clust",

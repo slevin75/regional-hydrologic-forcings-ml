@@ -261,7 +261,7 @@ plot_pred_obs <- function(df_pred_obs, metric, region, out_dir,
 }
 
 
-make_residual_map <- function(df_pred_obs, sites_g2_sf, metric, pred_gage_ids, region, out_dir,
+make_residual_map <- function(df_pred_obs, sites, metric, pred_gage_ids, region, out_dir,
                               from_predict = FALSE, model_wf = NULL, pred_data = NULL){
   #' @description this function creates maps of residuals (obs - predicted) and a
   #' variogram plot
@@ -269,7 +269,7 @@ make_residual_map <- function(df_pred_obs, sites_g2_sf, metric, pred_gage_ids, r
   #' @param df_pred_obs is a data frame with observed (obs) and predicted (.pred) from 
   #' the output of  predict_test_data function. if left null and from_predict is true, 
   #' it will predict it from the model_wf (copied these lines from the plot_pred_obs function)
-  #' @param sites_g2_sf  gagesii spatial data object with LAT LON and ID
+  #' @param sites  gagesii spatial data object with LAT LON and ID
   #' @param metric  metric that is being predicted
   #' @param pred_gage_ids vector of gage ids that correspond to each row of the df_pred_obs
   #' @param region  region of the model/prediction
@@ -281,7 +281,8 @@ make_residual_map <- function(df_pred_obs, sites_g2_sf, metric, pred_gage_ids, r
       mutate(obs = pred_data[[metric]])
   }
   
-  lat_lons<- sites_g2_sf %>%
+  lat_lons<- sites %>%
+    rename(ID = GAGES_ID)
     filter(ID %in% pred_gage_ids) %>%
     select(ID, LAT, LON)
   

@@ -118,8 +118,15 @@ sb_var_ids_path <- "1_fetch/in/sb_var_ids.csv"
 gagesii_path <- "Gages2.1_RefSiteList.xlsx"
 
 #Drop the following gages from the dataset because they are not representative
-#pipeline, ditch, etc.
-drop_gages <- c('02084557', '09406300', '09512200', '10143500', '10172200')
+#pipeline, ditch, duplicate comids in gages2.1, spring, etc.
+drop_gages <- c('02084557', '09406300', '09512200', '10143500', '10172200', 
+                '01349711', '01362198', '01362380', '02322698', '04127918', 
+                '10336674', '10336675', '06190540')
+#Combine the following gages from the dataset because they are located on same
+#comid with unique periods or record
+combine_gages <- list(c('03584000', '06037000', '12209500'), 
+                      c('03584020', '06037100', '12209490'))
+names(combine_gages) <- c("to_be_combined", "assigned_rep")
 
 ##distance to search upstream for nested basins, in km.  note-the nhdplusTools function fails if this 
 ##value is 10000 or greater.
@@ -149,9 +156,11 @@ list(
              read_xlsx(p1_sites_g2_xlsx) %>% 
                mutate(ID = substr(ID, start=2, stop=nchar(ID))) %>%
                #drop 5 sites that are not representative (ditch, pipeline)
+               #and 7 sites that are duplicates on same comid
                filter(!(ID %in% drop_gages)),
              deployment = 'main'
   ),
+  
   #create a spatial object 
   tar_target(p1_sites_g2_sf,
              st_as_sf(x = p1_sites_g2, coords = c('LON', 'LAT'), 
@@ -192,7 +201,8 @@ list(
              format = "file"
   ),
   
-  ##prescreen data to remove provisional data and handle odd column names
+  ##prescreen data to remove provisional data and handle odd column names, and
+  ##combine records from gages with unique periods of record on same comid
   tar_target(p1_prescreen_daily_data, 
              prescreen_daily_data(p1_daily_flow_csv, prov_rm = TRUE),
              map(p1_daily_flow_csv),
@@ -221,16 +231,16 @@ list(
   
   ##select sites with enough complete years
   tar_target(p1_screened_site_list,
-             filter_complete_years(p1_screen_daily_flow, complete_years),
+             filter_complete_years(p1_screen_daily_flow, combine_gages, complete_years),
              deployment = 'main'
   ),
   ##seasonal
   tar_target(p1_screened_site_list_season,
-             filter_complete_years(p1_screen_daily_flow_season, complete_years),
+             filter_complete_years(p1_screen_daily_flow_season, combine_gages, complete_years),
              deployment = 'main'
   ),
   # tar_target(p1_screened_site_list_season_high,
-  #            filter_complete_years(p1_screen_daily_flow_season_high, complete_years),
+  #            filter_complete_years(p1_screen_daily_flow_season_high, combine_gages, complete_years),
   #            deployment = 'main'
   # ),
   
@@ -325,10 +335,18 @@ list(
   ##merge and select feature variables from gagesii list
   tar_target(p1_feature_vars_g2, 
              prep_feature_vars(sb_var_data = p1_sb_data_g2_csv, 
-                               sites = p1_sites_g2, 
+                               sites_all = p1_sites_g2, 
+                               sites_screened = p1_screened_site_list, 
                                retain_vars = c("ID", "LAT", "LON",
                                  "npdes", "fwwd", "strg", "devl", "cndp")), 
              deployment = "main"
+  ),
+  
+  #create a spatial object for remaining feature variables
+  tar_target(p1_feature_vars_g2_sf,
+             st_as_sf(x = p1_feature_vars_g2, coords = c('LON', 'LAT'), 
+                      remove = FALSE, dim = 'XY', na.fail = TRUE),
+             deployment = 'main'
   ),
   
   ##get flood threshold from NWIS for eflowstats
@@ -564,24 +582,21 @@ list(
   
   #Assign cluster numbers to gages
   tar_target(p3_gages_clusters,
-             add_cluster_to_gages(gages = p1_sites_g2,
-                                  clusts = p3_FDC_clusters,
+             add_cluster_to_gages(clusts = p3_FDC_clusters,
                                   screened_sites = p1_screened_site_list_season,
                                   best_clust = p3_FDC_best_cluster_method,
                                   min_clusts = 3, max_clusts = 15, by_clusts = 4),
              deployment = 'main'
   ),
   tar_target(p3_gages_clusters_quants,
-             add_cluster_to_gages(gages = p1_sites_g2,
-                                  clusts = p3_FDC_clusters_quants,
+             add_cluster_to_gages(clusts = p3_FDC_clusters_quants,
                                   screened_sites = p1_screened_site_list_season,
                                   best_clust = p3_FDC_best_cluster_method_quants,
                                   min_clusts = 3, max_clusts = 15, by_clusts = 4),
              deployment = 'main'
   ),
   tar_target(p3_gages_clusters_quants_agg,
-             add_cluster_to_gages(gages = p1_sites_g2,
-                                  clusts = p3_FDC_clusters_quants_agg,
+             add_cluster_to_gages(clusts = p3_FDC_clusters_quants_agg,
                                   screened_sites = p1_screened_site_list_season,
                                   best_clust = p3_FDC_best_cluster_method_quants_agg,
                                   min_clusts = 3, max_clusts = 15, by_clusts = 4,
@@ -589,8 +604,7 @@ list(
              deployment = 'main'
   ),
   tar_target(p3_gages_clusters_quants_agg_selected,
-             add_cluster_to_gages(gages = p1_sites_g2,
-                                  clusts = p3_FDC_clusters_quants_agg,
+             add_cluster_to_gages(clusts = p3_FDC_clusters_quants_agg,
                                   screened_sites = p1_screened_site_list_season,
                                   best_clust = p3_FDC_best_cluster_method_quants_agg,
                                   min_clusts = 4, max_clusts = 6, by_clusts = 1,
@@ -618,52 +632,46 @@ list(
   
   #Plot maps of gages with clusters
   tar_target(p3_cluster_map_png,
-             plot_cluster_map(gages = p1_sites_g2_sf,
+             plot_cluster_map(gages = p1_feature_vars_g2_sf,
                               cluster_table = p3_gages_clusters,
-                              screened_sites = p1_screened_site_list_season,
                               dir_out = '3_cluster/out/seasonal_plots/maps/'),
              deployment = 'main',
              format = 'file'
   ),
   tar_target(p3_cluster_map_quants_png,
-             plot_cluster_map(gages = p1_sites_g2_sf,
+             plot_cluster_map(gages = p1_feature_vars_g2_sf,
                               cluster_table = p3_gages_clusters_quants,
-                              screened_sites = p1_screened_site_list_season,
                               dir_out = '3_cluster/out/seasonal_plots/maps/by_quantiles'),
              deployment = 'main',
              format = 'file'
   ),
   tar_target(p3_cluster_map_quants_agg_png,
-             plot_cluster_map(gages = p1_sites_g2_sf,
+             plot_cluster_map(gages = p1_feature_vars_g2_sf,
                               cluster_table = p3_gages_clusters_quants_agg,
-                              screened_sites = p1_screened_site_list_season,
                               dir_out = '3_cluster/out/seasonal_plots/maps/by_agg_quantiles',
                               facet=FALSE),
              deployment = 'main',
              format = 'file'
   ),
   tar_target(p3_cluster_map_quants_agg_facet_png,
-             plot_cluster_map(gages = p1_sites_g2_sf,
+             plot_cluster_map(gages = p1_feature_vars_g2_sf,
                               cluster_table = p3_gages_clusters_quants_agg,
-                              screened_sites = p1_screened_site_list_season,
                               dir_out = '3_cluster/out/seasonal_plots/maps/by_agg_quantiles',
                               facet = TRUE),
              deployment = 'main',
              format = 'file'
   ),
   tar_target(p3_cluster_map_quants_agg_selected_png,
-             plot_cluster_map(gages = p1_sites_g2_sf,
+             plot_cluster_map(gages = p1_feature_vars_g2_sf,
                               cluster_table = p3_gages_clusters_quants_agg_selected,
-                              screened_sites = p1_screened_site_list_season,
                               dir_out = '3_cluster/out/seasonal_plots/maps/by_agg_quantiles',
                               facet=FALSE),
              deployment = 'main',
              format = 'file'
   ),
   tar_target(p3_cluster_map_quants_agg_facet_selected_png,
-             plot_cluster_map(gages = p1_sites_g2_sf,
+             plot_cluster_map(gages = p1_feature_vars_g2_sf,
                               cluster_table = p3_gages_clusters_quants_agg_selected,
-                              screened_sites = p1_screened_site_list_season,
                               dir_out = '3_cluster/out/seasonal_plots/maps/by_agg_quantiles',
                               facet = TRUE),
              deployment = 'main',
@@ -802,9 +810,9 @@ list(
   
   #matrix of nested gages - proportion of overlapping area. Column name gage is downstream of the row name gage.
   tar_target(p4_nested_gages,
-             get_nested_gages(gagesii = p1_sites_g2,
-                              nav_distance_km = nav_distance_km,
-                              screened_site_list = p1_screened_site_list),
+             get_nested_gages(sites_and_comids = p1_feature_vars_g2,
+                              drainage_areas = p1_drainage_area,
+                              nav_distance_km = nav_distance_km),
              deployment = 'worker'
   ),
   
@@ -818,7 +826,7 @@ list(
                                    k = 5,
                                   cluster_table = p3_gages_clusters_quants_agg_selected,
                                   metrics_table = p2_all_metrics,
-                                  gages = p1_sites_g2_sf,
+                                  gages = p1_feature_vars_g2_sf,
                                   out_dir = "5_EDA/out/metrics_plots"
                                    ),
              map(p2_all_metrics_names),

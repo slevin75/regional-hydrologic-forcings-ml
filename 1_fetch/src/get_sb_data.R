@@ -115,7 +115,7 @@ get_sb_data_log <- function(sb_var_ids, file_out) {
   
 }
 
-prep_feature_vars <- function(sb_var_data, sites, retain_vars) {
+prep_feature_vars <- function(sb_var_data, sites_all, sites_screened, retain_vars) {
   
   #'@description joins all data downloaded from ScienceBase with sites of interest
   #'
@@ -124,15 +124,29 @@ prep_feature_vars <- function(sb_var_data, sites, retain_vars) {
   #'identifiers and names, and the 'get_sb_data()' function generates a list of .csv file
   #'locations containing the feature variable data from each ScienceBase identifier
   #'joined with the COMIDs contained in the 'sites' parameter
-  #'@param sites data frame with a COMID column including all reaches of interest
+  #'@param sites_all data frame with a COMID column including all reaches of interest
+  #'@param sites_screened list of sites that passed screening functions
   #'@param retain_vars character strings of additional column headers to keep in the 
   #'sites data frame
   #'
   #'@return data frame with COMID column appended by all feature variables of interest; 
   #'time-varying features converted to long-term averages where applicable
   
-  data <- sites %>%
+  screened_site_list <- c()
+  for (i in sites_screened) {
+    if (grepl("_", i)) {
+      site_1 <- str_split_fixed(i, pattern = "_", n = 2)[1]
+      site_2 <- str_split_fixed(i, pattern = "_", n = 2)[2]
+      sites <- c(site_1, site_2)
+    } else {
+      sites <- i
+    }
+    screened_site_list <- c(screened_site_list, sites)
+  }
+  
+  data <- sites_all %>%
     select(COMID, all_of(retain_vars)) %>%
+    filter(ID %in% screened_site_list) %>%
     mutate(across(where(is.character)  & !starts_with('ID'), as.numeric))
   
   if("ID" %in% retain_vars) {
@@ -325,5 +339,15 @@ prep_feature_vars <- function(sb_var_data, sites, retain_vars) {
   rename_dup_headers <- as.character(rename_dup_headers)
   names(data) <- rename_dup_headers
   
-  return(data)
+  #renumber gages that were combined on same comid
+  final_data <- data %>%
+    filter(!(GAGES_ID %in% unlist(combine_gages)))
+  for (i in 1:length(unlist(combine_gages$to_be_combined))) {
+    combined <- data %>%
+      filter(GAGES_ID == unlist(combine_gages$to_be_combined)[[i]]) %>%
+      mutate(GAGES_ID = paste0(combine_gages$to_be_combined[[i]], "_", 
+                               combine_gages$assigned_rep[[i]]))
+    final_data <- bind_rows(final_data, combined)
+  }
+  return(final_data)
 }

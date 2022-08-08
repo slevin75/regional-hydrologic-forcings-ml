@@ -18,17 +18,33 @@ has_data_check <- function(site_nums, parameterCd, endDate){
   return(sites_with_data)
 }
 
-filter_complete_years <- function(screen_daily_flow, complete_years){
+filter_complete_years <- function(screen_daily_flow, combine_gages, complete_years){
   
   complete_yr_count <- screen_daily_flow %>% 
     filter(!is.na(complete_yrs)) %>%  
     group_by(site_no) %>%
-    count()
+    count() %>%
+    ungroup()
   message("complete yr ok")
   
   keep_sites <- complete_yr_count %>%
+    filter(!(site_no %in% unique(unlist(combine_gages)))) %>%
     filter(n >= complete_years) %>%
     pull(site_no)
+  
+  for (i in 1:length(combine_gages$to_be_combined)) {
+    n_years_1 <- complete_yr_count %>%
+      filter(site_no == combine_gages$to_be_combined[[i]])
+    n_years_2 <- complete_yr_count %>%
+      filter(site_no == combine_gages$assigned_rep[[i]])
+    combined_years <- bind_rows(n_years_1, n_years_2)
+    if (sum(combined_years$n) >= complete_years) {
+      combine <- paste0(combine_gages$to_be_combined[[i]], "_", 
+                        combine_gages$assigned_rep[[i]])
+      keep_sites <- c(keep_sites, combine)
+    }
+  }
+  keep_sites <- unique(keep_sites)
   return(keep_sites)
 }
 
@@ -105,7 +121,7 @@ catch_download_timeout_daily <- function(time, site_num, parameterCd,
 
 get_daily_flow_log <- function(files_in, file_out) {
   message(paste('generating log for dataRetrieval daily flow request'))
-  daily_flow_list <- purrr::map(files_in, prescreen_daily_data, prov_rm = FALSE)
+  daily_flow_list <- purrr::map(files_in, prescreen_daily_data, prov_rm = TRUE)
   daily_flow_df <- bind_rows(daily_flow_list)
   daily_flow_log <- daily_flow_df %>%
     group_by(site_no) %>%
@@ -177,18 +193,48 @@ catch_download_timeout_peak <- function(time, site_num,
   #'
   #'@return table of downloaded data if successful. NA if download resulted in an error
   
-  tryCatch(
-    expr = {result <- R.utils::withTimeout(expr = readNWISpeak(siteNumbers = site_num, 
-                                                               startDate = startDate, 
-                                                               endDate = endDate), 
-                                           timeout = time, 
-                                           onTimeout = 'error')
-    return(result)
-    },
-    error = function(e){
-      return(NULL)
-    }
-  )
+  
+  
+  
+  if (grepl("_", site_num)) {
+    site_1 <- str_split_fixed(site_num, pattern = "_", n = 2)[1]
+    site_2 <- str_split_fixed(site_num, pattern = "_", n = 2)[2]
+    tryCatch(
+      expr = {
+        result_1 <- R.utils::withTimeout(expr = readNWISpeak(siteNumbers = site_1, 
+                                                             startDate = startDate, 
+                                                             endDate = endDate), 
+                                         timeout = time, 
+                                         onTimeout = 'error')
+        result_2 <- R.utils::withTimeout(expr = readNWISpeak(siteNumbers = site_2, 
+                                                             startDate = startDate, 
+                                                             endDate = endDate), 
+                                         timeout = time, 
+                                         onTimeout = 'error')
+        result <- bind_rows(result_1, result_2) %>%
+          mutate(site_no = site_num) %>%
+          arrange(peak_dt)
+      return(result)
+      },
+      error = function(e){
+        return(NULL)
+      }
+    )
+  } else {
+    tryCatch(
+      expr = {
+        result <- R.utils::withTimeout(expr = readNWISpeak(siteNumbers = site_num, 
+                                                           startDate = startDate, 
+                                                           endDate = endDate), 
+                                       timeout = time, 
+                                       onTimeout = 'error')
+      return(result)
+      },
+      error = function(e){
+        return(NULL)
+      }
+    )
+  }
 }
 
 get_peak_flow_log <- function(files_in, file_out) {
@@ -305,18 +351,37 @@ clean_daily_data <- function(site, prescreen_data, screen_daily_flow, yearType, 
   ##EflowStats requires the cleaned data to have dates in the first column and 
   ##discharge in the second column.
   message(paste('starting site', site))
-  data <- prescreen_data %>%
-    filter(site_no == site)
   
-  #add a column for the water year based on year_start
-  data$waterYear <- calc_water_year(data$Date, year_start)
-  ##remove all data from years with data gaps
-  keep_years <- screen_daily_flow %>%
-    filter(site_no == site) %>%
-    pull(complete_yrs)
-  #noting that waterYear could = calendar year when year_start = 1
-  data_sc <- data[which(data$waterYear %in% keep_years), ]
-  
+  if (grepl("_", site)) {
+    site_1 <- str_split_fixed(site, pattern = "_", n = 2)[1]
+    site_2 <- str_split_fixed(site, pattern = "_", n = 2)[2]
+    data <- prescreen_data %>%
+      filter(site_no == site_1 | site_no == site_2) %>%
+      mutate(site_no = site) %>%
+      arrange(Date)
+    #add a column for the water year based on year_start
+    data$waterYear <- calc_water_year(data$Date, year_start)
+    ##remove all data from years with data gaps
+    keep_years <- screen_daily_flow %>%
+      filter(site_no == site_1 | site_no == site_2) %>%
+      pull(complete_yrs) %>%
+      sort()
+    #noting that waterYear could = calendar year when year_start = 1
+    data_sc <- data[which(data$waterYear %in% keep_years), ] %>%
+      arrange(Date)
+  } else {
+    data <- prescreen_data %>%
+      filter(site_no == site)
+    #add a column for the water year based on year_start
+    data$waterYear <- calc_water_year(data$Date, year_start)
+    ##remove all data from years with data gaps
+    keep_years <- screen_daily_flow %>%
+      filter(site_no == site) %>%
+      pull(complete_yrs)
+    #noting that waterYear could = calendar year when year_start = 1
+    data_sc <- data[which(data$waterYear %in% keep_years), ]
+  }
+
   df <- data.frame(date = as.Date(data_sc$Date), discharge = data_sc$discharge)
   ###run EflowStats validation to produce clean, ready to process data
   if (yearType == 'water' & year_start == 10){
@@ -386,8 +451,18 @@ validate_data_yr_start <- function(x, year_start){
 
 get_NWIS_drainArea <- function(site_num){
   message(paste('starting site', site_num))
-  data_out <- data.frame(site_no = as.character(site_num),
-                         drainArea = readNWISsite(siteNumbers = site_num)$drain_area_va)
+  if (grepl("_", site_num)) {
+    site_1 <- str_split_fixed(site_num, pattern = "_", n = 2)[1]
+    site_2 <- str_split_fixed(site_num, pattern = "_", n = 2)[2]
+    da_1 <- readNWISsite(siteNumbers = site_1)$drain_area_va
+    da_2 <- readNWISsite(siteNumbers = site_2)$drain_area_va
+    da_avg <- mean(c(da_1, da_2))
+    data_out <- data.frame(site_no = as.character(site_num), 
+                           drainArea = da_avg)
+  } else {
+    data_out <- data.frame(site_no = as.character(site_num),
+                           drainArea = readNWISsite(siteNumbers = site_num)$drain_area_va)
+  }
   return(data_out)
 }
 

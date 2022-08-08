@@ -1848,7 +1848,7 @@ list(
   #####residual maps
   tar_target(p6_residual_map_RF_rain,
              make_residual_map(df_pred_obs = p6_test_RF_rain_rain$pred, 
-                               sites_g2_sf = p1_sites_g2_sf, 
+                               sites_g2_sf = p1_feature_vars_g2_sf, 
                                metric = p6_test_RF_rain_rain$metric, 
                                pred_gage_ids = p6_test_RF_rain_rain$pred_gage_id, 
                                region = "rain", 

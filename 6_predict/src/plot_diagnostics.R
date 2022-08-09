@@ -282,11 +282,11 @@ make_residual_map <- function(df_pred_obs, sites, metric, pred_gage_ids, region,
   }
   
   lat_lons<- sites %>%
-    rename(ID = GAGES_ID)
-    filter(ID %in% pred_gage_ids) %>%
-    select(ID, LAT, LON)
+    rename(ID = GAGES_ID) %>%
+    select(ID, LAT, LON) %>%
+    filter(ID %in% pred_gage_ids)
   
-  df<- bind_cols(lat_lons,df_pred_obs) %>%
+  df<- bind_cols(lat_lons, df_pred_obs) %>%
     mutate(resid = obs - .pred)
   
   states <- map_data("state")

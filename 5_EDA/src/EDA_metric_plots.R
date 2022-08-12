@@ -51,9 +51,11 @@ make_EDA_metric_plots <- function(metric, k, cluster_table, high_q_grep, low_q_g
   names(metrics_table)[1] <- "ID"
   
   ##create data frame for plots
-  df_plot <- 
-    inner_join(gages[ , c("ID", "LAT", "LON")], cluster_table[ , c("ID", "cluster")]) %>%
-    left_join(., metrics_table[c(1, metric_col)])
+  df_plot<- gages %>%
+    rename(ID = GAGES_ID) %>%
+    select(ID, LAT, LON, geometry) %>%
+    inner_join(cluster_table[,c("ID", "cluster")]) %>%
+    left_join(metrics_table[c(1,metric_col)])
 
 
   ##loop through clusters and make a map and violin plot for each cluster

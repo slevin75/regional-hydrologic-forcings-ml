@@ -261,6 +261,75 @@ plot_pred_obs <- function(df_pred_obs, metric, region, out_dir,
 }
 
 
+make_residual_map <- function(df_pred_obs, sites, metric, pred_gage_ids, region, out_dir,
+                              from_predict = FALSE, model_wf = NULL, pred_data = NULL){
+  #' @description this function creates maps of residuals (obs - predicted) and a
+  #' variogram plot
+  #' 
+  #' @param df_pred_obs is a data frame with observed (obs) and predicted (.pred) from 
+  #' the output of  predict_test_data function. if left null and from_predict is true, 
+  #' it will predict it from the model_wf (copied these lines from the plot_pred_obs function)
+  #' @param sites  gagesii spatial data object with LAT LON and ID
+  #' @param metric  metric that is being predicted
+  #' @param pred_gage_ids vector of gage ids that correspond to each row of the df_pred_obs
+  #' @param region  region of the model/prediction
+  #' @param directory where output figures are saved
+
+  if(from_predict){
+    #predict from provided workflow and data
+    df_pred_obs <- predict(model_wf, new_data = pred_data, type = 'numeric') %>%
+      mutate(obs = pred_data[[metric]])
+  }
+  
+  lat_lons<- sites %>%
+    rename(ID = GAGES_ID) %>%
+    select(ID, LAT, LON) %>%
+    filter(ID %in% pred_gage_ids)
+  
+  df<- bind_cols(lat_lons, df_pred_obs) %>%
+    mutate(resid = obs - .pred)
+  
+  states <- map_data("state")
+  limit <- quantile(df$resid, probs = c( 0.1, 0.9))
+  p1<-ggplot(states, aes(x=long, y=lat, group=group)) +
+    geom_polygon(fill="gray60", colour="gray80") +
+    geom_sf(data = df, inherit.aes = FALSE, 
+            aes(color = .data[["resid"]]), 
+            size = 0.5)+
+    scale_color_scico(palette = 'roma',
+                      midpoint = 0,
+                      limits = limit,
+                      oob = scales::squish)+
+    theme(legend.position="bottom",
+          legend.key.size=unit(.75,'cm'))+
+    xlab('Longitude') + 
+    ylab('Latitude')+
+    ggtitle(paste("metric= ",metric,"    region = ", region ))
+  
+  p2 <- plot(variogram(resid ~1, df,
+                       cutoff = 1000, 
+                       width = 2,
+                       cressie = TRUE),
+             asp=1)
+  
+  
+  fname<-paste0(out_dir, "/resid_map_", metric, "_", region, ".png")
+  
+  save_plot(filename = fname, 
+            plot = plot_grid(p1,p2, scale = c(1,.8)),
+            base_width = 10,
+            bg="white")
+  
+  
+
+  
+
+  return(fname)
+}
+
+
+
+
 #Residual error boxplots
 # boxplot(p6_test_RF_snow_snow$pred$.pred - p6_test_RF_snow_snow$pred$obs,
 #                    p6_test_RF_rain_snow_snow$pred$.pred - p6_test_RF_rain_snow_snow$pred$obs,

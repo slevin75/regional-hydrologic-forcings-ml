@@ -1182,7 +1182,7 @@ list(
              format = 'file'
   ),
   tar_target(p3_cluster_map_quants_all_agg_png,
-             plot_cluster_map(gages = p1_sites_g2_sf,
+             plot_cluster_map(gages = p1_feature_vars_g2_sf,
                               cluster_table = p3_gages_clusters_quants_all_agg,
                               dir_out = '3_cluster/out/seasonal_plots/maps/by_all_agg_quantiles',
                               facet=FALSE),
@@ -1190,7 +1190,7 @@ list(
              format = 'file'
   ),
   tar_target(p3_cluster_map_quants_all_agg_facet_png,
-             plot_cluster_map(gages = p1_sites_g2_sf,
+             plot_cluster_map(gages = p1_feature_vars_g2_sf,
                               cluster_table = p3_gages_clusters_quants_all_agg,
                               dir_out = '3_cluster/out/seasonal_plots/maps/by_all_agg_quantiles',
                               facet = TRUE),
@@ -1199,21 +1199,21 @@ list(
   ),
   #Low flow
   tar_target(p3_cluster_map_low_png,
-             plot_cluster_map(gages = p1_sites_g2_sf,
+             plot_cluster_map(gages = p1_feature_vars_g2_sf,
                               cluster_table = p3_gages_clusters_low,
                               dir_out = '3_cluster/out/seasonal_plots_LowFlow/maps/'),
              deployment = 'main',
              format = 'file'
   ),
   tar_target(p3_cluster_map_quants_low_png,
-             plot_cluster_map(gages = p1_sites_g2_sf,
+             plot_cluster_map(gages = p1_feature_vars_g2_sf,
                               cluster_table = p3_gages_clusters_quants_low,
                               dir_out = '3_cluster/out/seasonal_plots_LowFlow/maps/by_quantiles'),
              deployment = 'main',
              format = 'file'
   ),
   tar_target(p3_cluster_map_quants_low_facet_png,
-             plot_cluster_map(gages = p1_sites_g2_sf,
+             plot_cluster_map(gages = p1_feature_vars_g2_sf,
                               cluster_table = p3_gages_clusters_quants_low,
                               dir_out = '3_cluster/out/seasonal_plots_LowFlow/maps/by_quantiles',
                               facet = TRUE),
@@ -1221,14 +1221,14 @@ list(
              format = 'file'
   ),
   tar_target(p3_cluster_map_quants_low_novhfdc3_png,
-             plot_cluster_map(gages = p1_sites_g2_sf,
+             plot_cluster_map(gages = p1_feature_vars_g2_sf,
                               cluster_table = p3_gages_clusters_quants_low_novhfdc3,
                               dir_out = '3_cluster/out/seasonal_plots_LowFlow_noHighVolume/maps/by_quantiles'),
              deployment = 'main',
              format = 'file'
   ),
   tar_target(p3_cluster_map_quants_low_novhfdc3_facet_png,
-             plot_cluster_map(gages = p1_sites_g2_sf,
+             plot_cluster_map(gages = p1_feature_vars_g2_sf,
                               cluster_table = p3_gages_clusters_quants_low_novhfdc3,
                               dir_out = '3_cluster/out/seasonal_plots_LowFlow_noHighVolume/maps/by_quantiles',
                               facet = TRUE),
@@ -1236,14 +1236,14 @@ list(
              format = 'file'
   ),
   tar_target(p3_cluster_map_quants_low_freq_png,
-             plot_cluster_map(gages = p1_sites_g2_sf,
+             plot_cluster_map(gages = p1_feature_vars_g2_sf,
                               cluster_table = p3_gages_clusters_quants_low_freq,
                               dir_out = '3_cluster/out/seasonal_plots_LowFlow_freq/maps/by_quantiles'),
              deployment = 'main',
              format = 'file'
   ),
   tar_target(p3_cluster_map_quants_low_freq_facet_png,
-             plot_cluster_map(gages = p1_sites_g2_sf,
+             plot_cluster_map(gages = p1_feature_vars_g2_sf,
                               cluster_table = p3_gages_clusters_quants_low_freq,
                               dir_out = '3_cluster/out/seasonal_plots_LowFlow_freq/maps/by_quantiles',
                               facet = TRUE),
@@ -1251,7 +1251,7 @@ list(
              format = 'file'
   ),
   tar_target(p3_cluster_map_quants_agg_low_png,
-             plot_cluster_map(gages = p1_sites_g2_sf,
+             plot_cluster_map(gages = p1_feature_vars_g2_sf,
                               cluster_table = p3_gages_clusters_quants_agg_low,
                               dir_out = '3_cluster/out/seasonal_plots_LowFlow/maps/by_agg_quantiles',
                               facet=FALSE),
@@ -1259,7 +1259,7 @@ list(
              format = 'file'
   ),
   tar_target(p3_cluster_map_quants_agg_low_facet_png,
-             plot_cluster_map(gages = p1_sites_g2_sf,
+             plot_cluster_map(gages = p1_feature_vars_g2_sf,
                               cluster_table = p3_gages_clusters_quants_agg_low,
                               dir_out = '3_cluster/out/seasonal_plots_LowFlow/maps/by_agg_quantiles',
                               facet = TRUE),
@@ -1267,7 +1267,7 @@ list(
              format = 'file'
   ),
   tar_target(p3_cluster_map_quants_agg_low_novhfdc3_png,
-             plot_cluster_map(gages = p1_sites_g2_sf,
+             plot_cluster_map(gages = p1_feature_vars_g2_sf,
                               cluster_table = p3_gages_clusters_quants_agg_low_novhfdc3,
                               dir_out = '3_cluster/out/seasonal_plots_LowFlow_noHighVolume/maps/by_agg_quantiles',
                               facet=FALSE),
@@ -1275,7 +1275,7 @@ list(
              format = 'file'
   ),
   tar_target(p3_cluster_map_quants_agg_low_novhfdc3_facet_png,
-             plot_cluster_map(gages = p1_sites_g2_sf,
+             plot_cluster_map(gages = p1_feature_vars_g2_sf,
                               cluster_table = p3_gages_clusters_quants_agg_low_novhfdc3,
                               dir_out = '3_cluster/out/seasonal_plots_LowFlow_noHighVolume/maps/by_agg_quantiles',
                               facet = TRUE),
@@ -1283,7 +1283,7 @@ list(
              format = 'file'
   ),
   tar_target(p3_cluster_map_quants_agg_low_freq_png,
-             plot_cluster_map(gages = p1_sites_g2_sf,
+             plot_cluster_map(gages = p1_feature_vars_g2_sf,
                               cluster_table = p3_gages_clusters_quants_agg_low_freq,
                               dir_out = '3_cluster/out/seasonal_plots_LowFlow_freq/maps/by_agg_quantiles',
                               facet=FALSE),
@@ -1291,7 +1291,7 @@ list(
              format = 'file'
   ),
   tar_target(p3_cluster_map_quants_agg_low_freq_facet_png,
-             plot_cluster_map(gages = p1_sites_g2_sf,
+             plot_cluster_map(gages = p1_feature_vars_g2_sf,
                               cluster_table = p3_gages_clusters_quants_agg_low_freq,
                               dir_out = '3_cluster/out/seasonal_plots_LowFlow_freq/maps/by_agg_quantiles',
                               facet = TRUE),
@@ -1485,7 +1485,7 @@ list(
                                          digits = 3, seasonal = FALSE,
                                          year_start = year_start),
              map(p1_screened_site_list),
-             deployment = 'worker'
+             deployment = 'main'
   ),
   
   ##screen out any sites that don't have enough moving windows to plot (min_windows)

@@ -30,9 +30,11 @@ make_EDA_metric_plots <- function(metric, k, cluster_table, high_q_grep, low_q_g
   ##find the appropriate cluster column for the current metric
   if (metric %in% c('ma', 'ml17', 'ml18')){
     cluster_col <- low_quant_cluster_col
+    cluster_name <- 'Low'
   } else if (!grepl("_q", metric)){
     ##other metrics from HIT
     cluster_col <- high_quant_cluster_col
+    cluster_name <- 'High'
   }else{
     ##get quantile from FDC metric name
     metric_quantile <- as.numeric(str_split(metric, pattern="_q")[[1]][2])

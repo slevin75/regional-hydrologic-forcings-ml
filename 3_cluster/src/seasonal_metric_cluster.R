@@ -215,7 +215,6 @@ add_cluster_to_gages <- function(screened_sites, clusts, best_clust,
                                  quantile_agg = FALSE){
   #' @description Function to add the cluster numbers to gages
   #' 
-  #' @param gages dataframe of the gages (rows)
   #' @param screened_sites the sites used in the cluster analysis
   #' @param clusts cluster analysis results from seasonal_metric_cluster
   #' @param best_clust the best cluster analysis method

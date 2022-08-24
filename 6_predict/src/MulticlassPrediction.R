@@ -322,19 +322,19 @@ multiclass_prediction <- function(InputData, y_columns, GAGEID_column, COMID_col
   write.csv(RF_Wt_Macro_FStat, file = "RF_Wt_Macro_FStat_Class.csv")
   
   #Warn if any of the optimal parameters are located at the bounds
-  if (any(RF_para_mtry) == max(ranger_mtry)){
+  if (any(RF_para_mtry == max(ranger_mtry))){
     message('Some of the optimal mtry are at the maximum value. 
             Try increasing the maximum and increasing the num_features_retained.')
   }
-  if (any(RF_para_mtry) == min(ranger_mtry)){
+  if (any(RF_para_mtry == min(ranger_mtry))){
     message('Some of the optimal mtry are at the minimum value. 
             Try decreasing the minimum value.')
   }
-  if (any(RF_para_ntree) == max(ranger_ntree)){
+  if (any(RF_para_ntree == max(ranger_ntree))){
     message('Some of the optimal ntree are at the maximum value. 
             Try increasing the maximum.')
   }
-  if (any(RF_para_ntree) == min(ranger_ntree)){
+  if (any(RF_para_ntree == min(ranger_ntree))){
     message('Some of the optimal ntree are at the minimum value. 
             Try decreasing the minimum value.')
   }

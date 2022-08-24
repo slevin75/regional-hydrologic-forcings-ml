@@ -1,6 +1,7 @@
 multiclass_prediction <- function(InputData, y_columns, GAGEID_column, COMID_column, x_columns, 
                                   omit_columns, Val_Pct, bootstraps, num_features_retain, 
-                                  ranger_threads = NULL, ranger_mtry, ranger_ntree)
+                                  ranger_threads = NULL, ranger_mtry, ranger_ntree,
+                                  file_prefix)
   {
   #' @description creates multiclass prediction models for provided y_columns
   #' 
@@ -20,6 +21,7 @@ multiclass_prediction <- function(InputData, y_columns, GAGEID_column, COMID_col
   #' to the max of 1 and (number of cores - 4)
   #' @param ranger_mtry numeric vector to use in a grid search for mtry
   #' @param ranger_ntree numeric vector to use in a grid search for ntree
+  #' @param file_prefix prefix to start all filenames
   #' 
   #' @example multiclass_prediction(InputData = "REF_LIST_Class_HF_CONUS_JSmithClusters.txt", 
   #' y_columns = 3:8, GAGEID_column = 2, COMID_column = 11, x_columns = 12:612, 
@@ -104,8 +106,8 @@ multiclass_prediction <- function(InputData, y_columns, GAGEID_column, COMID_col
           }
         }
       }
-      filenameTRAIN <- paste0("ListGagesTrain", def_chr, "HM", abc, ".txt")
-      filenameTEST <- paste0("ListGagesTest", def_chr, "HM", abc, ".txt")
+      filenameTRAIN <- paste0(file_prefix, "_ListGagesTrain", def_chr, "HM", abc, ".txt")
+      filenameTEST <- paste0(file_prefix, "_ListGagesTest", def_chr, "HM", abc, ".txt")
       
       #Saving the list of gage ids to separate output text files
       out_TRAIN <- capture.output(GAGEID_TRAIN)
@@ -137,7 +139,7 @@ multiclass_prediction <- function(InputData, y_columns, GAGEID_column, COMID_col
       
       #Saving random forest importance values
       out_imp <- capture.output(imp_init)
-      filenameRFimp <- paste("RF_Init_Imp", def, "HM", abc, ".txt", sep = "")
+      filenameRFimp <- paste(file_prefix, "_RF_Init_Imp", def, "HM", abc, ".txt", sep = "")
       cat("RF_Init_Imp", out_imp, file = filenameRFimp, sep = ",", append = FALSE)
       
       #Training data
@@ -242,12 +244,6 @@ multiclass_prediction <- function(InputData, y_columns, GAGEID_column, COMID_col
       Y_Combined <- data.frame(YRED2_TEST_Comp3, YPRED_RF)
       
       #Saving the predicted and corresponding observed Y values from the test sets
-      #Setting up the filenames for the output files
-      filename_RF <- paste("RF_Class_PredYObsY", def_chr, "HM", abc, ".csv", sep = "")
-      
-      #Saving the Y values to separate output text files
-      out_RF <- write.csv(cbind(GAGEID_TEST, Y_Combined), file = filename_RF)
-      
       if(abc == 1){
         ALL_RES_RF <- list(cbind(GAGEID_TEST, Y_Combined))
       }else{
@@ -317,9 +313,9 @@ multiclass_prediction <- function(InputData, y_columns, GAGEID_column, COMID_col
     
   } #def loop
   
-  write.csv(RF_para_ntree, file = "RF_para_ntree_Class.csv")
-  write.csv(RF_para_mtry, file = "RF_para_mtry_Class.csv")
-  write.csv(RF_Wt_Macro_FStat, file = "RF_Wt_Macro_FStat_Class.csv")
+  write.csv(RF_para_ntree, file = paste0(file_prefix, "_RF_para_ntree_Class.csv"))
+  write.csv(RF_para_mtry, file = paste0(file_prefix, "_RF_para_mtry_Class.csv"))
+  write.csv(RF_Wt_Macro_FStat, file = paste0(file_prefix, "_RF_Wt_Macro_FStat_Class.csv"))
   
   #Warn if any of the optimal parameters are located at the bounds
   if (any(RF_para_mtry == max(ranger_mtry))){
@@ -341,6 +337,7 @@ multiclass_prediction <- function(InputData, y_columns, GAGEID_column, COMID_col
   
   #Loop over all HMs to write a combined file for each HM (contains all bootstraps)
   for (abc in 1:ncol(InputData_y)){
-    write.csv(rlist::list.stack(ALL_RES_RF2[,abc]), file = paste0("ALL_RES_RF_Class_HM", abc,".csv"))
+    write.csv(rlist::list.stack(ALL_RES_RF2[,abc]), 
+              file = paste0(file_prefix, "_ALL_RES_RF_Class_HM", abc,".csv"))
   }
 }

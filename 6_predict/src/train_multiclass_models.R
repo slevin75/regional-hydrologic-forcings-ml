@@ -1,7 +1,7 @@
-multiclass_prediction <- function(InputData, y_columns, GAGEID_column, COMID_column, x_columns, 
-                                  omit_columns, Val_Pct, bootstraps, num_features_retain, 
-                                  ranger_threads = NULL, ranger_mtry, ranger_ntree,
-                                  file_prefix)
+train_multiclass <- function(InputData, y_columns, GAGEID_column, x_columns, 
+                             omit_columns = NULL, Val_Pct, bootstraps, num_features_retain, 
+                             ranger_threads = NULL, ranger_mtry, ranger_ntree,
+                             file_prefix)
   {
   #' @description creates multiclass prediction models for provided y_columns
   #' 
@@ -10,9 +10,8 @@ multiclass_prediction <- function(InputData, y_columns, GAGEID_column, COMID_col
   #' @param y_columns numeric column indices for the response variable columns.
   #' These variables must have numeric elements that are the labeled classes.
   #' @param GAGEID_column numeric column index for the gage ID column
-  #' @param COMID_column numeric column index for the reach ID column
   #' @param x_columns numeric column indices for the feature columns
-  #' @param omit_columns numeric column indices for features to omit
+  #' @param omit_columns numeric column indices for columns to omit from InputData.
   #' @param Val_Pct percent of data to use for validation. Note that this may be slightly 
   #' adjusted to balance class representation in the training and testing datasets
   #' @param bootstraps number of bootstrap replicates to use
@@ -21,22 +20,19 @@ multiclass_prediction <- function(InputData, y_columns, GAGEID_column, COMID_col
   #' to the max of 1 and (number of cores - 4)
   #' @param ranger_mtry numeric vector to use in a grid search for mtry
   #' @param ranger_ntree numeric vector to use in a grid search for ntree
-  #' @param file_prefix prefix to start all filenames
+  #' @param file_prefix character prefix to start all filenames
   #' 
   #' @example multiclass_prediction(InputData = "REF_LIST_Class_HF_CONUS_JSmithClusters.txt", 
-  #' y_columns = 3:8, GAGEID_column = 2, COMID_column = 11, x_columns = 12:612, 
+  #' y_columns = 3:8, GAGEID_column = 2, x_columns = 12:612, 
   #' omit_columns = c(12:46, 59:73, 75, 76, 79, 81:134, 158:270, 302), Val_Pct = 0.1, 
   #' bootstraps = 2, num_features_retain = 20, ranger_threads = 12, ranger_mtry = seq(5,20,5), 
-  #' ranger_ntree = seq(100, 1500, 200))
+  #' ranger_ntree = seq(100, 1500, 200), file_prefix = 'Run1')
   #' 
   #' @return ...
   
   if (is.null(ranger_threads)){
     ranger_threads <- max(parallel::detectCores() - 4, 1)
   }
-  
-  #All data: Classes contained within cols 3 to 8 and features are in cols 12 to 612 (filename:XXXXX.xlsx)
-  InputData <- read.delim(file = InputData, header = FALSE, sep = "\t")
   
   InputData_y <- InputData[1:nrow(InputData), y_columns]
   
@@ -77,13 +73,11 @@ multiclass_prediction <- function(InputData, y_columns, GAGEID_column, COMID_col
       YRED <- as.data.frame(YRED)
       XRED2 <- TRAIN_SET[, x_columns] 
       IDRED2 <- TRAIN_SET[, GAGEID_column]  
-      COMIDRED2 <- TRAIN_SET[, COMID_column] 
       
       YRED_TEST <- TEST_SET[, y_columns]
       YRED_TEST<-as.data.frame(YRED_TEST)
       XRED2_TEST <- TEST_SET[, x_columns]
       IDRED2_TEST <- TEST_SET[, GAGEID_column]
-      COMIDRED2_TEST <- TEST_SET[, COMID_column]
       
       YRED2 <- YRED[, abc]
       YRED2_TEST <- YRED_TEST[, abc]
@@ -115,14 +109,14 @@ multiclass_prediction <- function(InputData, y_columns, GAGEID_column, COMID_col
       cat("Train Gage List ", out_TRAIN, file = filenameTRAIN, sep = ",", append = FALSE)
       cat("Test Gage List ", out_TEST, file = filenameTEST, sep = ",", append = FALSE)
       
-      #Remove all desired omit_columns from feature matrix
-      XRED2_ML <- XRED2[, -omit_columns]
-      XRED2_ML_TEST <- XRED2_TEST[, -omit_columns]
+      if(!is.null(omit_columns)){
+        #Remove all desired omit_columns from feature matrix
+        XRED2_ML <- XRED2[, -omit_columns]
+        XRED2_ML_TEST <- XRED2_TEST[, -omit_columns]
+      }
       
       XRED2_ML <- as.data.frame(XRED2_ML)
       XRED2_ML_TEST <- as.data.frame(XRED2_ML_TEST)
-      colnames(XRED2_ML)[colnames(XRED2_ML) == "XRED2_ML"] <- "V1" #changing name of the 1st col
-      colnames(XRED2_ML_TEST)[colnames(XRED2_ML_TEST) == "XRED2_ML_TEST"] <- "V1"
       
       ###################################################################
       #MODEL TRAINING/VALIDATION
@@ -135,7 +129,7 @@ multiclass_prediction <- function(InputData, y_columns, GAGEID_column, COMID_col
       RF_init
       #RF_init$confusion.matrix
       imp_init <- as.data.frame(RF_init$variable.importance)
-      colnames(imp_init)[colnames(imp_init) == "RF_init$variable.importance"] <- "IMP" #changing name of the 1st col
+      colnames(imp_init) <- "IMP"
       
       #Saving random forest importance values
       out_imp <- capture.output(imp_init)
@@ -255,10 +249,8 @@ multiclass_prediction <- function(InputData, y_columns, GAGEID_column, COMID_col
       rm(TRAIN_SET)
       rm(XRED2)
       rm(IDRED2)
-      rm(COMIDRED2)
       rm(XRED2_TEST)
       rm(IDRED2_TEST)
-      rm(COMIDRED2_TEST)
       rm(YRED2)
       rm(YRED2_TEST)
       rm(GAGEID_TRAIN)

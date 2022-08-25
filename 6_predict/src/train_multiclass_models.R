@@ -28,7 +28,7 @@ train_multiclass <- function(InputData, y_columns, GAGEID_column, x_columns,
   #' bootstraps = 2, num_features_retain = 20, ranger_threads = 12, ranger_mtry = seq(5,20,5), 
   #' ranger_ntree = seq(100, 1500, 200), file_prefix = 'Run1')
   #' 
-  #' @return ...
+  #' @return weighted macro F1 statistic
   
   if (is.null(ranger_threads)){
     ranger_threads <- max(parallel::detectCores() - 4, 1)
@@ -100,8 +100,8 @@ train_multiclass <- function(InputData, y_columns, GAGEID_column, x_columns,
           }
         }
       }
-      filenameTRAIN <- paste0(file_prefix, "_ListGagesTrain", def_chr, "HM", abc, ".txt")
-      filenameTEST <- paste0(file_prefix, "_ListGagesTest", def_chr, "HM", abc, ".txt")
+      filenameTRAIN <- paste0(file_prefix, "ListGagesTrain", def_chr, "HM", abc, ".txt")
+      filenameTEST <- paste0(file_prefix, "ListGagesTest", def_chr, "HM", abc, ".txt")
       
       #Saving the list of gage ids to separate output text files
       out_TRAIN <- capture.output(GAGEID_TRAIN)
@@ -133,7 +133,7 @@ train_multiclass <- function(InputData, y_columns, GAGEID_column, x_columns,
       
       #Saving random forest importance values
       out_imp <- capture.output(imp_init)
-      filenameRFimp <- paste(file_prefix, "_RF_Init_Imp", def, "HM", abc, ".txt", sep = "")
+      filenameRFimp <- paste(file_prefix, "RF_Init_Imp", def, "HM", abc, ".txt", sep = "")
       cat("RF_Init_Imp", out_imp, file = filenameRFimp, sep = ",", append = FALSE)
       
       #Training data
@@ -287,9 +287,6 @@ train_multiclass <- function(InputData, y_columns, GAGEID_column, x_columns,
       rm(YRED2_TEST_Comp3)
       
       rm(Y_Combined)
-      rm(filename_RF)
-      rm(out_RF)
-      
     } #abc loop
     
     if(def == 1){
@@ -305,9 +302,9 @@ train_multiclass <- function(InputData, y_columns, GAGEID_column, x_columns,
     
   } #def loop
   
-  write.csv(RF_para_ntree, file = paste0(file_prefix, "_RF_para_ntree_Class.csv"))
-  write.csv(RF_para_mtry, file = paste0(file_prefix, "_RF_para_mtry_Class.csv"))
-  write.csv(RF_Wt_Macro_FStat, file = paste0(file_prefix, "_RF_Wt_Macro_FStat_Class.csv"))
+  write.csv(RF_para_ntree, file = paste0(file_prefix, "RF_para_ntree_Class.csv"))
+  write.csv(RF_para_mtry, file = paste0(file_prefix, "RF_para_mtry_Class.csv"))
+  write.csv(RF_Wt_Macro_FStat, file = paste0(file_prefix, "RF_Wt_Macro_FStat_Class.csv"))
   
   #Warn if any of the optimal parameters are located at the bounds
   if (any(RF_para_mtry == max(ranger_mtry))){
@@ -329,7 +326,14 @@ train_multiclass <- function(InputData, y_columns, GAGEID_column, x_columns,
   
   #Loop over all HMs to write a combined file for each HM (contains all bootstraps)
   for (abc in 1:ncol(InputData_y)){
-    write.csv(rlist::list.stack(ALL_RES_RF2[,abc]), 
-              file = paste0(file_prefix, "_ALL_RES_RF_Class_HM", abc,".csv"))
+    if (bootstraps == 1){
+      write.csv(ALL_RES_RF2[[abc]], 
+                file = paste0(file_prefix, "ALL_RES_RF_Class_HM", abc,".csv"))
+    }else{
+      write.csv(rlist::list.stack(ALL_RES_RF2[,abc]), 
+                file = paste0(file_prefix, "ALL_RES_RF_Class_HM", abc,".csv"))
+    }
   }
+  
+  return(RF_Wt_Macro_FStat)
 }

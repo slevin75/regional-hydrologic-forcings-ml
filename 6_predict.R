@@ -1,6 +1,7 @@
 
 source("6_predict/src/train_models.R")
 source("6_predict/src/plot_diagnostics.R")
+source("6_predict/src/train_multiclass_models.R")
 
 #p_6 params only
 
@@ -1056,9 +1057,96 @@ p6_targets_list<- list(
                                out_dir = "6_predict/out/pred_obs/",
                                from_predict = TRUE,
                                model_wf = p6_train_RF_CONUS_g2_exact_clust$workflow,
-                               pred_data = p6_Boruta_CONUS_g2_exact_clust$input_data$split$data))
+                               pred_data = p6_Boruta_CONUS_g2_exact_clust$input_data$split$data)),
   
   
+  #Multiclass prediction model training to predict cluster membership
+  # two targets commented out because they haven't been tested
+  # tar_target(p6_cluster_model_high,
+  #            train_multiclass(InputData = left_join(p3_gages_clusters_quants_agg, 
+  #                                                   p5_attr_g2 %>%
+  #                                                     select(-COMID), 
+  #                                                   by = c('ID' = 'GAGES_ID')) %>% 
+  #                               na.omit(), 
+  #                             y_columns = 2:9, 
+  #                             GAGEID_column = 1,
+  #                             x_columns = 10:(ncol(p5_attr_g2) + 7), 
+  #                             Val_Pct = 0.1, 
+  #                             bootstraps = 20, 
+  #                             num_features_retain = 20, 
+  #                             ranger_mtry = seq(5,20,5), 
+  #                             ranger_ntree = seq(100, 1500, 200),
+  #                             file_prefix = '6_predict/out/multiclass/High/')),
+  # 
+  # tar_target(p6_cluster_model_low,
+  #            train_multiclass(InputData = left_join(p3_gages_clusters_quants_agg_low, 
+  #                                                   p5_attr_g2 %>%
+  #                                                     select(-COMID), 
+  #                                                   by = c('ID' = 'GAGES_ID')) %>% 
+  #                               na.omit(), 
+  #                             y_columns = c(seq(2,8,2), seq(9,15,2)), 
+  #                             GAGEID_column = 1,
+  #                             x_columns = 16:(ncol(p5_attr_g2) + 13), 
+  #                             Val_Pct = 0.1, 
+  #                             bootstraps = 20, 
+  #                             num_features_retain = 20, 
+  #                             ranger_mtry = seq(5,20,5), 
+  #                             ranger_ntree = seq(100, 1500, 200),
+  #                             file_prefix = '6_predict/out/multiclass/Low/')),
   
+  tar_target(p6_EcoFlowsAttrs_csv,
+             #EcoFlows_filepath,
+             '6_predict/in/EcoFlowsAttrs.csv',
+             deployment = 'main',
+             format = 'file'),
+  
+  tar_target(p6_EcoFlowsAttrs,
+             read_csv(p6_EcoFlowsAttrs_csv, show_col_types = FALSE) %>%
+               #add leading 0s to gages
+               mutate(ID = case_when(str_length(ID) == 7 ~ str_c('0', ID), 
+                                     TRUE ~ as.character(ID))) %>%
+               #Remove merged gage
+               filter(ID != '01362198'),
+             deployment = 'main'),
+  
+  tar_target(p6_cluster_model_high_EcoFlowsAttrs,
+             train_multiclass(InputData = left_join(p3_gages_clusters_quants_agg %>%
+                                                      #edit ID number for join
+                                                      mutate(ID = case_when(ID == '03584000_03584020' ~ '03584000',
+                                                                            ID == '12209500_12209490' ~ '12209500',
+                                                                            TRUE ~ ID)), 
+                                                    p6_EcoFlowsAttrs, 
+                                                    by = 'ID'), 
+                              y_columns = c(2:4,6:8), 
+                              GAGEID_column = 1,
+                              x_columns = 10:(ncol(p6_EcoFlowsAttrs) - 1 + 9), 
+                              Val_Pct = 0.1, 
+                              bootstraps = 20, 
+                              num_features_retain = 30, 
+                              ranger_mtry = seq(5,30,5), 
+                              ranger_ntree = seq(100, 1500, 200),
+                              ranger_threads = 70,
+                              file_prefix = '6_predict/out/multiclass/EcoFlows_High/', 
+                              omit_columns = c(10:44, 57:71, 73, 74, 77, 79:132, 156:268, 300))),
+  
+  tar_target(p6_cluster_model_low_EcoFlowsAttrs,
+             train_multiclass(InputData = left_join(p3_gages_clusters_quants_agg_low_freq %>%
+                                                      #edit ID number for join
+                                                      mutate(ID = case_when(ID == '03584000_03584020' ~ '03584000',
+                                                                            ID == '12209500_12209490' ~ '12209500',
+                                                                            TRUE ~ ID)), 
+                                                    p6_EcoFlowsAttrs, 
+                                                    by = 'ID'), 
+                              y_columns = c(2,4,6,9,11,13), 
+                              GAGEID_column = 1,
+                              x_columns = 16:(ncol(p6_EcoFlowsAttrs) - 1 + 15), 
+                              Val_Pct = 0.1, 
+                              bootstraps = 20, 
+                              num_features_retain = 30, 
+                              ranger_mtry = seq(5,30,5), 
+                              ranger_ntree = seq(100, 1500, 200),
+                              ranger_threads = 70,
+                              file_prefix = '6_predict/out/multiclass/EcoFlows_Low/', 
+                              omit_columns = c(16:50, 63:77, 79, 80, 83, 85:138, 162:274, 306)))
   
 )

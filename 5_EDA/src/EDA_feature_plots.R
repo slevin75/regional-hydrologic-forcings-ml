@@ -11,7 +11,8 @@ make_EDA_feature_plots <- function(feature_vars, out_dir) {
   
   for (i in 5:ncol(feature_vars)) {
     
-    data_to_plot <- select(feature_vars, 1:4, all_of(i))
+    data_to_plot <- select(feature_vars, 1:4, all_of(i)) %>%
+      mutate(pct_exceed = cume_dist(.[[5]]))
     col_name <- names(data_to_plot)[5]
     
     if (str_detect(col_name, "/")) {
@@ -25,19 +26,23 @@ make_EDA_feature_plots <- function(feature_vars, out_dir) {
       geom_jitter(height = 0, color = "steelblue", alpha = 0.5, width = 0.2) +
       labs(x = "", y = "") + 
       theme_bw() +
-      theme(plot.margin = unit(c(0.5, 0, 0.5, 0), "cm"), 
+      theme(plot.margin = unit(c(0.5, 0, 0, 0), "cm"), 
             axis.ticks.x = element_blank())
     
     data_to_map <- data_to_plot %>%
       st_as_sf(coords = c("LON", "LAT"), crs = 4326)
     map <- ggplot(data_to_map) +
-      geom_sf(aes(color = .data[[col_name]]), size = 0.3) + 
-      scale_color_viridis_c(option="plasma") + 
+      geom_sf(aes(color = pct_exceed), size = 0.3) + 
+      scale_color_viridis_c(option="plasma", name = "percentile", 
+                            labels = scales::percent_format(accuracy = 1)) + 
+      labs(title = col_name) +
       theme_bw() + 
       theme(plot.margin = unit(c(0, 0.5, 0, 0.5), "cm"),
+            plot.title = element_text(hjust = 1),
             axis.text = element_text(size = 6),
             legend.title = element_text(size = 10, vjust = 0.75), 
-            legend.position = "top")
+            legend.key.width = unit(1, "cm"),
+            legend.position = "bottom")
     
     combo <- plot_grid(violin, map, rel_widths = c(0.25, 1), rel_heights = c(0.8, 1)) %>%
       suppressWarnings()

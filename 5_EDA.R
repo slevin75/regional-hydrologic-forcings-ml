@@ -1,9 +1,16 @@
 source("5_EDA/src/EDA_metric_plots.R")
+source("5_EDA/src/EDA_feature_plots.R")
 source("5_EDA/src/select_features.R")
 
 p5_targets_list<- list(
   
   ###EDA plots
+  # Feature variables
+  tar_target(p5_EDA_plots_feature_vars,
+             make_EDA_feature_plots(feature_vars = p1_feature_vars_g2,
+                                    out_dir = "5_EDA/out/feature_plots"),
+             format="file"
+  ),
   ##maps and violin plots of all metrics by cluster.  k is the number of clusters to use in 
   ##the cluster table
   tar_target(p5_EDA_plots_metrics,

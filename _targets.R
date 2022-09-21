@@ -77,6 +77,7 @@ dir.create('3_cluster/out/seasonal_plots_LowFlow_freq/maps/by_quantiles', showWa
 dir.create('3_cluster/out/seasonal_plots_LowFlow_freq/maps/by_agg_quantiles', showWarnings = FALSE)
 dir.create('5_EDA/out', showWarnings = FALSE)
 dir.create('5_EDA/out/metrics_plots', showWarnings = FALSE)
+dir.create('5_EDA/out/feature_plots', showWarnings = FALSE)
 dir.create('5_EDA/out/metrics_plots_LowFlow', showWarnings = FALSE)
 dir.create('6_predict/out', showWarnings = FALSE)
 dir.create('6_predict/out/Boruta', showWarnings = FALSE)
@@ -116,4 +117,3 @@ season_year_start_high <- season_months_high[1]
 
 
 c(p1_targets_list, p2_targets_list, p3_targets_list, p4_targets_list, p5_targets_list, p6_targets_list)
-

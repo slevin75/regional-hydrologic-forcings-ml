@@ -1,6 +1,6 @@
 
 source("3_cluster/src/seasonal_metric_cluster.R")
-
+source("3_cluster/src/gage_year_coverage_by_cluster.R")
 
 p3_targets_list<- list(
   
@@ -952,6 +952,13 @@ p3_targets_list<- list(
              map(p3_metric_names_quants_agg_low),
              deployment = 'worker',
              format = 'file'
-  )
+  ),
+  tar_target(p3_period_of_record_plots,
+             plot_data_coverage(clean_daily_flow = p1_clean_daily_flow, 
+                                 cluster_table <- p3_gages_clusters_quants_agg_selected %>%
+                                   select(ID, contains('_k5')) %>%
+                                   rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
+                                          high = '0.75,0.8,0.85,0.9,0.95_k5'), 
+                                 dir_out = '3_cluster/out'))
   
 )

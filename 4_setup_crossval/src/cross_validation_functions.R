@@ -1,5 +1,5 @@
 
-get_nested_gages<-function(gagesii,nav_distance_km, screened_site_list){
+get_nested_gages<-function(sites_and_comids, drainage_areas, nav_distance_km) {
   
   #' 
   #' @description This function determines the area of overlap between each
@@ -12,42 +12,41 @@ get_nested_gages<-function(gagesii,nav_distance_km, screened_site_list){
   #'  @return Returns a matrix with proportion of overlapping area. Column name 
   #'  gage is downstream of the row name gage.
   
-  
-  gage_IDs <- as.character(gagesii$ID[gagesii$ID %in% screened_site_list])
-  COMIDs <- as.character(gagesii$COMID[gagesii$ID %in% screened_site_list])
-  drainage_areas<-data.frame(gage_IDs=gage_IDs,
-                             drainArea=readNWISsite(siteNumbers=gage_IDs)$drain_area_va)
+  data <- sites_and_comids %>%
+    select(GAGES_ID, COMID) %>%
+    rename(site_no = GAGES_ID) %>%
+    left_join(drainage_areas)
 
-   #column names are the downstream gages, rows with non-zero values are upstream gages
-  upstream_df <- data.frame(matrix(ncol = length(gage_IDs), nrow = length(gage_IDs),data=0))
-  colnames(upstream_df) <- rownames(upstream_df) <- gage_IDs
+  #column names are the downstream gages, rows with non-zero values are upstream gages
+  upstream_df <- data.frame(matrix(ncol = nrow(data), nrow = nrow(data), data=0))
+  colnames(upstream_df) <- rownames(upstream_df) <- as.character(data$site_no)
 
-  for (i in 1:length(gage_IDs)){
-    downstream_da<-drainage_areas$drainArea[i]
+  for (i in 1:nrow(data)){
+    downstream_da<-data$drainArea[i]
     flowline <- navigate_nldi(list(featureSource = "comid", 
-                                       featureID = COMIDs[i]), 
+                                       featureID = data$COMID[i]), 
                                   mode = "upstreamTributaries",
                                   distance_km=nav_distance_km)
     ##list of all upstream COMIDs
     upstream_list <- flowline$UT_flowlines$nhdplus_comid
     
     ##gages located on any upstream COMID (includes the COMID of the downstream gage)
-    upstream_gages<-gage_IDs[which(COMIDs %in% upstream_list)]
+    upstream_gages <- data$site_no[which(data$COMID %in% upstream_list)]
     
     ##if there are more upstream gages than there are unique COMIDs, then 
     ##there are more than one gage on a COMID.  If this happens, remove any
     ##gage from the upstream gages list that has a larger drainage area than the
     ##downstream_da.
-    if (length(upstream_gages) >
-      length(unique(COMIDs[which(COMIDs %in% upstream_list)]))){
-        
-        upstream_das<-drainage_areas[which(drainage_areas$gage_IDs %in% upstream_gages),] 
-        keep_gages<-upstream_das$gage_IDs[which(upstream_das$drainArea <= downstream_da)]
-        upstream_gages<-upstream_gages[which(upstream_gages %in% keep_gages)]
-      }
-    upstream_das<-drainage_areas[which(gage_IDs %in% upstream_gages),]
+    # if (length(upstream_gages) >
+    #   length(unique(COMIDs[which(COMIDs %in% upstream_list)]))){
+    #     
+    #     upstream_das<-drainage_areas[which(drainage_areas$gage_IDs %in% upstream_gages),] 
+    #     keep_gages<-upstream_das$gage_IDs[which(upstream_das$drainArea <= downstream_da)]
+    #     upstream_gages<-upstream_gages[which(upstream_gages %in% keep_gages)]
+    #   }
+    upstream_das <- data[which(data$site_no %in% upstream_gages), 3]
     upstream_df[which(row.names(upstream_df) %in% upstream_gages), i] <- round(upstream_das$drainArea / downstream_da,3)
-    message(gage_IDs[i])
+    message(data$site_no[i])
   }
 
 
@@ -72,6 +71,7 @@ add_nested_group_id <- function(nested_gages, drainage_area, nested_threshold){
   
   ##replace any number equal or greater than the nested_threshold to 1
   nested_gages<- as.data.frame(ifelse(nested_gages >= nested_threshold, 1, 0))
+  drainage_area <- filter(drainage_area, site_no %in% rownames(nested_gages))
     
   ##get column sums, add drainage area and sort by descending DA so that
   ##we get the largest ones first and will work our way upstream

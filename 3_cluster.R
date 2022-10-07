@@ -1,6 +1,6 @@
 
 source("3_cluster/src/seasonal_metric_cluster.R")
-
+source("3_cluster/src/gage_year_coverage_by_cluster.R")
 
 p3_targets_list<- list(
   
@@ -952,6 +952,32 @@ p3_targets_list<- list(
              map(p3_metric_names_quants_agg_low),
              deployment = 'worker',
              format = 'file'
-  )
+  ),
+  tar_target(p3_period_of_record_plots_estimated,
+             plot_data_coverage(screened_site_list = p1_screened_site_list, 
+                                 cluster_table <- p3_gages_clusters_quants_agg_selected %>%
+                                   select(ID, contains('_k5')) %>%
+                                   rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
+                                          high = '0.75,0.8,0.85,0.9,0.95_k5'), 
+                                dv_data_dir = "./1_fetch/out",
+                                 dir_out = '3_cluster/out', 
+                                estimated_data = TRUE)),
   
+  tar_target(p3_period_of_record_plots_no_estimated,
+             plot_data_coverage(screened_site_list = p1_screened_site_list, 
+                                cluster_table <- p3_gages_clusters_quants_agg_selected %>%
+                                  select(ID, contains('_k5')) %>%
+                                  rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
+                                         high = '0.75,0.8,0.85,0.9,0.95_k5'), 
+                                dv_data_dir = "./1_fetch/out",
+                                dir_out = '3_cluster/out', 
+                                estimated_data = FALSE)),
+  tar_target(p3_plot_estimated_data_quantiles ,
+             estimated_data_quantiles(screened_site_list = p1_screened_site_list, 
+                                      cluster_table <- p3_gages_clusters_quants_agg_selected %>%
+                                        select(ID, contains('_k5')) %>%
+                                        rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
+                                               high = '0.75,0.8,0.85,0.9,0.95_k5'), 
+                                      dv_data_dir = "./1_fetch/out",
+                                      dir_out = '3_cluster/out'))
 )

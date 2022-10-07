@@ -222,6 +222,8 @@ p1_targets_list <- list(
              prep_feature_vars(sb_var_data = p1_sb_data_g2_csv, 
                                sites_all = p1_sites_g2, 
                                sites_screened = p1_screened_site_list, 
+                               combine_gages = combine_gages,
+                               years_by_site = p1_clean_daily_flow,
                                retain_vars = c("ID", "LAT", "LON",
                                                "npdes", "fwwd", "strg", "devl", "cndp")), 
              deployment = "main"

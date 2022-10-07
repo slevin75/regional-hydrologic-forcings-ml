@@ -115,7 +115,8 @@ get_sb_data_log <- function(sb_var_ids, file_out) {
   
 }
 
-prep_feature_vars <- function(sb_var_data, sites_all, sites_screened, retain_vars) {
+prep_feature_vars <- function(sb_var_data, sites_all, sites_screened, 
+                              combine_gages, years_by_site, retain_vars) {
   
   #'@description joins all data downloaded from ScienceBase with sites of interest
   #'
@@ -131,6 +132,13 @@ prep_feature_vars <- function(sb_var_data, sites_all, sites_screened, retain_var
   #'
   #'@return data frame with COMID column appended by all feature variables of interest; 
   #'time-varying features converted to long-term averages where applicable
+  
+  complete_years <- years_by_site %>% 
+    group_by(year_val, site_no) %>%
+    summarise(.groups = "drop") %>%
+    arrange(site_no) %>%
+    mutate(site_comid_match = if_else(grepl("_", site_no), 
+                                      sub("_.*", "", site_no), site_no))
   
   screened_site_list <- c()
   for (i in sites_screened) {
@@ -204,7 +212,7 @@ prep_feature_vars <- function(sb_var_data, sites_all, sites_screened, retain_var
     subset(!(COMID %in% comid_out_conus))
   
   #convert decadal land use to long-term average land use
-  land_cover <- land_cover %>%
+  land_cover_long_term_avg <- land_cover %>%
     subset(!(COMID %in% comid_out_conus)) %>%
     group_by(COMID, unit, year, new_class) %>%
     mutate(lc_adj = (value / lc_sum) * 100) %>%
@@ -212,12 +220,40 @@ prep_feature_vars <- function(sb_var_data, sites_all, sites_screened, retain_var
     select(COMID, unit, new_class, lc_adj) %>%
     group_by(COMID, unit, new_class) %>%
     summarise(value = mean(lc_adj), .groups = "drop") %>%
-    mutate(label = paste0(unit, "_SOHL_", new_class)) %>%
+    mutate(label = paste0(unit, "_SOHL_", new_class, "_longterm_avg")) %>%
     select(COMID, label, value) %>%
     pivot_wider(names_from = "label", values_from = "value")
-    
+  
+  #convert decadal land use to weighted average land use by year
+  land_cover_weighted_avg <- data %>%
+    select(COMID, site_comid_match = GAGES_ID) %>%
+    left_join(complete_years, by = "site_comid_match") %>%
+    select(COMID, year_w_data = year_val) %>%
+    drop_na() %>%
+    left_join(land_cover, by = "COMID") %>%
+    select(-lc_sum) %>%
+    mutate(lc_by_year = case_when(
+      year_w_data <= 1945 & year == 1940 ~ value, 
+      year_w_data > 1945 & year_w_data <= 1955 & year == 1950 ~ value, 
+      year_w_data > 1955 & year_w_data <= 1965 & year == 1960 ~ value, 
+      year_w_data > 1965 & year_w_data <= 1975 & year == 1970 ~ value, 
+      year_w_data > 1975 & year_w_data <= 1985 & year == 1980 ~ value, 
+      year_w_data > 1985 & year_w_data <= 1995 & year == 1990 ~ value, 
+      year_w_data > 1995 & year == 2000 ~ value)) %>%
+    drop_na() %>%
+    select(COMID, unit, new_class, year_w_data, lc_by_year) %>%
+    group_by(COMID, unit, year_w_data) %>%
+    mutate(lc_sum_by_year = sum(lc_by_year)) %>%
+    mutate(lc_adj_by_year = (lc_by_year / lc_sum_by_year) * 100) %>%
+    ungroup() %>%
+    group_by(COMID, unit, new_class) %>%
+    summarise(value = mean(lc_adj_by_year), .groups = "drop") %>%
+    mutate(label = paste0(unit, "_SOHL_", new_class, "_weighted_avg")) %>%
+    select(COMID, label, value) %>%
+    pivot_wider(names_from = "label", values_from = "value")
+
   #convert decadal dam information to long-term average dam information
-  dams <- data %>%
+  dams_long_term_avg <- data %>%
     select(COMID, contains("NDAMS"), contains("STORAGE"), contains("MAJOR")) %>%
     group_by(COMID) %>%
     summarise_all(mean) %>%
@@ -230,7 +266,42 @@ prep_feature_vars <- function(sb_var_data, sites_all, sites_screened, retain_var
     summarise(value = mean(value), .groups = "drop") %>%
     group_by(COMID, unit, feature) %>%
     summarise(value = mean(value), .groups = "drop") %>%
-    mutate(label = paste0(unit, "_", feature)) %>%
+    mutate(label = paste0(unit, "_", feature, "_longterm_avg")) %>%
+    select(COMID, label, value) %>%
+    pivot_wider(names_from = label, values_from = value)
+  
+  #convert decadal dam information to weighted average dam information by year
+  dams_weighted_avg <- data %>%
+    select(COMID, site_comid_match = GAGES_ID) %>%
+    left_join(complete_years, by = "site_comid_match") %>%
+    select(COMID, year_w_data = year_val) %>%
+    drop_na() %>%
+    left_join(data, by = "COMID") %>%
+    select(COMID, year_w_data, 
+           contains("NDAMS"), contains("STORAGE"), contains("MAJOR")) %>%
+    group_by(COMID, year_w_data) %>%
+    summarise_all(mean) %>%
+    pivot_longer(cols = -c(COMID, year_w_data), 
+                 names_to = "name", values_to = "value") %>%
+    mutate(unit = str_sub(name, 1, 3), 
+           feature = str_sub(name, 5, -5), 
+           year = str_sub(name, -4)) %>%
+    filter(year <= 2010) %>%
+    mutate(dams_by_year = case_when(
+      year_w_data <= 1935 & year == 1930 ~ value, 
+      year_w_data > 1935 & year_w_data <= 1945 & year == 1940 ~ value, 
+      year_w_data > 1945 & year_w_data < 1955 & year == 1950 ~ value, 
+      year_w_data > 1955 & year_w_data < 1965 & year == 1960 ~ value, 
+      year_w_data > 1965 & year_w_data < 1975 & year == 1970 ~ value, 
+      year_w_data > 1975 & year_w_data < 1985 & year == 1980 ~ value, 
+      year_w_data > 1985 & year_w_data < 1995 & year == 1990 ~ value, 
+      year_w_data > 1995 & year_w_data < 2005 & year == 2000 ~ value, 
+      year_w_data > 2005 & year == 2010 ~ value)) %>%
+    drop_na() %>%
+    select(COMID, unit, feature, year_w_data, dams_by_year) %>%
+    group_by(COMID, unit, feature) %>%
+    summarise(value = mean(dams_by_year), .groups = "drop") %>%
+    mutate(label = paste0(unit, "_", feature, "_weighted_avg")) %>%
     select(COMID, label, value) %>%
     pivot_wider(names_from = label, values_from = value)
  
@@ -320,8 +391,10 @@ prep_feature_vars <- function(sb_var_data, sites_all, sites_screened, retain_var
            -contains("STORAGE"), -contains("MAJOR"), -contains("_TAV_"), 
            -contains("_PPT_"), -contains("WILDFIRE")) %>%
     left_join(phys_region, by = "COMID") %>%
-    left_join(land_cover, by = "COMID") %>%
-    left_join(dams, by = "COMID") %>%
+    left_join(land_cover_long_term_avg, by = "COMID") %>%
+    left_join(land_cover_weighted_avg, by = "COMID") %>%
+    left_join(dams_long_term_avg, by = "COMID") %>%
+    left_join(dams_weighted_avg, by = "COMID") %>%
     left_join(weather, by = "COMID") %>%
     left_join(wildfire, by = "COMID")
   
@@ -349,5 +422,6 @@ prep_feature_vars <- function(sb_var_data, sites_all, sites_screened, retain_var
                                combine_gages$assigned_rep[[i]]))
     final_data <- bind_rows(final_data, combined)
   }
+  
   return(final_data)
 }

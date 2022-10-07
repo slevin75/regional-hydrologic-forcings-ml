@@ -22,9 +22,12 @@ plot_data_coverage <- function(screened_site_list, cluster_table, dv_data_dir, d
   
   df_tally_allgages<-data.frame()
   for (i in 1:length(screened_site_list)){
-    print(i)
-    
+
     fname<- file.path(dv_data_dir,screened_site_list[i])
+    ##all streamgages in the screened_site_list have 8 digit gage numbers.
+    ##getting the station ID from the file name instead of the downloaded file
+    ##because the site_no column for gage 02490105 has been converted to a
+    ##date and it throws an error when it tries to rbind.
     station.ID <- substr(screened_site_list[i], start = 1, stop = 8)
     df<-read_csv(fname, col_types = cols() ) %>%
       addWaterYear()
@@ -144,6 +147,8 @@ get_estimated_data<- function(fname){
   
   station.ID <- substr(fname, start = 15, stop = 22)
   df<- read_csv(fname, col_types = cols()) 
+  ##returns an empty df for 4 gages where there are more than 1 discharge column in NWIS download.
+  ##these sites are omitted from the plots. 
   if("discharge" %in% names(df)){
     df <- df %>% 
       mutate(ID = station.ID) %>%

@@ -212,7 +212,7 @@ prep_feature_vars <- function(sb_var_data, sites_all, sites_screened,
     subset(!(COMID %in% comid_out_conus))
   
   #convert decadal land use to long-term average land use
-  land_cover_long_term_avg <- land_cover %>%
+  land_cover_longterm_avg <- land_cover %>%
     subset(!(COMID %in% comid_out_conus)) %>%
     group_by(COMID, unit, year, new_class) %>%
     mutate(lc_adj = (value / lc_sum) * 100) %>%
@@ -253,10 +253,9 @@ prep_feature_vars <- function(sb_var_data, sites_all, sites_screened,
     pivot_wider(names_from = "label", values_from = "value")
 
   #convert decadal dam information to long-term average dam information
-  dams_long_term_avg <- data %>%
+  dams_longterm_avg <- data %>%
     select(COMID, contains("NDAMS"), contains("STORAGE"), contains("MAJOR")) %>%
-    group_by(COMID) %>%
-    summarise_all(mean) %>%
+    distinct() %>%
     pivot_longer(!COMID, names_to = "name", values_to = "value") %>%
     mutate(unit = str_sub(name, 1, 3), 
            feature = str_sub(name, 5, -5),
@@ -279,8 +278,7 @@ prep_feature_vars <- function(sb_var_data, sites_all, sites_screened,
     left_join(data, by = "COMID") %>%
     select(COMID, year_w_data, 
            contains("NDAMS"), contains("STORAGE"), contains("MAJOR")) %>%
-    group_by(COMID, year_w_data) %>%
-    summarise_all(mean) %>%
+    distinct() %>%
     pivot_longer(cols = -c(COMID, year_w_data), 
                  names_to = "name", values_to = "value") %>%
     mutate(unit = str_sub(name, 1, 3), 
@@ -306,10 +304,9 @@ prep_feature_vars <- function(sb_var_data, sites_all, sites_screened,
     pivot_wider(names_from = label, values_from = value)
  
   #convert annual monthly weather data to long-term average monthly weather data
-  weather <- data %>%
+  weather_longterm_avg <- data %>%
     select(COMID, contains("_PPT_"), contains("_TAV_")) %>%
-    group_by(COMID) %>%
-    summarise_all(mean) %>%
+    distinct() %>%
     pivot_longer(!COMID, names_to = "name", values_to = "value") %>%
     mutate(unit = str_sub(name, 1, 3), 
            type = str_sub(name, 5, 7),
@@ -322,14 +319,65 @@ prep_feature_vars <- function(sb_var_data, sites_all, sites_screened,
                                  month_name == "JUL" ~ 7, month_name == "AUG" ~ 8, 
                                  month_name == "SEP" ~ 9, month_name == "OCT" ~ 10, 
                                  month_name == "NOV" ~ 11, month_name == "DEC" ~ 12),
-           label = paste0(unit, "_", type, "_", month_name)) %>%
+           label = paste0(unit, "_", type, "_", month_name, "_longterm_avg")) %>%
     arrange(COMID, type, unit, month_num) %>%
     select(COMID, label, avg_monthly) %>%
     pivot_wider(names_from = "label", values_from = "avg_monthly")
-
+  
+  #convert annual monthly weather data to weighted average monthly weather data by year
+  weather_weighted_avg_temp <- data %>%
+    select(COMID, contains("_PPT_"), contains("_TAV_")) %>%
+    distinct() %>%
+    pivot_longer(!COMID, names_to = "name", values_to = "value") %>%
+    mutate(unit = str_sub(name, 1, 3), 
+           type = str_sub(name, 5, 7),
+           month_name = str_sub(name, 9, 11)) %>%
+    group_by(COMID, unit, type, month_name) %>%
+    summarise(avg_monthly = mean(value, na.rm = TRUE), .groups = "drop")
+  
+  weather_weighted_avg <- data %>%
+    select(COMID, site_comid_match = GAGES_ID) %>%
+    left_join(complete_years, by = "site_comid_match") %>%
+    select(COMID, year_w_data = year_val) %>%
+    drop_na() %>%
+    left_join(data, by = "COMID") %>%
+    select(COMID, year_w_data, contains("_PPT_"), contains("_TAV_")) %>%
+    distinct() %>%
+    pivot_longer(cols = -c(COMID, year_w_data), 
+                 names_to = "name", values_to = "value") %>%
+    mutate(unit = str_sub(name, 1, 3), 
+           type = str_sub(name, 5, 7),
+           year = str_sub(name, 12, 15),
+           month_name = str_sub(name, 9, 11)) %>%
+    left_join(weather_weighted_avg_temp, by = c("COMID", "unit", "type", "month_name")) %>%
+    mutate(month_num = case_when(month_name == "JAN" ~ 1, month_name == "FEB" ~ 2, 
+                                 month_name == "MAR" ~ 3, month_name == "APR" ~ 4, 
+                                 month_name == "MAY" ~ 5, month_name == "JUN" ~ 6, 
+                                 month_name == "JUL" ~ 7, month_name == "AUG" ~ 8, 
+                                 month_name == "SEP" ~ 9, month_name == "OCT" ~ 10, 
+                                 month_name == "NOV" ~ 11, month_name == "DEC" ~ 12)) %>%
+    mutate(weather_by_year = case_when(
+      year_w_data <= 1944 & year == 1945 ~ avg_monthly, 
+      year_w_data == 1945 & month_num >= 10 & year == 1945 ~ avg_monthly, 
+      year_w_data == 1945 & month_num < 10 & year == 1945 ~ value, 
+      year_w_data >= 1946 & year_w_data <= 2015 & month_num >= 10 & year == (year_w_data-1) ~ value, 
+      year_w_data >= 1946 & year_w_data <= 2015 & month_num < 10 & year == year_w_data ~ value, 
+      year_w_data == 2016 & month_num >= 10 & year == 2015 ~ value, 
+      year_w_data == 2016 & month_num < 10 & year == 2015 ~ avg_monthly, 
+      year_w_data > 2016 & year == 2015 ~ avg_monthly)) %>%
+    drop_na() %>%
+    select(COMID, unit, type, month_name, month_num, year_w_data, weather_by_year) %>%
+    group_by(COMID, unit, type, month_name) %>%
+    summarise(value = mean(weather_by_year), 
+              month_num = mean(month_num),
+              .groups = "drop") %>%
+    mutate(label = paste0(unit, "_", type, "_", month_name, "_weighted_avg")) %>%
+    arrange(COMID, type, unit, month_num) %>%
+    select(COMID, label, value) %>%
+    pivot_wider(names_from = label, values_from = value)
   
   #convert annual wildfire data to long-term average wildfire data
-  wildfire <- data %>%
+  wildfire_shortterm_avg <- data %>%
     select(COMID, contains("_WILDFIRE_")) %>%
     group_by(COMID) %>%
     summarise_all(mean) %>%
@@ -338,7 +386,7 @@ prep_feature_vars <- function(sb_var_data, sites_all, sites_screened,
            year = str_sub(name, 14, 17)) %>%
     group_by(COMID, unit) %>%
     summarise(avg_annual = mean(value, na.rm = TRUE), .groups = "drop") %>%
-    mutate(label = paste0(unit, "_AVG_WILDFIRE")) %>%
+    mutate(label = paste0(unit, "_AVG_WILDFIRE_shorterm_avg")) %>%
     arrange(COMID, label) %>%
     select(COMID, label, avg_annual) %>%
     pivot_wider(names_from = "label", values_from = "avg_annual")
@@ -391,12 +439,13 @@ prep_feature_vars <- function(sb_var_data, sites_all, sites_screened,
            -contains("STORAGE"), -contains("MAJOR"), -contains("_TAV_"), 
            -contains("_PPT_"), -contains("WILDFIRE")) %>%
     left_join(phys_region, by = "COMID") %>%
-    left_join(land_cover_long_term_avg, by = "COMID") %>%
+    left_join(land_cover_longterm_avg, by = "COMID") %>%
     left_join(land_cover_weighted_avg, by = "COMID") %>%
-    left_join(dams_long_term_avg, by = "COMID") %>%
+    left_join(dams_longterm_avg, by = "COMID") %>%
     left_join(dams_weighted_avg, by = "COMID") %>%
-    left_join(weather, by = "COMID") %>%
-    left_join(wildfire, by = "COMID")
+    left_join(weather_longterm_avg, by = "COMID") %>%
+    left_join(weather_weighted_avg, by = "COMID") %>%
+    left_join(wildfire_shortterm_avg, by = "COMID")
   
   #rename duplicated headers (if any)
   rename_dup_headers <- list()

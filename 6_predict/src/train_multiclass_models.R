@@ -30,29 +30,38 @@ train_multiclass <- function(InputData, y_columns, GAGEID_column, x_columns,
   #' 
   #' @return weighted macro F1 statistic
   
+  #set threads to use if not specified
   if (is.null(ranger_threads)){
     ranger_threads <- max(parallel::detectCores() - 4, 1)
   }
   
+  #Target variables for each model
   InputData_y <- InputData[1:nrow(InputData), y_columns]
   
-  #Empty matrices to hold results of all HMs(=abc) and bootstraps (=def)
+  #Empty matrices to hold results of all classification models (HMs)(=abc) and bootstraps (=def)
   #optimal hyperparameters
-  RF_para_ntree <- matrix(0, ncol(InputData_y), bootstraps)
-  RF_para_mtry <- matrix(0, ncol(InputData_y), bootstraps)
+  RF_opt_ntree <- matrix(0, ncol(InputData_y), bootstraps)
+  RF_opt_mtry <- matrix(0, ncol(InputData_y), bootstraps)
   #F1 statistic
   RF_Wt_Macro_FStat <- matrix(0, ncol(InputData_y), bootstraps)
   
+  #data frames for the grid of hyperparameters to try
+  RF_Models_ntree <- ranger_ntree
+  RF_Models_ntree <- as.data.frame(RF_Models_ntree)
+  RF_Models_mtry <- ranger_mtry
+  RF_Models_mtry <- as.data.frame(RF_Models_mtry)
+  
+  #Bootstraps
   for(def in 1:bootstraps){
-    print(paste("bootstrap", def))
-    #For every class model
+    message(paste("bootstrap", def))
+    #Classification models
     for(abc in 1:ncol(InputData_y)){
-      print(paste("HM", abc))
+      message(paste("classification model column", abc))
       
-      #Validation Data set up
+      #Training and Testing set up
       #Number of classes
       num_classes <- length(unique(InputData_y[,abc]))
-      #Loop over classes and randomly select test data
+      #Loop over classes and randomly select test data by proportion of class data
       for (class in 1:num_classes){
         #Only the InputData with this class
         tmp_InputData <- InputData[InputData_y[,abc] == class,]
@@ -69,22 +78,23 @@ train_multiclass <- function(InputData, y_columns, GAGEID_column, x_columns,
       }
       rm(tmp_InputData, class, sample_inds)
       
-      YRED <- TRAIN_SET[, y_columns]
-      YRED <- as.data.frame(YRED)
-      XRED2 <- TRAIN_SET[, x_columns] 
-      IDRED2 <- TRAIN_SET[, GAGEID_column]  
+      Y <- TRAIN_SET[, y_columns]
+      Y <- as.data.frame(Y)
+      X <- TRAIN_SET[, x_columns] 
+      ID <- TRAIN_SET[, GAGEID_column]  
       
-      YRED_TEST <- TEST_SET[, y_columns]
-      YRED_TEST<-as.data.frame(YRED_TEST)
-      XRED2_TEST <- TEST_SET[, x_columns]
-      IDRED2_TEST <- TEST_SET[, GAGEID_column]
+      Y_TEST <- TEST_SET[, y_columns]
+      Y_TEST <- as.data.frame(Y_TEST)
+      X_TEST <- TEST_SET[, x_columns]
+      ID_TEST <- TEST_SET[, GAGEID_column]
       
-      YRED2 <- YRED[, abc]
-      YRED2_TEST <- YRED_TEST[, abc]
+      #select only the outcome data for this classification model
+      Y <- Y[, abc]
+      Y_TEST <- Y_TEST[, abc]
       
       #Saving the gage IDs that went into each test and train set for each bootstrap
-      GAGEID_TRAIN <- IDRED2
-      GAGEID_TEST <- IDRED2_TEST
+      GAGEID_TRAIN <- ID
+      GAGEID_TEST <- ID_TEST
       
       #Setting up the filenames for the output files
       if(def < 10){
@@ -104,19 +114,20 @@ train_multiclass <- function(InputData, y_columns, GAGEID_column, x_columns,
       filenameTEST <- paste0(file_prefix, "ListGagesTest", def_chr, "HM", abc, ".txt")
       
       #Saving the list of gage ids to separate output text files
-      out_TRAIN <- capture.output(GAGEID_TRAIN)
-      out_TEST <- capture.output(GAGEID_TEST)
-      cat("Train Gage List ", out_TRAIN, file = filenameTRAIN, sep = ",", append = FALSE)
-      cat("Test Gage List ", out_TEST, file = filenameTEST, sep = ",", append = FALSE)
+      write_delim(x = as.data.frame(GAGEID_TRAIN), file = filenameTRAIN, delim = ',', append = FALSE)
+      write_delim(x = as.data.frame(GAGEID_TEST), file = filenameTEST, delim = ',', append = FALSE)
       
       if(!is.null(omit_columns)){
         #Remove all desired omit_columns from feature matrix
-        XRED2_ML <- XRED2[, -omit_columns]
-        XRED2_ML_TEST <- XRED2_TEST[, -omit_columns]
+        X_ML <- X[, -omit_columns]
+        X_ML_TEST <- X_TEST[, -omit_columns]
+        
+        X_ML <- as.data.frame(X_ML)
+        X_ML_TEST <- as.data.frame(X_ML_TEST)
+      }else{
+        X_ML <- as.data.frame(X)
+        X_ML_TEST <- as.data.frame(X_TEST)
       }
-      
-      XRED2_ML <- as.data.frame(XRED2_ML)
-      XRED2_ML_TEST <- as.data.frame(XRED2_ML_TEST)
       
       ###################################################################
       #MODEL TRAINING/VALIDATION
@@ -124,118 +135,81 @@ train_multiclass <- function(InputData, y_columns, GAGEID_column, x_columns,
       #Random Forest-RF
       ###################################################################
       #Running Initial RF model to identify top features based on importance
-      RF_init <- ranger::ranger(x = XRED2_ML, y = YRED2, num.trees = 1000, importance = 'impurity', 
-                                classification = TRUE, num.threads = ranger_threads) #uses default mtry value
-      RF_init
-      #RF_init$confusion.matrix
+      #uses default mtry value
+      RF_init <- ranger::ranger(x = X_ML, y = Y, num.trees = 1000, importance = 'impurity', 
+                                classification = TRUE, num.threads = ranger_threads)
+      #importance
       imp_init <- as.data.frame(RF_init$variable.importance)
       colnames(imp_init) <- "IMP"
       
-      #Saving random forest importance values
-      out_imp <- capture.output(imp_init)
-      filenameRFimp <- paste(file_prefix, "RF_Init_Imp", def, "HM", abc, ".txt", sep = "")
-      cat("RF_Init_Imp", out_imp, file = filenameRFimp, sep = ",", append = FALSE)
+      #Saving importance values
+      filenameRFimp <- paste(file_prefix, "RF_Init_Imp_boot", def, "_HM", abc, ".txt", sep = "")
+      write_delim(x = imp_init, file = filenameRFimp, delim = ',', append = FALSE)
       
-      #Training data
-      XRED3 <- t(XRED2_ML) #transposes XRED2_ML
-      XRED3_IMP <- cbind(imp_init, XRED3)
-      XRED3_IMP_ORD <- as.data.frame(XRED3_IMP)
-      XRED3_IMP_ORD <- XRED3_IMP_ORD[order(XRED3_IMP_ORD$IMP, decreasing = TRUE),]
+      #Training data with only the top num_features_retain attributes
+      #transpose
+      X_ML_T <- t(X_ML)
+      #add feature importance
+      X_ML_T_IMP <- cbind(imp_init, X_ML_T)
+      #order by feature importance
+      X_ML_T_IMP_ORD <- as.data.frame(X_ML_T_IMP)
+      X_ML_T_IMP_ORD <- X_ML_T_IMP_ORD[order(X_ML_T_IMP_ORD$IMP, decreasing = TRUE),]
       #New matrix that holds the top num_features_retain watershed attributes
-      XRED3_20 <- as.data.frame(t(XRED3_IMP_ORD[1:num_features_retain, 2:ncol(XRED3_IMP_ORD)]))
-      XRED3_20_TEST <- XRED2_ML_TEST[,colnames(XRED3_20)]
+      X_ML_T_top_attrs <- as.data.frame(t(X_ML_T_IMP_ORD[1:num_features_retain, 2:ncol(X_ML_T_IMP_ORD)]))
+      X_ML_T_top_attrs_TEST <- X_ML_TEST[,colnames(X_ML_T_top_attrs)]
       
       #Random forest tuning
       #Determining optimal parameter values for RF (mtry and ntree)
-      RF_Models_ntree <- ranger_ntree
-      RF_Models_ntree <- as.data.frame(RF_Models_ntree)
-      RF_Models_mtry <- ranger_mtry
-      RF_Models_mtry <- as.data.frame(RF_Models_mtry)
-      #For CLASSIFICATION minimize on weighted MACRO F1Stat (bc the false pos and false negs are EQUALLY bad and the classes are imbalanced)
+      #For CLASSIFICATION minimize on weighted MACRO F1Stat 
+      #(the false pos and false negs are EQUALLY bad and the classes are imbalanced)
       RF_Wt_Macro_F_Pre <- matrix(0, nrow(RF_Models_ntree), nrow(RF_Models_mtry))
       
       for(aaa in 1:nrow(RF_Models_ntree)){
         for(bbb in 1:nrow(RF_Models_mtry)){
           ntree_tune <- RF_Models_ntree[aaa,1]
           mtry_tune <- RF_Models_mtry[bbb,1]
-          RF_Pre <- ranger::ranger(x = XRED3_20, y = YRED2, num.trees = ntree_tune, mtry = mtry_tune, 
+          RF_Pre <- ranger::ranger(x = X_ML_T_top_attrs, y = Y, num.trees = ntree_tune, mtry = mtry_tune, 
                                    importance = 'impurity', classification = TRUE, num.threads = ranger_threads)
-          YPRED_RF_Pre <- predict(RF_Pre, XRED3_20_TEST)
-          YPRED_RF_Pre <- as.data.frame(YPRED_RF_Pre$predictions)
-          YRED2_TEST_Comp <- as.data.frame(YRED2_TEST)
+          YPRED_RF_Pre <- predict(RF_Pre, X_ML_T_top_attrs_TEST)
           
-          #Constructing confusion matrix for validation data
-          YRED2_TEST_Comp2 <- cbind(YRED2_TEST_Comp, YPRED_RF_Pre)
-          #Calculates confusion matrix for the Validation data (TRUE POSITIVES, TRUE NEGATIVES, FALSE POSITIVES, FALSE NEGATIVES) BUT UNSTRUCTURED!
-          TABG_Pre <- as.data.frame(table(YRED2_TEST_Comp2[,])) 
-          #Ken suggests function starts here
-          #Assigning the TP, TN, FP, FN from TABG_Pre into the correct structure matrix called CONFUSION_Pre
-          CONFUSION_Pre <- matrix(0, max(YRED2_TEST), max(YRED2_TEST)) #Observed classes=rows & Predicted classes=cols
-          for(ccc in 1:nrow(TABG_Pre)){
-            CONFUSION_Pre[TABG_Pre$YRED2_TEST[ccc], TABG_Pre$YPRED_RF_Pre.predictions[ccc]] = TABG_Pre$Freq[ccc]
-          }
+          #compute confusion matrix for validation dataset
+          CONFUSION_Pre <- calc_confusion_matrix(obs = Y_TEST, pred = YPRED_RF_Pre$predictions)
           
           #Calculation of the Weighted Macro F1 Statistic
-          Precision_Pre <- matrix(0, max(YRED2_TEST), 1) #uses False Positives, FP
-          Recall_Pre <- matrix(0, max(YRED2_TEST), 1) #uses False Negatives, FN
-          F1_Pre <- matrix(0, max(YRED2_TEST), 1)
-          Horiz_Sums_Pre <- matrix(0, max(YRED2_TEST), 1) #Horizontal sums across the confusion matrix (bc Observed classes=rows)
-          #FP=vertical sums (minus main diagonal)
-          #FN=horizontal sums (minus main diagonal)
-          for(ddd in 1:nrow(CONFUSION_Pre)){
-            Precision_Pre[ddd,1] <- CONFUSION_Pre[ddd,ddd]/(CONFUSION_Pre[ddd,ddd] + (sum(CONFUSION_Pre[,ddd]) - CONFUSION_Pre[ddd,ddd]))
-            Recall_Pre[ddd,1] <- CONFUSION_Pre[ddd,ddd]/(CONFUSION_Pre[ddd,ddd] + (sum(CONFUSION_Pre[ddd,]) - CONFUSION_Pre[ddd,ddd]))
-            if(Precision_Pre[ddd,1] == 0 || Recall_Pre[ddd,1] == 0){
-              F1_Pre[ddd,1] <- 0
-            }else{
-              F1_Pre[ddd,1] <- 2*((Precision_Pre[ddd,1] * Recall_Pre[ddd,1])/(Precision_Pre[ddd,1] + Recall_Pre[ddd,1]))
-            }
-            #Each classes weighted contribution to the Wt Macro F1 Stat
-            Horiz_Sums_Pre[ddd,1] <- F1_Pre[ddd,1] * (sum(CONFUSION_Pre[ddd,])/sum(CONFUSION_Pre))
-          }
-          RF_Wt_Macro_F_Pre[aaa,bbb] <- sum(Horiz_Sums_Pre)
+          RF_Wt_Macro_F_Pre[aaa,bbb] <- calc_weighted_F1(confusion = CONFUSION_Pre, 
+                                                         max_class = max(Y_TEST))
           
-          rm(ntree_tune)
-          rm(mtry_tune)
-          rm(RF_Pre)
-          rm(YPRED_RF_Pre)
-          rm(YRED2_TEST_Comp)
-          
-          rm(YRED2_TEST_Comp2)
-          rm(TABG_Pre)
-          rm(CONFUSION_Pre)
-          rm(ccc)
-          
-          rm(Precision_Pre)
-          rm(Recall_Pre)
-          rm(F1_Pre)
-          rm(Horiz_Sums_Pre)
-          
+          rm(ntree_tune, mtry_tune, RF_Pre, YPRED_RF_Pre, CONFUSION_Pre)
         } #bbb loop
       } #aaa loop
       
-      #ID which row and col contain the highest/lowest perf metric (ie for regression=mse so lowest or NSE is max, for classification=  so highest)
+      #ID which row and col contain the highest/lowest perf metric 
+      # (for classification = highest)
       RF_FStat_Loc <- which(RF_Wt_Macro_F_Pre == max(RF_Wt_Macro_F_Pre), arr.ind = TRUE)
       RF_ntree_Opt <- RF_Models_ntree[RF_FStat_Loc[1,1], 1]
       RF_mtry_Opt <- RF_Models_mtry[RF_FStat_Loc[1,2], 1]
-      RF_para_ntree[abc,def] <- RF_ntree_Opt
-      RF_para_mtry[abc,def] <- RF_mtry_Opt
+      RF_opt_ntree[abc,def] <- RF_ntree_Opt
+      RF_opt_mtry[abc,def] <- RF_mtry_Opt
       
       #Forming optimal model since program does not save each RF model in tuning to save RAM
-      RF <- ranger::ranger(x = XRED3_20, y = YRED2, num.trees = RF_ntree_Opt, mtry = RF_mtry_Opt, 
+      RF <- ranger::ranger(x = X_ML_T_top_attrs, y = Y, num.trees = RF_ntree_Opt, mtry = RF_mtry_Opt, 
                            importance = 'impurity', classification = TRUE, num.threads = ranger_threads)
-      RF
+      #RF
       #RF$confusion.matrix
       imp_RF <- as.data.frame(RF$variable.importance)
-      YPRED_RF <- predict(RF, XRED3_20_TEST)
-      YPRED_RF <- as.data.frame(YPRED_RF$predictions)
+      YPRED_RF <- predict(RF, X_ML_T_top_attrs_TEST)
       
-      #Performance metric for final classification model
-      #Do not need to recalculate Wt Macro F1 stat bc max value assoc. with optimal values of ntree and mtry
-      RF_Wt_Macro_FStat[abc,def] <- max(RF_Wt_Macro_F_Pre)
+      #Performance metrics for final model
+      #compute confusion matrix for validation dataset
+      CONFUSION <- calc_confusion_matrix(obs = Y_TEST, pred = YPRED_RF$predictions)
       
-      YRED2_TEST_Comp3 <- as.data.frame(YRED2_TEST)
-      Y_Combined <- data.frame(YRED2_TEST_Comp3, YPRED_RF)
+      #Calculation of the Weighted Macro F1 Statistic
+      RF_Wt_Macro_FStat[abc,def] <- calc_weighted_F1(confusion = CONFUSION, 
+                                                     max_class = max(Y_TEST))
+      
+      #observations and predictions for test dataset
+      Y_Combined <- data.frame(as.data.frame(Y_TEST), 
+                               as.data.frame(YPRED_RF$predictions))
       
       #Saving the predicted and corresponding observed Y values from the test sets
       if(abc == 1){
@@ -244,82 +218,45 @@ train_multiclass <- function(InputData, y_columns, GAGEID_column, x_columns,
         ALL_RES_RF <- rlist::list.append(ALL_RES_RF, cbind(GAGEID_TEST,Y_Combined))
       }
       
-      ###REMOVING certain data from the environment use the 'rm(X,Y,Z)' at the end of the loop to zero out some matrices
-      rm(TEST_SET)
-      rm(TRAIN_SET)
-      rm(XRED2)
-      rm(IDRED2)
-      rm(XRED2_TEST)
-      rm(IDRED2_TEST)
-      rm(YRED2)
-      rm(YRED2_TEST)
-      rm(GAGEID_TRAIN)
-      rm(GAGEID_TEST)
-      rm(filenameTRAIN)
-      rm(filenameTEST)
-      rm(out_TRAIN)
-      rm(out_TEST)
-      
-      rm(XRED2_ML)
-      rm(XRED2_ML_TEST)
-      
-      rm(RF_init)
-      rm(imp_init)
-      rm(XRED3)
-      rm(XRED3_IMP)
-      rm(XRED3_IMP_ORD)
-      rm(XRED3_20)
-      rm(XRED3_20_TEST)
-      
-      rm(RF_Models_ntree)
-      rm(RF_Models_mtry)
-      rm(RF_Wt_Macro_F_Pre)
-      rm(aaa)
-      rm(bbb)
-      
-      rm(RF_FStat_Loc)
-      rm(RF_ntree_Opt)
-      rm(RF_mtry_Opt)
-      
-      rm(RF)
-      rm(imp_RF)
-      rm(YPRED_RF)
-      rm(YRED2_TEST_Comp3)
-      
-      rm(Y_Combined)
+      ###REMOVING certain data from the environment
+      rm(TEST_SET, TRAIN_SET, X, ID, X_TEST, ID_TEST, Y, Y_TEST,
+         GAGEID_TRAIN, GAGEID_TEST, filenameTRAIN, filenameTEST, X_ML, X_ML_TEST,
+         RF_init, imp_init, X_ML_T, X_ML_T_IMP, X_ML_T_IMP_ORD, X_ML_T_top_attrs,
+         X_ML_T_top_attrs_TEST, RF_Models_ntree, RF_Models_mtry, RF_Wt_Macro_F_Pre,
+         aaa, bbb, RF_FStat_Loc, RF_ntree_Opt, RF_mtry_Opt, RF, imp_RF, YPRED_RF,
+         Y_TEST_Comp3, Y_Combined)
     } #abc loop
     
+    #test gages and predictions to be saved later
     if(def == 1){
       ALL_RES_RF2 <- ALL_RES_RF
     }else{
       ALL_RES_RF2 <- rbind(ALL_RES_RF2, ALL_RES_RF)
     }
     
-    ###REMOVING certain data from the environment use the 'rm(X,Y,Z)' at the end of the loop to zero out some matrices
-    rm(abc)
-    
-    rm(ALL_RES_RF)
+    ###REMOVING certain data from the environment
+    rm(abc, ALL_RES_RF)
     
   } #def loop
   
-  write.csv(RF_para_ntree, file = paste0(file_prefix, "RF_para_ntree_Class.csv"))
-  write.csv(RF_para_mtry, file = paste0(file_prefix, "RF_para_mtry_Class.csv"))
+  write.csv(RF_opt_ntree, file = paste0(file_prefix, "RF_opt_ntree_Class.csv"))
+  write.csv(RF_opt_mtry, file = paste0(file_prefix, "RF_opt_mtry_Class.csv"))
   write.csv(RF_Wt_Macro_FStat, file = paste0(file_prefix, "RF_Wt_Macro_FStat_Class.csv"))
   
   #Warn if any of the optimal parameters are located at the bounds
-  if (any(RF_para_mtry == max(ranger_mtry))){
+  if (any(RF_opt_mtry == max(ranger_mtry))){
     message('Some of the optimal mtry are at the maximum value. 
             Try increasing the maximum and increasing the num_features_retained.')
   }
-  if (any(RF_para_mtry == min(ranger_mtry))){
+  if (any(RF_opt_mtry == min(ranger_mtry))){
     message('Some of the optimal mtry are at the minimum value. 
             Try decreasing the minimum value.')
   }
-  if (any(RF_para_ntree == max(ranger_ntree))){
+  if (any(RF_opt_ntree == max(ranger_ntree))){
     message('Some of the optimal ntree are at the maximum value. 
             Try increasing the maximum.')
   }
-  if (any(RF_para_ntree == min(ranger_ntree))){
+  if (any(RF_opt_ntree == min(ranger_ntree))){
     message('Some of the optimal ntree are at the minimum value. 
             Try decreasing the minimum value.')
   }
@@ -335,5 +272,71 @@ train_multiclass <- function(InputData, y_columns, GAGEID_column, x_columns,
     }
   }
   
+  #Return list of info
+  #confusion matrix list, F1 matrix, RF model list,
+  #name lists with the bootstrap and model index
   return(RF_Wt_Macro_FStat)
+}
+
+calc_confusion_matrix <- function(obs, pred){
+  #' @description Calculation of the Weighted Macro F1 Statistic
+  #' @param obs vector of observations
+  #' @param pred vector of predictions
+  #' 
+  #' @returns confusion matrix with observed classes = rows & Predicted classes = cols
+  
+  pred <- as.data.frame(pred)
+  obs <- as.data.frame(obs)
+  
+  #Constructing confusion matrix for validation data
+  obs_pred <- cbind(obs, pred)
+  #Calculate unstructured confusion matrix 
+  #(TRUE POSITIVES, TRUE NEGATIVES, FALSE POSITIVES, FALSE NEGATIVES)
+  confusion_pre <- as.data.frame(table(obs_pred)) 
+  #Assigning the TP, TN, FP, FN from confusion_pre into the correct structured matrix
+  confusion <- matrix(0, max(obs), max(obs))
+  for(ccc in 1:nrow(confusion_pre)){
+    #Observed classes = rows & Predicted classes = cols
+    confusion[confusion_pre$obs[ccc], confusion_pre$pred[ccc]] = confusion_pre$Freq[ccc]
+  }
+  
+  return(confusion)
+}
+
+calc_weighted_F1 <- function(confusion, max_class){
+  #' @description Calculation of the Weighted Macro F1 Statistic
+  #' @param confusion the confusion matrix from calc_confusion_matrix()
+  #' @param max_class the maximum class number (should equal total number of classes)
+  #' 
+  #' @returns weighted F1 statistic
+  
+  Precision_Pre <- vector('numeric', length = max_class)
+  Recall_Pre <- vector('numeric', length = max_class)
+  F1_Pre <- vector('numeric', length = max_class)
+  Horiz_Sums_Pre <- vector('numeric', length = max_class)
+  
+  for(ddd in 1:nrow(confusion)){
+    #uses False Positives, FP
+    #FP=vertical sums (minus main diagonal)
+    Precision_Pre[ddd] <- confusion[ddd,ddd]/(confusion[ddd,ddd] + (sum(confusion[,ddd]) - confusion[ddd,ddd]))
+    #uses False Negatives, FN
+    #FN=horizontal sums (minus main diagonal)
+    Recall_Pre[ddd] <- confusion[ddd,ddd]/(confusion[ddd,ddd] + (sum(confusion[ddd,]) - confusion[ddd,ddd]))
+    
+    #compute F1
+    if(Precision_Pre[ddd] == 0 || Recall_Pre[ddd] == 0){
+      F1_Pre[ddd] <- 0
+    }else{
+      F1_Pre[ddd] <- 2*((Precision_Pre[ddd] * Recall_Pre[ddd])/(Precision_Pre[ddd] + Recall_Pre[ddd]))
+    }
+    
+    #Each class' contribution to the weighted F1 statistic
+    #Horizontal sums across the confusion matrix (Observed classes=rows)
+    Horiz_Sums_Pre[ddd] <- F1_Pre[ddd] * (sum(confusion[ddd,])/sum(confusion))
+  }
+  
+  #weighted F1
+  Wt_F1 <- sum(Horiz_Sums_Pre)
+  
+  return(Wt_F1)
 }

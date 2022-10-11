@@ -133,6 +133,7 @@ prep_feature_vars <- function(sb_var_data, sites_all, sites_screened,
   #'@return data frame with COMID column appended by all feature variables of interest; 
   #'time-varying features converted to long-term averages where applicable
   
+  # Identify all combinations of sites and their complete years (for weighted avgs)
   complete_years <- years_by_site %>% 
     group_by(year_val, site_no) %>%
     summarise(.groups = "drop") %>%
@@ -140,6 +141,7 @@ prep_feature_vars <- function(sb_var_data, sites_all, sites_screened,
     mutate(site_comid_match = if_else(grepl("_", site_no), 
                                       sub("_.*", "", site_no), site_no))
   
+  # Identify screened sites and split the combined sites
   screened_site_list <- c()
   for (i in sites_screened) {
     if (grepl("_", i)) {
@@ -152,6 +154,7 @@ prep_feature_vars <- function(sb_var_data, sites_all, sites_screened,
     screened_site_list <- c(screened_site_list, sites)
   }
   
+  # Only keep retained feature variables and screened gages 
   data <- sites_all %>%
     select(COMID, all_of(retain_vars)) %>%
     filter(ID %in% screened_site_list) %>%
@@ -183,8 +186,7 @@ prep_feature_vars <- function(sb_var_data, sites_all, sites_screened,
            contains("SOHL40"), contains("SOHL50"), contains("SOHL60"),
            contains("SOHL70"), contains("SOHL80"), contains("SOHL90"), 
            contains("SOHL00")) %>%
-    group_by(COMID) %>%
-    summarise_all(mean) %>%
+    distinct() %>%
     pivot_longer(!COMID, names_to = "name", values_to = "value") %>%
     mutate(unit = str_sub(name, 1, 3), 
            year = if_else(str_sub(name, 9, 10) == "00", 2000, 
@@ -232,7 +234,10 @@ prep_feature_vars <- function(sb_var_data, sites_all, sites_screened,
     drop_na() %>%
     left_join(land_cover, by = "COMID") %>%
     select(-lc_sum) %>%
-    mutate(lc_by_year = case_when(
+    mutate(lc_by_year = case_when( 
+      #assign LC each year based on nearest decade reported
+      #decades 1940 - 2000 available; mid-decade (1945, 1955, etc.) round down
+      #assign 1940 to all years before 1940, 2000 to all years after 2000
       year_w_data <= 1945 & year == 1940 ~ value, 
       year_w_data > 1945 & year_w_data <= 1955 & year == 1950 ~ value, 
       year_w_data > 1955 & year_w_data <= 1965 & year == 1960 ~ value, 
@@ -286,6 +291,9 @@ prep_feature_vars <- function(sb_var_data, sites_all, sites_screened,
            year = str_sub(name, -4)) %>%
     filter(year <= 2010) %>%
     mutate(dams_by_year = case_when(
+      #assign dam info each year based on nearest decade reported
+      #decades 1930 - 2010 available (and 2013...); mid-decade (1945, 1955, etc.) round down
+      #assign 1930 to all years before 1930, 2010 to all years after 2010
       year_w_data <= 1935 & year == 1930 ~ value, 
       year_w_data > 1935 & year_w_data <= 1945 & year == 1940 ~ value, 
       year_w_data > 1945 & year_w_data < 1955 & year == 1950 ~ value, 
@@ -325,6 +333,7 @@ prep_feature_vars <- function(sb_var_data, sites_all, sites_screened,
     pivot_wider(names_from = "label", values_from = "avg_monthly")
   
   #convert annual monthly weather data to weighted average monthly weather data by year
+  #long-term avgs needed to backfill for years outside of range of weather data
   weather_weighted_avg_temp <- data %>%
     select(COMID, contains("_PPT_"), contains("_TAV_")) %>%
     distinct() %>%
@@ -357,6 +366,10 @@ prep_feature_vars <- function(sb_var_data, sites_all, sites_screened,
                                  month_name == "SEP" ~ 9, month_name == "OCT" ~ 10, 
                                  month_name == "NOV" ~ 11, month_name == "DEC" ~ 12)) %>%
     mutate(weather_by_year = case_when(
+      #assign monthly weather each year based on year reported
+      #weather data reported by calendar year, weighted averages based on water year
+      #years 1945 - 2015 available
+      #assign long-term average to all years before 1945 and after 2015
       year_w_data <= 1944 & year == 1945 ~ avg_monthly, 
       year_w_data == 1945 & month_num >= 10 & year == 1945 ~ avg_monthly, 
       year_w_data == 1945 & month_num < 10 & year == 1945 ~ value, 

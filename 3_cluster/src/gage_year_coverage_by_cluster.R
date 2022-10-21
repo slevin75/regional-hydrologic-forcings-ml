@@ -22,12 +22,9 @@ plot_data_coverage <- function(screened_site_list, cluster_table, dv_data_dir, d
   
   df_tally_allgages<-data.frame()
   for (i in 1:length(screened_site_list)){
-
+    print(i)
+    
     fname<- file.path(dv_data_dir,screened_site_list[i])
-    ##all streamgages in the screened_site_list have 8 digit gage numbers.
-    ##getting the station ID from the file name instead of the downloaded file
-    ##because the site_no column for gage 02490105 has been converted to a
-    ##date and it throws an error when it tries to rbind.
     station.ID <- substr(screened_site_list[i], start = 1, stop = 8)
     df<-read_csv(fname, col_types = cols() ) %>%
       addWaterYear()
@@ -147,8 +144,6 @@ get_estimated_data<- function(fname){
   
   station.ID <- substr(fname, start = 15, stop = 22)
   df<- read_csv(fname, col_types = cols()) 
-  ##returns an empty df for 4 gages where there are more than 1 discharge column in NWIS download.
-  ##these sites are omitted from the plots. 
   if("discharge" %in% names(df)){
     df <- df %>% 
       mutate(ID = station.ID) %>%
@@ -163,4 +158,40 @@ get_estimated_data<- function(fname){
   
 }
 
+plot_complete_years <- function(clean_daily_flow, cluster_table, out_dir){
+  #' @description this function plots the years of complete data by cluster  
+  #' @param clean_daily_flow p1_clean_daily_flow table
+  #' @param cluster_table data frame with gage ID  and cluster group
+  #' @param out_dir directory to save plot
 
+  df<- clean_daily_flow %>%
+    rename(ID = site_no) %>%
+    rename(waterYear = year_val) %>%
+    left_join(.,cluster_table, by="ID") %>%
+    group_by(ID, waterYear) %>%
+    select(ID, waterYear, midhigh, high) %>%
+    distinct() 
+  
+  df$midhigh <- factor(df$midhigh)
+  df$high <- factor(df$high)
+  p1<- ggplot(df, aes(x= waterYear, y = ID, fill = midhigh)) + geom_tile() +
+    theme(axis.text.y = element_blank(),
+          axis.ticks.y = element_blank())+
+    scale_x_continuous(breaks = seq(1900, 2020, 20))+
+    facet_grid(midhigh~., scales="free", space="free")+
+    ggtitle("complete years of data")
+  
+  
+  p2<-ggplot(df , aes(x= waterYear, y = ID, fill = high)) + geom_tile() +
+    theme(axis.text.y = element_blank(),
+          axis.ticks.y = element_blank())+
+    scale_x_continuous(breaks = seq(1900, 2020, 20))+
+    facet_grid(high~., scales="free", space="free")+
+    ggtitle("complete years of data")
+  
+  fname <- paste0("complete_years.png")
+  fileout <- file.path(dir_out, fname)  
+  ggsave(filename = fileout, 
+         plot =   plot_grid(p1,p2, ncol = 1, label_size = 8))
+   
+}

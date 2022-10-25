@@ -57,7 +57,7 @@ plot_data_coverage <- function(screened_site_list, cluster_table, dv_data_dir, d
   
   
   plot_paths<- purrr::map(plot_cols, make_por_plot, df_tally_allgages, dir_out, estimated_data) 
-  
+  return(plot_paths)  
   
 }  
 
@@ -193,5 +193,6 @@ plot_complete_years <- function(clean_daily_flow, cluster_table, out_dir){
   fileout <- file.path(dir_out, fname)  
   ggsave(filename = fileout, 
          plot =   plot_grid(p1,p2, ncol = 1, label_size = 8))
-   
+ 
+  return(fileout)  
 }

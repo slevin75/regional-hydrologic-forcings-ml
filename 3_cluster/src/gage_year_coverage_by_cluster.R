@@ -22,7 +22,7 @@ plot_data_coverage <- function(screened_site_list, cluster_table, dv_data_dir, d
   
   df_tally_allgages<-data.frame()
   for (i in 1:length(screened_site_list)){
-    print(i)
+ 
     
     fname<- file.path(dv_data_dir,screened_site_list[i])
     station.ID <- substr(screened_site_list[i], start = 1, stop = 8)
@@ -158,7 +158,7 @@ get_estimated_data<- function(fname){
   
 }
 
-plot_complete_years <- function(clean_daily_flow, cluster_table, out_dir){
+plot_complete_years <- function(clean_daily_flow, cluster_table, dir_out){
   #' @description this function plots the years of complete data by cluster  
   #' @param clean_daily_flow p1_clean_daily_flow table
   #' @param cluster_table data frame with gage ID  and cluster group

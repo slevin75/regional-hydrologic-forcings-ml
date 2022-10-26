@@ -1061,37 +1061,41 @@ p6_targets_list<- list(
   
   
   #Multiclass prediction model training to predict cluster membership
-  # two targets commented out because they haven't been tested
-  # tar_target(p6_cluster_model_high,
-  #            train_multiclass(InputData = left_join(p3_gages_clusters_quants_agg, 
-  #                                                   p5_attr_g2 %>%
-  #                                                     select(-COMID), 
-  #                                                   by = c('ID' = 'GAGES_ID')) %>% 
-  #                               na.omit(), 
-  #                             y_columns = 2:9, 
-  #                             GAGEID_column = 1,
-  #                             x_columns = 10:(ncol(p5_attr_g2) + 7), 
-  #                             Val_Pct = 0.1, 
-  #                             bootstraps = 20, 
-  #                             num_features_retain = 20, 
-  #                             ranger_mtry = seq(5,20,5), 
-  #                             ranger_ntree = seq(100, 1500, 200),
-  #                             file_prefix = '6_predict/out/multiclass/High/')),
-  # 
+  tar_target(p6_cluster_model_high,
+             train_multiclass(InputData = left_join(p3_gages_clusters_quants_agg_selected,
+                                                    p5_attr_g2 %>%
+                                                      select(-COMID),
+                                                    by = c('ID' = 'GAGES_ID')) %>%
+                                na.omit(),
+                              y_columns = 2:7,
+                              GAGEID_column = 1,
+                              #"-2" from removing COMID and the shared GAGES_ID column
+                              x_columns = 8:(ncol(p5_attr_g2) + ncol(p3_gages_clusters_quants_agg_selected) - 2),
+                              Val_Pct = 0.2,
+                              bootstraps = 20,
+                              num_features_retain = 40,
+                              ranger_mtry = seq(5,40,5),
+                              ranger_ntree = seq(100, 1100, 200),
+                              file_prefix = '6_predict/out/multiclass/High/',
+                              ranger_threads = Boruta_cores,
+                              probability = TRUE, save_txt_files = FALSE)
+             ),
+  
+  #Commenting out the low flows for now. Currently untested and out of scope.
   # tar_target(p6_cluster_model_low,
-  #            train_multiclass(InputData = left_join(p3_gages_clusters_quants_agg_low, 
+  #            train_multiclass(InputData = left_join(p3_gages_clusters_quants_agg_low,
   #                                                   p5_attr_g2 %>%
-  #                                                     select(-COMID), 
-  #                                                   by = c('ID' = 'GAGES_ID')) %>% 
-  #                               na.omit(), 
-  #                             y_columns = c(seq(2,8,2), seq(9,15,2)), 
+  #                                                     select(-COMID),
+  #                                                   by = c('ID' = 'GAGES_ID')) %>%
+  #                               na.omit(),
+  #                             y_columns = c(seq(2,8,2), seq(9,15,2)),
   #                             GAGEID_column = 1,
-  #                             x_columns = 16:(ncol(p5_attr_g2) + 13), 
-  #                             Val_Pct = 0.1, 
-  #                             bootstraps = 20, 
-  #                             num_features_retain = 20, 
-  #                             ranger_mtry = seq(5,20,5), 
-  #                             ranger_ntree = seq(100, 1500, 200),
+  #                             x_columns = 16:(ncol(p5_attr_g2) + 13),
+  #                             Val_Pct = 0.2,
+  #                             bootstraps = 20,
+  #                             num_features_retain = 40,
+  #                             ranger_mtry = seq(5,40,5),
+  #                             ranger_ntree = seq(100, 1100, 200),
   #                             file_prefix = '6_predict/out/multiclass/Low/')),
   
   tar_target(p6_EcoFlowsAttrs_csv,

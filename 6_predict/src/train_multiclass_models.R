@@ -53,6 +53,8 @@ train_multiclass <- function(InputData, y_columns, GAGEID_column, x_columns,
   RF_confusion <- data.frame(HM = integer(), boot = integer(), confusion = I(list()))
   #feature importance
   RF_importance <- data.frame(HM = integer(), boot = integer(), importance = I(list()))
+  #Trained RF models
+  RF_trained_models <- data.frame(HM = integer(), boot = integer(), model = I(list()))
   if(probability){
     #Brier score
     RF_Brier <- matrix(0, ncol(InputData_y), bootstraps)
@@ -94,7 +96,9 @@ train_multiclass <- function(InputData, y_columns, GAGEID_column, x_columns,
       Y <- TRAIN_SET[, y_columns] %>%
         as.data.frame()
       X <- TRAIN_SET[, x_columns] 
-      ID <- TRAIN_SET[, GAGEID_column]  
+      ID <- TRAIN_SET[, GAGEID_column]
+      #save column names for data name labels
+      HM_names <- colnames(TRAIN_SET)[y_columns]
       
       Y_TEST <- TEST_SET[, y_columns] %>%
         as.data.frame()
@@ -255,8 +259,11 @@ train_multiclass <- function(InputData, y_columns, GAGEID_column, x_columns,
                                                      max_class = max(Y_TEST))
       
       #Save confusion matrix and feature importance for best model
-      RF_confusion <- rbind(RF_confusion, data.frame(HM = abc, boot = def, confusion = I(list(CONFUSION))))
-      RF_importance <- rbind(RF_importance, data.frame(HM = abc, boot = def, importance = I(list(imp_RF))))
+      RF_confusion <- rbind(RF_confusion, data.frame(HM = HM_names[abc], boot = def, confusion = I(list(CONFUSION))))
+      RF_importance <- rbind(RF_importance, data.frame(HM = HM_names[abc], boot = def, importance = I(list(imp_RF))))
+      
+      #Save trained RF model so it can be used to predict on new data in other functions
+      RF_trained_models <- rbind(RF_trained_models, data.frame(HM = HM_names[abc], boot = def, model = I(list(RF))))
       
       #observations and predictions for test dataset
       Y_Combined <- data.frame(as.data.frame(Y_TEST), 
@@ -336,10 +343,11 @@ train_multiclass <- function(InputData, y_columns, GAGEID_column, x_columns,
   #Return list of info
   if(probability){
     return_list = list(Brier = RF_Brier, F1 = RF_Wt_Macro_FStat, confusion = RF_confusion, 
-                       importance = RF_importance, opt_ntree = RF_opt_ntree, opt_mtry = RF_opt_mtry)
+                       importance = RF_importance, opt_ntree = RF_opt_ntree, opt_mtry = RF_opt_mtry,
+                       RF_models = RF_trained_models)
   }else{
     return_list = list(F1 = RF_Wt_Macro_FStat, confusion = RF_confusion, importance = RF_importance,
-                       opt_ntree = RF_opt_ntree, opt_mtry = RF_opt_mtry)
+                       opt_ntree = RF_opt_ntree, opt_mtry = RF_opt_mtry, RF_models = RF_trained_models)
   }
 
   return(return_list)
@@ -433,4 +441,35 @@ get_filename <- function(index){
   }
   
   return(index_chr)
+}
+
+
+predict_multiclass <- function(model, reach_attrs){
+  #' @description returns the filename to use based on the bootstrap index value
+  #' 
+  #' @param model trained model(s) used to make predictions for each reach in reach_attrs
+  #' @param reach_attrs dataframe of reaches (rows) and attributes (columns) for which
+  #' predictions will be made. Must have a "ID" column.
+  #' 
+  #' @returns matrix of predicted class (columns) probabilities (cells) for each reach (rows)
+  
+  #loop over models within model to make predictions
+  predictions <- array(data = NA, dim = c(length(model), nrow(reach_attrs), ncol(model[[1]]$predictions)), 
+  )
+  for (i in 1:length(model)){
+    #get the reach attrs used for this model
+    attrs <- select(reach_attrs, all_of(names(model[[i]]$variable.importance)))
+    preds <- predict(model[[i]], attrs)$predictions
+    
+    predictions[i,,] <- preds
+  }
+  
+  #compute the average predictions for each reach over all models
+  avg_predications <- apply(X = predictions, MARGIN = c(2,3), FUN = mean)
+  colnames(avg_predications) <- seq(1,ncol(avg_predications),1)
+  avg_predications <- as.data.frame(avg_predications)
+  #Add identifier
+  avg_predications$ID <- reach_attrs$ID
+  
+  return(avg_predications)
 }

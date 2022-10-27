@@ -328,6 +328,103 @@ make_residual_map <- function(df_pred_obs, sites, metric, pred_gage_ids, region,
 }
 
 
+make_class_prediction_map <- function(class_probs, reaches, out_dir){
+  #' @description this function creates maps of predicted class probabilities for
+  #' each reach
+  #' 
+  #' @param class_probs dataframe of predicted class probabilities for each reach.
+  #' must have an "ID" column and columns for the class probabilities labeled with
+  #' the name of the class. No other columns.
+  #' @param reaches sf object containing the reaches to plot. Must have a "COMID" column
+  #' @param out_dir where output figures are saved
+  #' 
+  #' @return file paths to maps
+  
+  #get number of ranks
+  num_ranks <- ncol(class_probs) - 1
+  
+  #Convert the predicted probabilities into a rank of which class is most likely (1) 
+  #to least likely (n = number of classes)
+  rank_mat <- t(apply(X = class_probs[, -which(colnames(class_probs) == "ID")], 
+                      MARGIN = 1, FUN = decreasing_rank)) %>%
+    as.data.frame()
+  rank_mat$ID <- class_probs$ID
+  colnames(rank_mat) <- colnames(class_probs)
+  
+  #Make new columns for the rank of the class (change the cells to column names)
+  LikelyRanks <- matrix(NA, nrow = nrow(rank_mat), ncol = num_ranks)
+  for(i in 1:ncol(LikelyRanks)){
+    LikelyRanks[,i] <- apply(X = rank_mat, MARGIN = 1, FUN = assign_max_rank, 
+                             rank = i, rank_cols = colnames(rank_mat)[1:num_ranks]) 
+  }
+  LikelyRanks <- as.data.frame(LikelyRanks)
+  colnames(LikelyRanks) <- paste0('LikelyRank', seq(1,ncol(LikelyRanks),1))
+  #Change to characters
+  LikelyRanks <- as.data.frame(apply(X = LikelyRanks, MARGIN = 2, FUN = as.character, simplify = FALSE))
+  #Add ID
+  LikelyRanks$ID <- rank_mat$ID
+  
+  #Join ranks to reaches for plotting
+  reaches <- left_join(reaches, LikelyRanks, by = "ID")
+  
+  #Plot one map for the most likely class, second most likely, etc. to the nth class
+  states <- map_data("state")
+  
+  #filenames
+  fnames <- vector('character', length = ncol(LikelyRanks) - 1) 
+  
+  for(i in 1:length(fnames)){
+    col_name <- colnames(LikelyRanks)[i]
+    fname <- file.path(out_dir, paste0(col_name, '_map.png'))
+    
+    p1 <- ggplot(states, aes(x = long, y = lat, group = group)) +
+      geom_polygon(fill = "gray60", colour = "gray80") +
+      geom_sf(data = reaches, inherit.aes = FALSE, 
+              aes(color = .data[[col_name]]), 
+              size = 0.1) +
+      scale_color_scico_d(palette = 'batlow') +
+      theme(legend.position="bottom",
+            legend.key.size=unit(.75,'cm'))+
+      xlab('Longitude') + 
+      ylab('Latitude')
+    
+    ggsave(filename = fname, plot = p1, bg = "white")
+  }
+  
+  return(fname)
+}
+
+assign_max_rank <- function(rank_vec, rank, rank_cols){
+  #' @description this function finds the index of rank within rank_vec
+  #' 
+  #' @param rank_vec the vector containing ranks
+  #' @param rank the rank to search for in rank_vec
+  #' @param rank_cols column names of rank_vec to search for rank
+  #' 
+  #' @return index of the rank within the rank_vec
+  
+  ind <- which(rank_vec[rank_cols] == rank)
+  
+  if((length(ind) > 1) | (length(ind) == 0)){
+    #there are ties for this rank, which generally means the prob was 0.
+    #return NA for the ind
+    ind <- NA
+  }
+  
+  return(ind)
+}
+
+
+decreasing_rank <- function(values){
+  #' @description this function computes a decreasing rank for the values provided
+  #' 
+  #' @param values vector of values to be ranked
+  #' 
+  #' @return vector of ranks for those values
+  
+  rank_vals <- rank(-rank(values, ties.method = 'max'), ties.method = 'min')
+}
+
 
 
 #Residual error boxplots

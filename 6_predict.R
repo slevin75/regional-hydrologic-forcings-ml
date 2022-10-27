@@ -1124,14 +1124,15 @@ p6_targets_list<- list(
                               y_columns = c(2:4,6:8), 
                               GAGEID_column = 1,
                               x_columns = 10:(ncol(p6_EcoFlowsAttrs) - 1 + 9), 
-                              Val_Pct = 0.1, 
+                              Val_Pct = 0.2, 
                               bootstraps = 20, 
-                              num_features_retain = 30, 
-                              ranger_mtry = seq(5,30,5), 
-                              ranger_ntree = seq(100, 1500, 200),
-                              ranger_threads = 70,
+                              num_features_retain = 40, 
+                              ranger_mtry = seq(5,40,5), 
+                              ranger_ntree = seq(100, 1100, 200),
+                              ranger_threads = Boruta_cores,
                               file_prefix = '6_predict/out/multiclass/EcoFlows_High/', 
-                              omit_columns = c(10:44, 57:71, 73, 74, 77, 79:132, 156:268, 300))),
+                              omit_columns = c(10:44, 57:71, 73, 74, 77, 79:132, 156:268, 300),
+                              probability = TRUE, save_txt_files = TRUE)),
   
   tar_target(p6_cluster_model_low_EcoFlowsAttrs,
              train_multiclass(InputData = left_join(p3_gages_clusters_quants_agg_low_freq %>%
@@ -1144,13 +1145,30 @@ p6_targets_list<- list(
                               y_columns = c(2,4,6,9,11,13), 
                               GAGEID_column = 1,
                               x_columns = 16:(ncol(p6_EcoFlowsAttrs) - 1 + 15), 
-                              Val_Pct = 0.1, 
+                              Val_Pct = 0.2, 
                               bootstraps = 20, 
-                              num_features_retain = 30, 
-                              ranger_mtry = seq(5,30,5), 
-                              ranger_ntree = seq(100, 1500, 200),
-                              ranger_threads = 70,
+                              num_features_retain = 40, 
+                              ranger_mtry = seq(5,40,5), 
+                              ranger_ntree = seq(100, 1100, 200),
+                              ranger_threads = Boruta_cores,
                               file_prefix = '6_predict/out/multiclass/EcoFlows_Low/', 
-                              omit_columns = c(16:50, 63:77, 79, 80, 83, 85:138, 162:274, 306)))
+                              omit_columns = c(16:50, 63:77, 79, 80, 83, 85:138, 162:274, 306),
+                              probability = TRUE, save_txt_files = TRUE)),
+  
+  #Make class predictions for CONUS reaches
+  #example for high flows with 5 clusters.
+  tar_target(p6_region_class_pred_high_CONUS,
+             predict_multiclass(model = filter(p6_cluster_model_high$RF_models, 
+                                                   HM == "0.75,0.8,0.85,0.9,0.95_k5") %>% 
+                                      pull(model),
+                                    reach_attrs = p5_attr_g2 %>%
+                                  mutate(ID = GAGES_ID))),
+  
+  #Maps of the most likely cluster region class for CONUS
+  #example for gage points instead of reaches
+  tar_target(p6_region_class_pred_high_CONUS_png,
+             make_class_prediction_map(class_probs = p6_region_class_pred_high_CONUS,
+                               reaches = p1_sites_g2_sf,
+                               out_dir = "6_predict/out/multiclass/High/"))
   
 )

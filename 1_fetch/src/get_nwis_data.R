@@ -309,6 +309,9 @@ prescreen_daily_data <- function(filename, prov_rm = TRUE){
     if(length(prov_data) > 0){data <- data[-prov_data, ]}
   }
   
+  data <- data %>%
+    filter(discharge >= 0)
+  
   return(data)
 }
 

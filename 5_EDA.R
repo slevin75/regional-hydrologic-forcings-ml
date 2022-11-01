@@ -59,7 +59,7 @@ p5_targets_list<- list(
                                               "SRL35AG", "SRL45AG",
                                               #Min elevation nearly identical for ACC and CAT
                                               "CAT_ELEV_MIN",
-                                              #Canal ditch cndp better than ACC_CANALDITCH (no 0s)
+                                              #Canal ditch cndp better than CANALDITCH (no 0s)
                                               "TOT_CANALDITCH", "ACC_CANALDITCH",
                                               #storage available everywhere with NID and NORM STORAGE
                                               "strg",
@@ -80,9 +80,8 @@ p5_targets_list<- list(
   tar_target(p5_attr_g2,
              drop_high_corr_ACCTOT(features = p5_screen_attr_g2, 
                                    threshold_corr = 0.9,
+                                   cor_method = 'spearman',
                                    drop_var = 'TOT'),
              deployment = 'main'
   )
-  
-  
 )

@@ -31,7 +31,7 @@ USGS_DIR='/caldera/projects/usgs/water/impd/fhwa/regional-hydrologic-forcings-ml
 
 if [[ $3 == FALSE ]]
 then
-    printf 'destination targets are not being checked for being newer than source"
+    printf '%s\n' "destination targets are not being checked for being newer than source"
 else
     #Checks that the destination target objects are not newer than the newest objects in the source
     #Exits and does not transfer files if they are newer.

@@ -35,7 +35,7 @@ drop_high_corr_ACCTOT <- function(features, threshold_corr, drop_var){
   #' @return Returns features without highly correlated drop_var attributes
   
   #Correlation matrix
-  cor_mat <- cor(features %>% select(-COMID, -GAGES_ID))
+  cor_mat <- abs(cor(features %>% select(-COMID, -GAGES_ID)))
   
   #Find all of the features that are highly correlated
   high_corr_features <- which(cor_mat >= threshold_corr, arr.ind = T)
@@ -62,14 +62,14 @@ drop_high_corr_ACCTOT <- function(features, threshold_corr, drop_var){
   features <- select(features, -{{remove_vars}})
   
   #other correlations were checked manually using
-  #cor_mat <- cor(features %>% select(starts_with('CAT_')))
+  #cor_mat <- abs(cor(features %>% select(starts_with('CAT_'))))
   #high_corr_features <- which(cor_mat >= 0.9, arr.ind = T)
   #high_corr_features <- rownames(high_corr_features[
   #  -which(high_corr_features[,1] == high_corr_features[,2]),])
   
   #Then the interaction of CAT and ACC/TOT for non-climate variables:
-  #cor_mat <- cor(features[,-c(1,2)] %>% select(-contains('_PPT_'), 
-  #-contains('_TAV_'), -contains('WB5100')))
+  #cor_mat <- abs(cor(features[,-c(1,2)] %>% select(-contains('_PPT_'), 
+  #-contains('_TAV_'), -contains('WB5100'))))
   
   return(features)
 }

@@ -84,6 +84,23 @@ drop_high_corr_ACCTOT <- function(features, threshold_corr, cor_method, drop_var
                              as.numeric()] %>%
       colnames()
     
+    #Check if the drop_var prefix is used by tmp_col.
+    if(substr(tmp_col, 1,3) == drop_var){
+      #Check if the same suffix is within tmp_rm
+      tmp_rm_mat <- as.matrix(tmp_rm, ncol = 1, nrow = length(tmp_rm))
+      suffix <- apply(X = tmp_rm_mat, MARGIN = 1, FUN = substr, 4, max(nchar(tmp_rm_mat)))
+      
+      if(substr(tmp_col, 4, nchar(tmp_col)) %in% suffix){
+        #switch the tmp_col to the drop_var prefix variable
+        tmp_col <- tmp_rm[suffix %in%  substr(tmp_col, 4, nchar(tmp_col))]
+        tmp_rm <- features %>% 
+          select(-COMID, -GAGES_ID) %>%
+          .[, high_corr_features[rownames(high_corr_features) == tmp_col, 2] %>%
+              as.numeric()] %>%
+          colnames()
+      }
+    }
+    
     features <- features %>% select(-{{tmp_rm}})
     #Correlation matrix for features without the remove_vars
     high_corr_features <- get_high_corr_features(features %>% 

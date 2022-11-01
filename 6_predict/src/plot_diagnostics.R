@@ -319,15 +319,9 @@ make_residual_map <- function(df_pred_obs, sites, metric, pred_gage_ids, region,
             plot = plot_grid(p1,p2, scale = c(1,.8)),
             base_width = 10,
             bg="white")
-  
-  
-
-  
 
   return(fname)
 }
-
-
 
 
 #Residual error boxplots

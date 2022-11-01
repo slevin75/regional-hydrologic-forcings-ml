@@ -1,4 +1,3 @@
-
 source("6_predict/src/train_models.R")
 source("6_predict/src/plot_diagnostics.R")
 
@@ -1057,8 +1056,5 @@ p6_targets_list<- list(
                                from_predict = TRUE,
                                model_wf = p6_train_RF_CONUS_g2_exact_clust$workflow,
                                pred_data = p6_Boruta_CONUS_g2_exact_clust$input_data$split$data))
-  
-  
-  
   
 )

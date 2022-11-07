@@ -328,12 +328,152 @@ make_residual_map <- function(df_pred_obs, sites, metric, pred_gage_ids, region,
 }
 
 
+#SHAP values
+plot_shap_global <- function(shap, model_name, out_dir, num_features = 40){
+  #' 
+  #' @description Creates SHAP global importance plot
+  #'
+  #' @param shap SHAP value results from compute_SHAP
+  #' @param model_name character string describing the model. Will be added 
+  #' to the end of the filename before the file extension, and also be the plot title.
+  #' @param out_dir output directory
+  #'
+  #' @return Returns the paths to png files of SHAP dependence plots for each feature
+  
+  fileout <- file.path(out_dir, 
+                       paste0('SHAP_global_', model_name, '.png'))
+  
+  p1 <- autoplot(shap, type = "importance", num_features = num_features) +
+    ggtitle(model_name) + 
+    theme(axis.text.y = element_text(size = 5))
+  
+  ggsave(filename = fileout, plot = p1, device = 'png')
+  
+  return(fileout)
+}
+
+plot_shap_dependence <- function(shap, data, model_name, out_dir, ncores = 1){
+  #' 
+  #' @description Creates SHAP dependence plots for each feature
+  #'
+  #' @param shap SHAP value results from compute_SHAP
+  #' @param data the X dataframe used to compute SHAP values
+  #' @param model_name character string describing the model. Will be added 
+  #' to the end of the filename before the file extension, and also be the plot title.
+  #' @param out_dir output directory
+  #' @param ncores number of cores to use for parallel plot creation
+  #'
+  #' @return Returns the paths to png files of SHAP dependence plots for each feature
+  
+  #number of features to make plots for
+  n_plts <- ncol(shap)
+  
+  cl = parallel::makeCluster(ncores)
+  doParallel::registerDoParallel(cl)
+  
+  filesout <- foreach(i = 1:n_plts, .inorder = TRUE, .combine = c, 
+                      .packages = c('ggplot2', 'fastshap')) %dopar% {
+    fileout <- file.path(out_dir, 
+                             paste0('SHAP_dependence_', colnames(shap)[i], '_',
+                                    model_name, '.png'))
+    
+    p <- autoplot(shap, type = "dependence", feature = colnames(shap)[i], 
+                  X = data, 
+                  alpha = 0.5, smooth = TRUE, smooth_color = "black") +
+      ggtitle(model_name)
+    
+    ggsave(filename = fileout, plot = p, device = 'png')
+    
+    fileout
+  }
+  
+  parallel::stopCluster(cl)
+  
+  return(filesout)
+}
+
+plot_shap_individual <- function(shap, data, reach, date, model_name, out_dir,
+                                 num_features = 40){
+  #' 
+  #' @description Creates a SHAP contribution plot for an individual prediction index.
+  #'
+  #' @param shap SHAP value results from compute_SHAP
+  #' @param data dataframe with PRMS_segid and Date columns with rows in the
+  #' same order as shap
+  #' @param reach PRMS_segid of observation to plot
+  #' @param date date of observation to plot as YYYY-MM-DD
+  #' @param model_name character string describing the model. Will be added 
+  #' to the end of the filename before the file extension, and also be the plot title.
+  #' @param out_dir output directory
+  #'
+  #' @return Returns the path to the png file of feature contributions to the index prediction
+  
+  #row index for which to compute plot
+  ind_plt <- which(data$PRMS_segid == reach & data$Date == date)
+  
+  fileout <- file.path(out_dir, paste0('SHAP_individual_', model_name, 
+                                       '_reach-', reach, 
+                                       '_date-', date, '.png'))
+  
+  p1 <- autoplot(shap[ind_plt,], type = "contribution", num_features = num_features) +
+    ggtitle(model_name, subtitle = paste0('reach ', reach,
+                   ', Date ', date)) +
+    theme(axis.text.y = element_text(size = 5))
+  
+  ggsave(filename = fileout, plot = p1, device = 'png')
+  
+  return(fileout)
+}
 
 
-#Residual error boxplots
-# boxplot(p6_test_RF_snow_snow$pred$.pred - p6_test_RF_snow_snow$pred$obs,
-#                    p6_test_RF_rain_snow_snow$pred$.pred - p6_test_RF_rain_snow_snow$pred$obs,
-#                    p6_test_RF_CONUS_g2_snow$pred$.pred - p6_test_RF_CONUS_g2_snow$pred$obs, names = c('Rain', 'Rain+Snow', 'CONUS'))
-# boxplot(p6_test_RF_snow_snow$pred$.pred - p6_test_RF_snow_snow$pred$obs,
-#                    p6_test_RF_rain_snow_snow$pred$.pred - p6_test_RF_rain_snow_snow$pred$obs,
-#                    p6_test_RF_CONUS_g2_snow$pred$.pred - p6_test_RF_CONUS_g2_snow$pred$obs, names = c('Snow', 'Rain+Snow', 'CONUS'))
+#PDP and ICE
+plot_pdp <- function(model, data, train_id, model_name, out_dir, 
+                     ice = FALSE, ncores = 1){
+  #'
+  #' @description Creates PDP or ICE plots for each feature in data
+  #'
+  #' @param data the dataframe used to make model predictions within the workflow
+  #' @param model_name character string describing the model. Will be added
+  #' to the end of the filename before the file extension, and also be the plot title.
+  #' @param out_dir output directory
+  #' @param ice logical. if TRUE, makes ICE plots with PDP overlain.
+  #' @param ncores number of cores to use for parallel plot creation
+  #'
+  #' @return Returns the paths to png files of PDP and ICE for each feature
+
+  #number of features to make plots for
+  n_plts <- ncol(data)
+
+  cl = parallel::makeCluster(ncores)
+  doParallel::registerDoParallel(cl)
+  parallel::clusterExport(cl = cl, varlist = 'predict_pdp_data')
+
+  foreach(i = 1:n_plts, .inorder = TRUE, .combine = c, 
+          .packages = c('ggplot2', 'pdp', 'tidyverse')) %dopar% {
+    filesout <- file.path(out_dir,
+                             paste0(ifelse(ice, 'ICE_', 'PDP_'), colnames(data)[i], '_',
+                                    model_name, '.png'))
+
+    #get data into class partial to make plots
+    partial_1 <- pdp::partial(object = model,
+                 pred.var = colnames(data)[i],
+                 plot = FALSE,
+                 train = data[train_id,],
+                 type = 'regression',
+                 pred.fun = predict_pdp_data, 
+                 grid.resolution = 25)
+
+    p <- autoplot(partial_1, 
+                  rug = TRUE,
+                  train = data[train_id,]) +
+      ggtitle(model_name) +
+      ylab(expression(paste('Predicted Specific Conductivity (', mu, 'S/cm)', sep = ''))) +
+      theme_classic()
+
+    ggsave(filename = fileout, plot = p, device = 'png')
+  }
+  
+  parallel::stopCluster(cl)
+
+  return(filesout)
+}

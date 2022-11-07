@@ -1056,9 +1056,46 @@ p6_targets_list<- list(
                                out_dir = "6_predict/out/pred_obs/",
                                from_predict = TRUE,
                                model_wf = p6_train_RF_CONUS_g2_exact_clust$workflow,
-                               pred_data = p6_Boruta_CONUS_g2_exact_clust$input_data$split$data))
+                               pred_data = p6_Boruta_CONUS_g2_exact_clust$input_data$split$data)),
+  
+  #SHAP values and plots
+  tar_target(p6_shap_multiclass,
+    compute_shap(model = p4_train_RF_min_static$workflow,
+                 data = p4_train_RF_min_static$best_fit$splits[[1]]$data %>%
+                   select(-mean_value) %>%
+                   as.data.frame(),
+                 ncores = min(maxcores, SHAP_cores),
+                 nsim = SHAP_nsim)
+  ),
+  #Global shap importance
+  tar_target(p6_shap_importance_multiclass_png,
+    plot_shap_global(shap = p6_shap_multiclass,
+                     model_name = 'RF_static_full',
+                     out_dir = "4_predict/out/random/shap/RF_static",
+                     num_features = 40),
+    format = "file"
+  ),
+  #shap dependence plots
+  tar_target(p6_shap_dependence_multiclass_png,
+    plot_shap_dependence(shap = p6_shap_multiclass,
+                         data = p6_train_RF_min_static$best_fit$splits[[1]]$data %>%
+                           select(-mean_value) %>%
+                           as.data.frame(),
+                     model_name = 'RF_min_static_full',
+                     out_dir = "4_predict/out/random/shap/RF_min_static",
+                     ncores = SHAP_cores),
+    format = "file"
+  ),
   
   
-  
-  
+  #PDP and ICE plots - not ready yet
+  tar_target(p6_pdp_multiclass_png,
+    plot_pdp(shap = p6_shap_multiclass,
+                         data = p4_train_RF_static$best_fit$splits[[1]]$data %>% 
+                           select(-mean_value) %>% 
+                           as.data.frame(),
+                         model_name = 'RF_static_full',
+                         out_dir = "4_predict/out/random/dependence/RF_static"),
+    format = "file"
+  )
 )

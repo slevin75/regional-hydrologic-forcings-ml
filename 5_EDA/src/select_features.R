@@ -76,8 +76,8 @@ drop_high_corr_ACCTOT <- function(features, threshold_corr, cor_method, drop_var
                                                  select(-COMID, -GAGES_ID), 
                                                cor_method, threshold_corr)
   while (nrow(high_corr_features) > 0){
-    #randomly select an attribute and remove all correlated attributes
-    tmp_col <- sample(unique(rownames(high_corr_features)), size = 1)
+    #select the first attribute and remove all correlated attributes
+    tmp_col <- unique(rownames(high_corr_features))[1]
     tmp_rm <- features %>% 
       select(-COMID, -GAGES_ID) %>%
       .[, high_corr_features[rownames(high_corr_features) == tmp_col, 2] %>%
@@ -114,8 +114,8 @@ drop_high_corr_ACCTOT <- function(features, threshold_corr, cor_method, drop_var
 
 get_high_corr_features <- function(features, cor_method, threshold_corr){
   #' 
-  #' @description Function to convert a string from #days #months, #weeks, #years to 
-  #' equivalent number of days 
+  #' @description Function to get a matrix of highly correlated features from the
+  #' supplied features table
   #'
   #' @param features table of features (columns) for each prediction point (rows).
   #' @param threshold_corr correlation threshold used to drop attributes.

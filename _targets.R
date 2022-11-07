@@ -85,7 +85,7 @@ dir.create('6_predict/out/vip', showWarnings = FALSE)
 dir.create('6_predict/out/hypopt', showWarnings = FALSE)
 dir.create('6_predict/out/split_boxplots', showWarnings = FALSE)
 dir.create('6_predict/out/pred_obs', showWarnings = FALSE)
-
+dir.create('6_predict/out/shap', showWarnings = FALSE)
 
 ##Load user defined functions
 source("1_fetch.R")

@@ -1,5 +1,6 @@
 source("6_predict/src/train_models.R")
 source("6_predict/src/plot_diagnostics.R")
+source("6_predict/src/XAI.R")
 
 #p_6 params only
 
@@ -12,6 +13,10 @@ Boruta_trees <- 500
 Boruta_cores <- 35
 #Cross validation folds
 cv_folds <- 5
+
+#XAI parameters
+SHAP_cores <- 35
+SHAP_nsim <- 20
 
 
 
@@ -1059,29 +1064,29 @@ p6_targets_list<- list(
   
   #SHAP values and plots
   tar_target(p6_shap_multiclass,
-    compute_shap(model = p4_train_RF_min_static$workflow,
-                 data = p4_train_RF_min_static$best_fit$splits[[1]]$data %>%
-                   select(-mean_value) %>%
+    compute_shap(model = p6_train_RF_CONUS_g2_exact_clust$workflow,
+                 data = p6_train_RF_CONUS_g2_exact_clust$best_fit$splits[[1]]$data %>%
+                   select(-vhfdc1_q0.9) %>%
                    as.data.frame(),
-                 ncores = min(maxcores, SHAP_cores),
+                 ncores = SHAP_cores,
                  nsim = SHAP_nsim)
   ),
   #Global shap importance
   tar_target(p6_shap_importance_multiclass_png,
     plot_shap_global(shap = p6_shap_multiclass,
-                     model_name = 'RF_static_full',
-                     out_dir = "4_predict/out/random/shap/RF_static",
+                     model_name = 'RF_multiclass',
+                     out_dir = "6_predict/out/shap",
                      num_features = 40),
     format = "file"
   ),
   #shap dependence plots
   tar_target(p6_shap_dependence_multiclass_png,
     plot_shap_dependence(shap = p6_shap_multiclass,
-                         data = p6_train_RF_min_static$best_fit$splits[[1]]$data %>%
-                           select(-mean_value) %>%
+                         data = p6_train_RF_CONUS_g2_exact_clust$best_fit$splits[[1]]$data %>%
+                           select(-vhfdc1_q0.9) %>%
                            as.data.frame(),
-                     model_name = 'RF_min_static_full',
-                     out_dir = "4_predict/out/random/shap/RF_min_static",
+                     model_name = 'RF_multiclass',
+                     out_dir = "6_predict/out/shap",
                      ncores = SHAP_cores),
     format = "file"
   ),
@@ -1090,11 +1095,11 @@ p6_targets_list<- list(
   #PDP and ICE plots - not ready yet
   tar_target(p6_pdp_multiclass_png,
     plot_pdp(shap = p6_shap_multiclass,
-                         data = p4_train_RF_static$best_fit$splits[[1]]$data %>% 
-                           select(-mean_value) %>% 
-                           as.data.frame(),
-                         model_name = 'RF_static_full',
-                         out_dir = "4_predict/out/random/dependence/RF_static"),
+             data = p6_train_RF_CONUS_g2_exact_clust$best_fit$splits[[1]]$data %>% 
+               select(-vhfdc1_q0.9) %>% 
+               as.data.frame(),
+             model_name = 'RF_multiclass',
+             out_dir = "6_predict/out/dependence"),
     format = "file"
   )
 )

@@ -438,7 +438,7 @@ prep_feature_vars <- function(sb_var_data, sites_all, sites_screened,
     dom_phys_reg <- bind_rows(dom_phys_reg, dom_phys_reg_comid)
   }
   
-  dom_phys_reg$region <- as.numeric(dom_phys_reg$region)
+  dom_phys_reg$region <- as.factor(dom_phys_reg$region)
   phys_region <- dom_phys_reg %>%
     mutate(label = paste0(unit, "_PHYSIO")) %>%
     arrange(COMID, label) %>%

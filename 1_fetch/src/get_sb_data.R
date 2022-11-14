@@ -460,12 +460,14 @@ prep_feature_vars <- function(sb_var_data, sites_all, sites_screened,
     left_join(weather_weighted_avg, by = "COMID") %>%
     left_join(wildfire_shortterm_avg, by = "COMID")
   
-  #rename duplicated headers (if any)
+  #rename duplicated headers (if any) and replace headers containing "/" with "-"
   rename_dup_headers <- list()
   for (i in 1:ncol(data)) {
     header <- names(data)[i]
     if (str_sub(header, -2) == ".x") {
       new_header <- str_sub(header, 1, -3)
+    } else if (str_detect(header, "/")) {
+      new_header <- str_replace(header, "/", "-")
     } else {
       new_header <- header
     }

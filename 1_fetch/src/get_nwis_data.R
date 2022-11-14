@@ -305,9 +305,12 @@ prescreen_daily_data <- function(filename, prov_rm = TRUE){
   
   if (prov_rm == TRUE){
     ###remove any provisional data - this will be counted as 'no data'
-    prov_data <- grep('P|e', data$discharge_cd)
+    prov_data <- grep('P', data$discharge_cd)
     if(length(prov_data) > 0){data <- data[-prov_data, ]}
   }
+  
+  data <- data %>%
+    filter(discharge >= 0)
   
   return(data)
 }

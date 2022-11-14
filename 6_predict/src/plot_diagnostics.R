@@ -319,10 +319,6 @@ make_residual_map <- function(df_pred_obs, sites, metric, pred_gage_ids, region,
             plot = plot_grid(p1,p2, scale = c(1,.8)),
             base_width = 10,
             bg="white")
-  
-  
-
-  
 
   return(fname)
 }
@@ -424,13 +420,3 @@ decreasing_rank <- function(values){
   
   rank_vals <- rank(-rank(values, ties.method = 'max'), ties.method = 'min')
 }
-
-
-
-#Residual error boxplots
-# boxplot(p6_test_RF_snow_snow$pred$.pred - p6_test_RF_snow_snow$pred$obs,
-#                    p6_test_RF_rain_snow_snow$pred$.pred - p6_test_RF_rain_snow_snow$pred$obs,
-#                    p6_test_RF_CONUS_g2_snow$pred$.pred - p6_test_RF_CONUS_g2_snow$pred$obs, names = c('Rain', 'Rain+Snow', 'CONUS'))
-# boxplot(p6_test_RF_snow_snow$pred$.pred - p6_test_RF_snow_snow$pred$obs,
-#                    p6_test_RF_rain_snow_snow$pred$.pred - p6_test_RF_rain_snow_snow$pred$obs,
-#                    p6_test_RF_CONUS_g2_snow$pred$.pred - p6_test_RF_CONUS_g2_snow$pred$obs, names = c('Snow', 'Rain+Snow', 'CONUS'))

@@ -7,7 +7,7 @@ source("1_fetch/src/moving_window_functions.R")
 gagesii_path <- "Gages2.1_RefSiteList.xlsx"
 NWIS_parameter <- '00060'
 startDate <- as.Date("1900-10-01") 
-endDate <- as.Date("2020-09-30")
+endDate <- as.Date("2022-09-30")
 ##number of complete years we require for a site to be used
 complete_years <- 20
 ##percentile for flood threshold in EflowStats. 0.6 is the default
@@ -222,6 +222,8 @@ p1_targets_list <- list(
              prep_feature_vars(sb_var_data = p1_sb_data_g2_csv, 
                                sites_all = p1_sites_g2, 
                                sites_screened = p1_screened_site_list, 
+                               combine_gages = combine_gages,
+                               years_by_site = p1_clean_daily_flow,
                                retain_vars = c("ID", "LAT", "LON",
                                                "npdes", "fwwd", "strg", "devl", "cndp")), 
              deployment = "main"

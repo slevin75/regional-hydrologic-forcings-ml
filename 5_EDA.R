@@ -1,9 +1,16 @@
 source("5_EDA/src/EDA_metric_plots.R")
+source("5_EDA/src/EDA_feature_plots.R")
 source("5_EDA/src/select_features.R")
 
 p5_targets_list<- list(
   
   ###EDA plots
+  # Feature variables
+  tar_target(p5_EDA_plots_feature_vars,
+             make_EDA_feature_plots(feature_vars = p1_feature_vars_g2,
+                                    out_dir = "5_EDA/out/feature_plots"),
+             format="file"
+  ),
   ##maps and violin plots of all metrics by cluster.  k is the number of clusters to use in 
   ##the cluster table
   tar_target(p5_EDA_plots_metrics,
@@ -52,7 +59,7 @@ p5_targets_list<- list(
                                               "SRL35AG", "SRL45AG",
                                               #Min elevation nearly identical for ACC and CAT
                                               "CAT_ELEV_MIN",
-                                              #Canal ditch cndp better than ACC_CANALDITCH (no 0s)
+                                              #Canal ditch cndp better than CANALDITCH (no 0s)
                                               "TOT_CANALDITCH", "ACC_CANALDITCH",
                                               #storage available everywhere with NID and NORM STORAGE
                                               "strg",
@@ -73,9 +80,8 @@ p5_targets_list<- list(
   tar_target(p5_attr_g2,
              drop_high_corr_ACCTOT(features = p5_screen_attr_g2, 
                                    threshold_corr = 0.9,
+                                   cor_method = 'spearman',
                                    drop_var = 'TOT'),
              deployment = 'main'
   )
-  
-  
 )

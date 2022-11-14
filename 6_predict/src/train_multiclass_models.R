@@ -33,7 +33,9 @@ train_multiclass <- function(InputData, y_columns, GAGEID_column, x_columns,
   #' bootstraps = 2, num_features_retain = 20, ranger_threads = 12, ranger_mtry = seq(5,20,5), 
   #' ranger_ntree = seq(100, 1500, 200), file_prefix = 'Run1')
   #' 
-  #' @return weighted macro F1 statistic
+  #' @return list containing the F1 statistic, confusion matrix, feature importance, 
+  #' optimal number of trees, optimum mtry, and the trained RF models for each of the
+  #' bootstraps and classification models. For probability models, also returns the Brier score.
   
   #set threads to use if not specified
   if (is.null(ranger_threads)){

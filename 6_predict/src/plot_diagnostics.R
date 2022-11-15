@@ -387,18 +387,23 @@ make_class_prediction_map <- function(class_probs, reaches, out_dir,
     col_name <- colnames(LikelyRanks)[i]
     fname <- file.path(out_dir, paste0(col_name, '_map.png'))
     
-    p1 <- ggplot(states, aes(x = long, y = lat, group = group)) +
-      geom_polygon(fill = "gray60", colour = "gray80") +
-      geom_sf(data = reaches, inherit.aes = FALSE, 
-              aes(color = .data[[col_name]]), 
-              size = 0.1) +
-      scale_color_scico_d(palette = 'batlow') +
-      theme(legend.position="bottom",
-            legend.key.size=unit(.75,'cm'))+
-      xlab('Longitude') + 
-      ylab('Latitude')
-    
-    ggsave(filename = fname, plot = p1, bg = "white")
+    #Only plot if some data are not NA (< plotting threshold)
+    if(!all(is.na(reaches[[col_name]]))){
+      plot_sites <- reaches[!is.na(reaches[[col_name]]),]
+      
+      p1 <- ggplot(states, aes(x = long, y = lat, group = group)) +
+        geom_polygon(fill = "gray60", colour = "gray80") +
+        geom_sf(data = plot_sites, inherit.aes = FALSE, 
+                aes(color = .data[[col_name]]), 
+                size = 0.5) +
+        scale_color_scico_d(palette = 'batlow') +
+        theme(legend.position="bottom",
+              legend.key.size=unit(.75,'cm'))+
+        xlab('Longitude') + 
+        ylab('Latitude')
+      
+      ggsave(filename = fname, plot = p1, bg = "white")
+    }
   }
   
   return(fname)

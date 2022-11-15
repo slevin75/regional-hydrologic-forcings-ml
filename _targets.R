@@ -12,7 +12,8 @@ tar_option_set(packages = c("fasstr", "EflowStats", "dataRetrieval",
                             "sf", "cowplot", "gridGraphics", "stringi",
                             "dendextend", "scico", "tidyverse", "nhdplusTools",
                             "sbtools", "maps", "mapproj", "ranger", "Boruta",
-                            "tidymodels", "doParallel", "vip", "gstat"),
+                            "tidymodels", "doParallel", "vip", "gstat", "rlist", 
+                            "measures"),
                imports = c("fasstr", "EflowStats", "dataRetrieval", 
                            "cluster","factoextra", "NbClust", "dendextend",
                            "tidyverse", "ranger", "Boruta", "tidymodels"))
@@ -85,7 +86,11 @@ dir.create('6_predict/out/vip', showWarnings = FALSE)
 dir.create('6_predict/out/hypopt', showWarnings = FALSE)
 dir.create('6_predict/out/split_boxplots', showWarnings = FALSE)
 dir.create('6_predict/out/pred_obs', showWarnings = FALSE)
-
+dir.create('6_predict/out/multiclass', showWarnings = FALSE)
+dir.create('6_predict/out/multiclass/High', showWarnings = FALSE)
+dir.create('6_predict/out/multiclass/Low', showWarnings = FALSE)
+dir.create('6_predict/out/multiclass/EcoFlows_High', showWarnings = FALSE)
+dir.create('6_predict/out/multiclass/EcoFlows_Low', showWarnings = FALSE)
 
 ##Load user defined functions
 source("1_fetch.R")

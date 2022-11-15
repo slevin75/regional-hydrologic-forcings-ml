@@ -23,7 +23,8 @@ refine_features <- function(nhdv2_attr, drop_columns){
   return(nhdv2_attr_refined)
 }
 
-drop_high_corr_ACCTOT <- function(features, threshold_corr, cor_method, drop_var){
+drop_high_corr_ACCTOT <- function(features, threshold_corr, cor_method, drop_var,
+                                  categorical_cols = 'PHYSIO'){
   #' 
   #' @description Function to remove ACC or TOT attributes that are highly correlated
   #' with other attributes, and then automatically remove all but one of a set of 
@@ -34,15 +35,18 @@ drop_high_corr_ACCTOT <- function(features, threshold_corr, cor_method, drop_var
   #' @param threshold_corr correlation threshold used to drop ACC attributes
   #' @param cor_method correlation method for cor function
   #' @param drop_var the variable prefix to drop. "ACC" or "TOT"
+  #' @param categorical_cols column names that are categorical and not checked.
+  #' passed to select(contains()).
   #' 
   #' @return Returns features without highly correlated drop_var attributes
   
   high_corr_features <- get_high_corr_features(features %>% 
-                                                 select(-COMID, -GAGES_ID), 
+                                                 select(-COMID, -GAGES_ID, -contains(categorical_cols)), 
                                                cor_method, threshold_corr)
   
   #Find where drop_var is highly correlated with other variables and remove
-  names_cor <- colnames(features)
+  names_cor <- colnames(features %>% 
+                          select(-COMID, -GAGES_ID, -contains(categorical_cols)))
   remove_vars <- vector('character', length = 0L)
   for(i in 1:nrow(high_corr_features)){
     name <- rownames(high_corr_features)[i]
@@ -73,13 +77,13 @@ drop_high_corr_ACCTOT <- function(features, threshold_corr, cor_method, drop_var
   #Automatic removal of all other highly correlated features
   #Correlation matrix for only static features
   high_corr_features <- get_high_corr_features(features %>% 
-                                                 select(-COMID, -GAGES_ID), 
+                                                 select(-COMID, -GAGES_ID, -contains(categorical_cols)), 
                                                cor_method, threshold_corr)
   while (nrow(high_corr_features) > 0){
     #select the first attribute and remove all correlated attributes
     tmp_col <- unique(rownames(high_corr_features))[1]
     tmp_rm <- features %>% 
-      select(-COMID, -GAGES_ID) %>%
+      select(-COMID, -GAGES_ID, -contains(categorical_cols)) %>%
       .[, high_corr_features[rownames(high_corr_features) == tmp_col, 2] %>%
                              as.numeric()] %>%
       colnames()
@@ -94,7 +98,7 @@ drop_high_corr_ACCTOT <- function(features, threshold_corr, cor_method, drop_var
         #switch the tmp_col to the drop_var prefix variable
         tmp_col <- tmp_rm[suffix %in%  substr(tmp_col, 4, nchar(tmp_col))]
         tmp_rm <- features %>% 
-          select(-COMID, -GAGES_ID) %>%
+          select(-COMID, -GAGES_ID, -contains(categorical_cols)) %>%
           .[, high_corr_features[rownames(high_corr_features) == tmp_col, 2] %>%
               as.numeric()] %>%
           colnames()
@@ -104,7 +108,7 @@ drop_high_corr_ACCTOT <- function(features, threshold_corr, cor_method, drop_var
     features <- features %>% select(-{{tmp_rm}})
     #Correlation matrix for features without the remove_vars
     high_corr_features <- get_high_corr_features(features %>% 
-                                                   select(-COMID, -GAGES_ID), 
+                                                   select(-COMID, -GAGES_ID, -contains(categorical_cols)), 
                                                  cor_method, threshold_corr)
   }
   

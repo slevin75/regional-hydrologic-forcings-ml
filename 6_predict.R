@@ -1,5 +1,6 @@
 source("6_predict/src/train_models.R")
 source("6_predict/src/plot_diagnostics.R")
+source("6_predict/src/train_multiclass_models.R")
 source("6_predict/src/XAI.R")
 
 #p_6 params only
@@ -1062,44 +1063,160 @@ p6_targets_list<- list(
                                model_wf = p6_train_RF_CONUS_g2_exact_clust$workflow,
                                pred_data = p6_Boruta_CONUS_g2_exact_clust$input_data$split$data)),
   
+  
+  #Multiclass prediction model training to predict cluster membership
+  tar_target(p6_cluster_model_high,
+             train_multiclass(InputData = left_join(p3_gages_clusters_quants_agg_selected,
+                                                    p5_attr_g2 %>%
+                                                      select(-COMID),
+                                                    by = c('ID' = 'GAGES_ID')) %>%
+                                na.omit(),
+                              y_columns = 2:7,
+                              GAGEID_column = 1,
+                              #"-2" from removing COMID and the shared GAGES_ID column
+                              x_columns = 8:(ncol(p5_attr_g2) + ncol(p3_gages_clusters_quants_agg_selected) - 2),
+                              Val_Pct = 0.2,
+                              bootstraps = 20,
+                              num_features_retain = 40,
+                              ranger_mtry = seq(5,40,5),
+                              ranger_ntree = seq(100, 1100, 200),
+                              file_prefix = '6_predict/out/multiclass/High/',
+                              ranger_threads = Boruta_cores,
+                              probability = TRUE, save_txt_files = FALSE)
+             ),
+  
+  #Commenting out the low flows for now. Currently untested and out of scope.
+  # tar_target(p6_cluster_model_low,
+  #            train_multiclass(InputData = left_join(p3_gages_clusters_quants_agg_low,
+  #                                                   p5_attr_g2 %>%
+  #                                                     select(-COMID),
+  #                                                   by = c('ID' = 'GAGES_ID')) %>%
+  #                               na.omit(),
+  #                             y_columns = c(seq(2,8,2), seq(9,15,2)),
+  #                             GAGEID_column = 1,
+  #                             x_columns = 16:(ncol(p5_attr_g2) + 13),
+  #                             Val_Pct = 0.2,
+  #                             bootstraps = 20,
+  #                             num_features_retain = 40,
+  #                             ranger_mtry = seq(5,40,5),
+  #                             ranger_ntree = seq(100, 1100, 200),
+  #                             file_prefix = '6_predict/out/multiclass/Low/')),
+  
+  tar_target(p6_EcoFlowsAttrs_csv,
+             #EcoFlows_filepath,
+             '6_predict/in/EcoFlowsAttrs.csv',
+             deployment = 'main',
+             format = 'file'),
+  
+  tar_target(p6_EcoFlowsAttrs,
+             read_csv(p6_EcoFlowsAttrs_csv, show_col_types = FALSE) %>%
+               #add leading 0s to gages
+               mutate(ID = case_when(str_length(ID) == 7 ~ str_c('0', ID), 
+                                     TRUE ~ as.character(ID))) %>%
+               #Remove merged gage
+               filter(ID != '01362198'),
+             deployment = 'main'),
+  
+  tar_target(p6_cluster_model_high_EcoFlowsAttrs,
+             train_multiclass(InputData = left_join(p3_gages_clusters_quants_agg %>%
+                                                      #edit ID number for join
+                                                      mutate(ID = case_when(ID == '03584000_03584020' ~ '03584000',
+                                                                            ID == '12209500_12209490' ~ '12209500',
+                                                                            TRUE ~ ID)), 
+                                                    p6_EcoFlowsAttrs, 
+                                                    by = 'ID'), 
+                              y_columns = c(2:4,6:8), 
+                              GAGEID_column = 1,
+                              x_columns = 10:(ncol(p6_EcoFlowsAttrs) - 1 + 9), 
+                              Val_Pct = 0.1, 
+                              bootstraps = 20, 
+                              num_features_retain = 30, 
+                              ranger_mtry = seq(5,30,5), 
+                              ranger_ntree = seq(100, 1500, 200),
+                              ranger_threads = Boruta_cores,
+                              file_prefix = '6_predict/out/multiclass/EcoFlows_High/', 
+                              omit_columns = c(10:44, 57:71, 73, 74, 77, 79:132, 156:268, 300),
+                              probability = FALSE, save_txt_files = TRUE),
+             cue = tar_cue('never')),
+  
+  tar_target(p6_cluster_model_low_EcoFlowsAttrs,
+             train_multiclass(InputData = left_join(p3_gages_clusters_quants_agg_low_freq %>%
+                                                      #edit ID number for join
+                                                      mutate(ID = case_when(ID == '03584000_03584020' ~ '03584000',
+                                                                            ID == '12209500_12209490' ~ '12209500',
+                                                                            TRUE ~ ID)), 
+                                                    p6_EcoFlowsAttrs, 
+                                                    by = 'ID'), 
+                              y_columns = c(2,4,6,9,11,13), 
+                              GAGEID_column = 1,
+                              x_columns = 16:(ncol(p6_EcoFlowsAttrs) - 1 + 15), 
+                              Val_Pct = 0.1, 
+                              bootstraps = 20, 
+                              num_features_retain = 30, 
+                              ranger_mtry = seq(5,30,5), 
+                              ranger_ntree = seq(100, 1500, 200),
+                              ranger_threads = Boruta_cores,
+                              file_prefix = '6_predict/out/multiclass/EcoFlows_Low/', 
+                              omit_columns = c(16:50, 63:77, 79, 80, 83, 85:138, 162:274, 306),
+                              probability = FALSE, save_txt_files = TRUE),
+             cue = tar_cue('never')),
+  
+  #Make class predictions for CONUS reaches
+  #example for high flows with 5 clusters.
+  tar_target(p6_region_class_pred_high_CONUS,
+             predict_multiclass(model = filter(p6_cluster_model_high$RF_models, 
+                                                   HM == "0.75,0.8,0.85,0.9,0.95_k5") %>% 
+                                      pull(model),
+                                    reach_attrs = p5_attr_g2 %>%
+                                  mutate(ID = GAGES_ID))),
+  
+  #Maps of the most likely cluster region class for CONUS
+  #example for gage points instead of reaches
+  tar_target(p6_region_class_pred_high_CONUS_png,
+             make_class_prediction_map(class_probs = p6_region_class_pred_high_CONUS,
+                                       reaches = p1_sites_g2_sf,
+                                       out_dir = "6_predict/out/multiclass/High/",
+                                       plot_threshold = 0.05)),
+  
+  
   #SHAP values and plots
   tar_target(p6_shap_multiclass,
-    compute_shap(model = p6_train_RF_CONUS_g2_exact_clust$workflow,
-                 data = p6_train_RF_CONUS_g2_exact_clust$best_fit$splits[[1]]$data %>%
-                   select(-vhfdc1_q0.9) %>%
-                   as.data.frame(),
-                 ncores = SHAP_cores,
-                 nsim = SHAP_nsim)
+             compute_shap(model = p6_train_RF_CONUS_g2_exact_clust$workflow,
+                          data = p6_train_RF_CONUS_g2_exact_clust$best_fit$splits[[1]]$data %>%
+                            select(-vhfdc1_q0.9) %>%
+                            as.data.frame(),
+                          ncores = SHAP_cores,
+                          nsim = SHAP_nsim)
   ),
   #Global shap importance
   tar_target(p6_shap_importance_multiclass_png,
-    plot_shap_global(shap = p6_shap_multiclass,
-                     model_name = 'RF_multiclass',
-                     out_dir = "6_predict/out/shap",
-                     num_features = 40),
-    format = "file"
+             plot_shap_global(shap = p6_shap_multiclass,
+                              model_name = 'RF_multiclass',
+                              out_dir = "6_predict/out/shap",
+                              num_features = 40),
+             format = "file"
   ),
   #shap dependence plots
   tar_target(p6_shap_dependence_multiclass_png,
-    plot_shap_dependence(shap = p6_shap_multiclass,
-                         data = p6_train_RF_CONUS_g2_exact_clust$best_fit$splits[[1]]$data %>%
-                           select(-vhfdc1_q0.9) %>%
-                           as.data.frame(),
-                     model_name = 'RF_multiclass',
-                     out_dir = "6_predict/out/shap",
-                     ncores = SHAP_cores),
-    format = "file"
+             plot_shap_dependence(shap = p6_shap_multiclass,
+                                  data = p6_train_RF_CONUS_g2_exact_clust$best_fit$splits[[1]]$data %>%
+                                    select(-vhfdc1_q0.9) %>%
+                                    as.data.frame(),
+                                  model_name = 'RF_multiclass',
+                                  out_dir = "6_predict/out/shap",
+                                  ncores = SHAP_cores),
+             format = "file"
   ),
   
   
   #PDP and ICE plots - not ready yet
   tar_target(p6_pdp_multiclass_png,
-    plot_pdp(shap = p6_shap_multiclass,
-             data = p6_train_RF_CONUS_g2_exact_clust$best_fit$splits[[1]]$data %>% 
-               select(-vhfdc1_q0.9) %>% 
-               as.data.frame(),
-             model_name = 'RF_multiclass',
-             out_dir = "6_predict/out/dependence"),
-    format = "file"
+             plot_pdp(shap = p6_shap_multiclass,
+                      data = p6_train_RF_CONUS_g2_exact_clust$best_fit$splits[[1]]$data %>% 
+                        select(-vhfdc1_q0.9) %>% 
+                        as.data.frame(),
+                      model_name = 'RF_multiclass',
+                      out_dir = "6_predict/out/dependence"),
+             format = "file"
   )
 )

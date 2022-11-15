@@ -324,6 +324,123 @@ make_residual_map <- function(df_pred_obs, sites, metric, pred_gage_ids, region,
 }
 
 
+make_class_prediction_map <- function(class_probs, reaches, out_dir,
+                                      plot_threshold = 0.05){
+  #' @description this function creates maps of predicted class probabilities for
+  #' each reach
+  #' 
+  #' @param class_probs dataframe of predicted class probabilities for each reach.
+  #' must have an "ID" column and columns for the class probabilities labeled with
+  #' the name of the class. No other columns.
+  #' @param reaches sf object containing the reaches to plot. Must have a "COMID" column
+  #' @param out_dir where output figures are saved
+  #' @param plot_threshold threshold below which sites / reaches are not plotted
+  #' because the probability is too low.
+  #' 
+  #' @return file paths to maps
+  
+  #get number of ranks
+  num_ranks <- ncol(class_probs) - 1
+  
+  #Convert the predicted probabilities into a rank of which class is most likely (1) 
+  #to least likely (n = number of classes)
+  rank_mat <- t(apply(X = class_probs[, -which(colnames(class_probs) == "ID")], 
+                      MARGIN = 1, FUN = decreasing_rank)) %>%
+    as.data.frame()
+  rank_mat$ID <- class_probs$ID
+  colnames(rank_mat) <- colnames(class_probs)
+  
+  #Make new columns for the rank of the class (change the cells to column names)
+  LikelyRanks <- matrix(NA, nrow = nrow(rank_mat), ncol = num_ranks)
+  for(i in 1:ncol(LikelyRanks)){
+    LikelyRanks[,i] <- apply(X = rank_mat, MARGIN = 1, FUN = assign_max_rank, 
+                             rank = i, rank_cols = colnames(rank_mat)[1:num_ranks]) 
+  }
+  LikelyRanks <- as.data.frame(LikelyRanks)
+  colnames(LikelyRanks) <- paste0('LikelyRank', seq(1,ncol(LikelyRanks),1))
+  #Change to characters
+  LikelyRanks <- as.data.frame(apply(X = LikelyRanks, MARGIN = 2, FUN = as.character, simplify = FALSE))
+  #Add ID
+  LikelyRanks$ID <- rank_mat$ID
+  
+  #Remove rank labels when the probability is < plotting threshold
+  for(i in 1:nrow(LikelyRanks)){
+    #Get the classes that are less than the plot_threshold
+    ind_NA_classes <- which(class_probs[class_probs$ID == LikelyRanks$ID[i],] < plot_threshold)
+    
+    #Get the column indices in LikelyRanks that contain those classes
+    ind_col_NA <- which(LikelyRanks[i,] %in% ind_NA_classes)
+    
+    LikelyRanks[i,ind_col_NA] <- NA
+  }
+  
+  #Join ranks to reaches for plotting
+  reaches <- left_join(reaches, LikelyRanks, by = "ID")
+  
+  #Plot one map for the most likely class, second most likely, etc. to the nth class
+  states <- map_data("state")
+  
+  #filenames
+  fnames <- vector('character', length = ncol(LikelyRanks) - 1) 
+  
+  for(i in 1:length(fnames)){
+    col_name <- colnames(LikelyRanks)[i]
+    fname <- file.path(out_dir, paste0(col_name, '_map.png'))
+    
+    #Only plot if some data are not NA (< plotting threshold)
+    if(!all(is.na(reaches[[col_name]]))){
+      plot_sites <- reaches[!is.na(reaches[[col_name]]),]
+      
+      p1 <- ggplot(states, aes(x = long, y = lat, group = group)) +
+        geom_polygon(fill = "gray60", colour = "gray80") +
+        geom_sf(data = plot_sites, inherit.aes = FALSE, 
+                aes(color = .data[[col_name]]), 
+                size = 0.5) +
+        scale_color_scico_d(palette = 'batlow') +
+        theme(legend.position="bottom",
+              legend.key.size=unit(.75,'cm'))+
+        xlab('Longitude') + 
+        ylab('Latitude')
+      
+      ggsave(filename = fname, plot = p1, bg = "white")
+    }
+  }
+  
+  return(fname)
+}
+
+assign_max_rank <- function(rank_vec, rank, rank_cols){
+  #' @description this function finds the index of rank within rank_vec
+  #' 
+  #' @param rank_vec the vector containing ranks
+  #' @param rank the rank to search for in rank_vec
+  #' @param rank_cols column names of rank_vec to search for rank
+  #' 
+  #' @return index of the rank within the rank_vec
+  
+  ind <- which(rank_vec[rank_cols] == rank)
+  
+  if((length(ind) > 1) | (length(ind) == 0)){
+    #there are ties for this rank, which generally means the prob was 0.
+    #return NA for the ind
+    ind <- NA
+  }
+  
+  return(ind)
+}
+
+
+decreasing_rank <- function(values){
+  #' @description this function computes a decreasing rank for the values provided
+  #' 
+  #' @param values vector of values to be ranked
+  #' 
+  #' @return vector of ranks for those values
+  
+  rank_vals <- rank(-rank(values, ties.method = 'max'), ties.method = 'min')
+}
+
+
 #SHAP values
 plot_shap_global <- function(shap, model_name, out_dir, num_features = 40){
   #' 
@@ -369,19 +486,19 @@ plot_shap_dependence <- function(shap, data, model_name, out_dir, ncores = 1){
   
   filesout <- foreach(i = 1:n_plts, .inorder = TRUE, .combine = c, 
                       .packages = c('ggplot2', 'fastshap')) %dopar% {
-    fileout <- file.path(out_dir, 
-                             paste0('SHAP_dependence_', colnames(shap)[i], '_',
-                                    model_name, '.png'))
-    
-    p <- autoplot(shap, type = "dependence", feature = colnames(shap)[i], 
-                  X = data, 
-                  alpha = 0.5, smooth = TRUE, smooth_color = "black") +
-      ggtitle(model_name)
-    
-    ggsave(filename = fileout, plot = p, device = 'png')
-    
-    fileout
-  }
+                        fileout <- file.path(out_dir, 
+                                             paste0('SHAP_dependence_', colnames(shap)[i], '_',
+                                                    model_name, '.png'))
+                        
+                        p <- autoplot(shap, type = "dependence", feature = colnames(shap)[i], 
+                                      X = data, 
+                                      alpha = 0.5, smooth = TRUE, smooth_color = "black") +
+                          ggtitle(model_name)
+                        
+                        ggsave(filename = fileout, plot = p, device = 'png')
+                        
+                        fileout
+                      }
   
   parallel::stopCluster(cl)
   
@@ -413,7 +530,7 @@ plot_shap_individual <- function(shap, data, reach, date, model_name, out_dir,
   
   p1 <- autoplot(shap[ind_plt,], type = "contribution", num_features = num_features) +
     ggtitle(model_name, subtitle = paste0('reach ', reach,
-                   ', Date ', date)) +
+                                          ', Date ', date)) +
     theme(axis.text.y = element_text(size = 5))
   
   ggsave(filename = fileout, plot = p1, device = 'png')
@@ -436,40 +553,40 @@ plot_pdp <- function(model, data, train_id, model_name, out_dir,
   #' @param ncores number of cores to use for parallel plot creation
   #'
   #' @return Returns the paths to png files of PDP and ICE for each feature
-
+  
   #number of features to make plots for
   n_plts <- ncol(data)
-
+  
   cl = parallel::makeCluster(ncores)
   doParallel::registerDoParallel(cl)
   parallel::clusterExport(cl = cl, varlist = 'predict_pdp_data')
-
+  
   foreach(i = 1:n_plts, .inorder = TRUE, .combine = c, 
           .packages = c('ggplot2', 'pdp', 'tidyverse')) %dopar% {
-    filesout <- file.path(out_dir,
-                             paste0(ifelse(ice, 'ICE_', 'PDP_'), colnames(data)[i], '_',
-                                    model_name, '.png'))
-
-    #get data into class partial to make plots
-    partial_1 <- pdp::partial(object = model,
-                 pred.var = colnames(data)[i],
-                 plot = FALSE,
-                 train = data[train_id,],
-                 type = 'regression',
-                 pred.fun = predict_pdp_data, 
-                 grid.resolution = 25)
-
-    p <- autoplot(partial_1, 
-                  rug = TRUE,
-                  train = data[train_id,]) +
-      ggtitle(model_name) +
-      ylab(expression(paste('Predicted Specific Conductivity (', mu, 'S/cm)', sep = ''))) +
-      theme_classic()
-
-    ggsave(filename = fileout, plot = p, device = 'png')
-  }
+            filesout <- file.path(out_dir,
+                                  paste0(ifelse(ice, 'ICE_', 'PDP_'), colnames(data)[i], '_',
+                                         model_name, '.png'))
+            
+            #get data into class partial to make plots
+            partial_1 <- pdp::partial(object = model,
+                                      pred.var = colnames(data)[i],
+                                      plot = FALSE,
+                                      train = data[train_id,],
+                                      type = 'regression',
+                                      pred.fun = predict_pdp_data, 
+                                      grid.resolution = 25)
+            
+            p <- autoplot(partial_1, 
+                          rug = TRUE,
+                          train = data[train_id,]) +
+              ggtitle(model_name) +
+              ylab(expression(paste('Predicted Specific Conductivity (', mu, 'S/cm)', sep = ''))) +
+              theme_classic()
+            
+            ggsave(filename = fileout, plot = p, device = 'png')
+          }
   
   parallel::stopCluster(cl)
-
+  
   return(filesout)
 }

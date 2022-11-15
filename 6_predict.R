@@ -1131,7 +1131,8 @@ p6_targets_list<- list(
                               ranger_threads = Boruta_cores,
                               file_prefix = '6_predict/out/multiclass/EcoFlows_High/', 
                               omit_columns = c(10:44, 57:71, 73, 74, 77, 79:132, 156:268, 300),
-                              probability = FALSE, save_txt_files = TRUE)),
+                              probability = FALSE, save_txt_files = TRUE),
+             cue = tar_cue('never')),
   
   tar_target(p6_cluster_model_low_EcoFlowsAttrs,
              train_multiclass(InputData = left_join(p3_gages_clusters_quants_agg_low_freq %>%
@@ -1152,7 +1153,8 @@ p6_targets_list<- list(
                               ranger_threads = Boruta_cores,
                               file_prefix = '6_predict/out/multiclass/EcoFlows_Low/', 
                               omit_columns = c(16:50, 63:77, 79, 80, 83, 85:138, 162:274, 306),
-                              probability = FALSE, save_txt_files = TRUE)),
+                              probability = FALSE, save_txt_files = TRUE),
+             cue = tar_cue('never')),
   
   #Make class predictions for CONUS reaches
   #example for high flows with 5 clusters.

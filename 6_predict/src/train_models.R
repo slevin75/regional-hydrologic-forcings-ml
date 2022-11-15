@@ -449,7 +449,7 @@ train_models_grid <- function(brf_output, v_folds, ncores,nested_groups){
                            trees = tune()) %>% 
     set_engine(engine = "ranger", 
                verbose = FALSE, importance = 'permutation', 
-               probability = FALSE)
+               probability = FALSE, keep.inbag = TRUE, respect.unordered.factors = TRUE)
   
   #Set parameter ranges
   params <- parameters(list(mtry = mtry() %>% range_set(c(10,100)), 

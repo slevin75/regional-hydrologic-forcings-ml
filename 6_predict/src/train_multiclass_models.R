@@ -147,7 +147,7 @@ train_multiclass <- function(InputData, y_columns, GAGEID_column, x_columns,
       #uses default mtry value
       RF_init <- ranger::ranger(x = X_ML, y = Y, num.trees = 1000, importance = 'impurity', 
                                 classification = TRUE, num.threads = ranger_threads, 
-                                probability = probability)
+                                probability = probability, respect.unordered.factors = TRUE)
       
       #importance
       imp_init <- as.data.frame(RF_init$variable.importance)
@@ -160,16 +160,10 @@ train_multiclass <- function(InputData, y_columns, GAGEID_column, x_columns,
       }
       
       #Training data with only the top num_features_retain attributes
-      #transpose
-      X_ML_T <- t(X_ML)
-      #add feature importance
-      X_ML_T_IMP <- cbind(imp_init, X_ML_T)
-      #order by feature importance
-      X_ML_T_IMP_ORD <- as.data.frame(X_ML_T_IMP)
-      X_ML_T_IMP_ORD <- X_ML_T_IMP_ORD[order(X_ML_T_IMP_ORD$IMP, decreasing = TRUE),]
-      #New matrix that holds the top num_features_retain watershed attributes
-      X_ML_T_top_attrs <- as.data.frame(t(X_ML_T_IMP_ORD[1:num_features_retain, 2:ncol(X_ML_T_IMP_ORD)]))
-      X_ML_T_top_attrs_TEST <- X_ML_TEST[,colnames(X_ML_T_top_attrs)]
+      columns_retain <- rownames(imp_init)[order(imp_init$IMP, decreasing = TRUE)][1:num_features_retain]
+      X_ML_top_attrs <- X_ML[,colnames(X_ML) %in% columns_retain]
+      X_ML_top_attrs_TEST <- X_ML_TEST[,colnames(X_ML_TEST) %in% columns_retain]
+      rm(columns_retain)
       
       #Random forest tuning
       #Determining optimal parameter values for RF (mtry and ntree)
@@ -184,10 +178,10 @@ train_multiclass <- function(InputData, y_columns, GAGEID_column, x_columns,
         for(bbb in 1:nrow(RF_Models_mtry)){
           ntree_tune <- RF_Models_ntree[aaa,1]
           mtry_tune <- RF_Models_mtry[bbb,1]
-          RF_Pre <- ranger::ranger(x = X_ML_T_top_attrs, y = Y, num.trees = ntree_tune, mtry = mtry_tune, 
+          RF_Pre <- ranger::ranger(x = X_ML_top_attrs, y = Y, num.trees = ntree_tune, mtry = mtry_tune, 
                                    importance = 'impurity', classification = TRUE, num.threads = ranger_threads,
-                                   probability = probability)
-          YPRED_RF_Pre <- predict(RF_Pre, X_ML_T_top_attrs_TEST)
+                                   probability = probability, respect.unordered.factors = TRUE)
+          YPRED_RF_Pre <- predict(RF_Pre, X_ML_top_attrs_TEST)
           
           if(probability){
             #Compute the predicted Y based on the maximum probability for each observation
@@ -229,15 +223,15 @@ train_multiclass <- function(InputData, y_columns, GAGEID_column, x_columns,
       RF_opt_mtry[abc,def] <- RF_mtry_Opt
       
       #Forming optimal model since program does not save each RF model in tuning to save RAM
-      RF <- ranger::ranger(x = X_ML_T_top_attrs, y = Y, num.trees = RF_ntree_Opt, mtry = RF_mtry_Opt, 
+      RF <- ranger::ranger(x = X_ML_top_attrs, y = Y, num.trees = RF_ntree_Opt, mtry = RF_mtry_Opt, 
                            importance = 'impurity', classification = TRUE, num.threads = ranger_threads,
-                           probability = probability)
+                           probability = probability, respect.unordered.factors = TRUE, keep.inbag = TRUE)
       
       #importance
       imp_RF <- as.data.frame(RF$variable.importance)
       
       #predictions
-      YPRED_RF <- predict(RF, X_ML_T_top_attrs_TEST)
+      YPRED_RF <- predict(RF, X_ML_top_attrs_TEST)
       
       #Performance metrics for final model
       if(probability){
@@ -285,8 +279,8 @@ train_multiclass <- function(InputData, y_columns, GAGEID_column, x_columns,
       ###REMOVING certain data from the environment
       rm(TEST_SET, TRAIN_SET, X, ID, X_TEST, ID_TEST, Y, Y_TEST,
          GAGEID_TRAIN, GAGEID_TEST, X_ML, X_ML_TEST,
-         RF_init, imp_init, X_ML_T, X_ML_T_IMP, X_ML_T_IMP_ORD, X_ML_T_top_attrs,
-         X_ML_T_top_attrs_TEST, RF_Wt_Macro_F1_Pre,
+         RF_init, imp_init, X_ML_top_attrs,
+         X_ML_top_attrs_TEST, RF_Wt_Macro_F1_Pre,
          aaa, bbb, RF_FStat_Loc, RF_ntree_Opt, RF_mtry_Opt, RF, imp_RF, YPRED_RF,
          Y_Combined)
       if(probability){
@@ -306,11 +300,13 @@ train_multiclass <- function(InputData, y_columns, GAGEID_column, x_columns,
     
   } #def loop
   
-  write.csv(RF_opt_ntree, file = paste0(file_prefix, "RF_opt_ntree_Class.csv"), row.names = FALSE)
-  write.csv(RF_opt_mtry, file = paste0(file_prefix, "RF_opt_mtry_Class.csv"), row.names = FALSE)
-  write.csv(RF_Wt_Macro_FStat, file = paste0(file_prefix, "RF_Wt_Macro_FStat_Class.csv"), row.names = FALSE)
+  rownames(RF_opt_ntree) <- rownames(RF_opt_mtry) <- rownames(RF_Wt_Macro_FStat) <- HM_names
+  write.csv(RF_opt_ntree, file = paste0(file_prefix, "RF_opt_ntree_Class.csv"))
+  write.csv(RF_opt_mtry, file = paste0(file_prefix, "RF_opt_mtry_Class.csv"))
+  write.csv(RF_Wt_Macro_FStat, file = paste0(file_prefix, "RF_Wt_Macro_FStat_Class.csv"))
   if(probability){
-    write.csv(RF_Brier, file = paste0(file_prefix, "RF_Brier.csv"), row.names = FALSE)
+    rownames(RF_Brier) <- HM_names
+    write.csv(RF_Brier, file = paste0(file_prefix, "RF_Brier.csv"))
   }
   
   #Warn if any of the optimal parameters are located at the bounds

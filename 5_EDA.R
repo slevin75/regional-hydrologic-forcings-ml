@@ -73,7 +73,9 @@ p5_targets_list<- list(
                                               'CAT_MAXP6190', 'CAT_FSTFZ6190', 'CAT_LSTFZ6190', 
                                               #5 odd TOT waterbody variables - using ACC instead
                                               'TOT_PLAYA', 'TOT_ICEMASS', 'TOT_LAKEPOND', 
-                                              'TOT_RESERVOIR', 'TOT_SWAMPMARSH')),
+                                              'TOT_RESERVOIR', 'TOT_SWAMPMARSH',
+                                              #Using ACC PHYSIO instead
+                                              'TOT_PHYSIO')),
              deployment = 'main'
   ),
   # remove TOT variables that are highly correlated with other variables (> 0.9)
@@ -81,7 +83,8 @@ p5_targets_list<- list(
              drop_high_corr_ACCTOT(features = p5_screen_attr_g2, 
                                    threshold_corr = 0.9,
                                    cor_method = 'spearman',
-                                   drop_var = 'TOT'),
+                                   drop_var = 'TOT',
+                                   categorical_cols = 'PHYSIO'),
              deployment = 'main'
   )
 )

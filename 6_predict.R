@@ -1167,6 +1167,7 @@ p6_targets_list<- list(
   #example for gage points instead of reaches
   tar_target(p6_region_class_pred_high_CONUS_png,
              make_class_prediction_map(class_probs = p6_region_class_pred_high_CONUS,
-                               reaches = p1_sites_g2_sf,
-                               out_dir = "6_predict/out/multiclass/High/"))
+                                       reaches = p1_sites_g2_sf,
+                                       out_dir = "6_predict/out/multiclass/High/",
+                                       plot_threshold = 0.05))
 )

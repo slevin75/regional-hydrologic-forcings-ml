@@ -324,7 +324,8 @@ make_residual_map <- function(df_pred_obs, sites, metric, pred_gage_ids, region,
 }
 
 
-make_class_prediction_map <- function(class_probs, reaches, out_dir){
+make_class_prediction_map <- function(class_probs, reaches, out_dir,
+                                      plot_threshold = 0.05){
   #' @description this function creates maps of predicted class probabilities for
   #' each reach
   #' 
@@ -333,6 +334,8 @@ make_class_prediction_map <- function(class_probs, reaches, out_dir){
   #' the name of the class. No other columns.
   #' @param reaches sf object containing the reaches to plot. Must have a "COMID" column
   #' @param out_dir where output figures are saved
+  #' @param plot_threshold threshold below which sites / reaches are not plotted
+  #' because the probability is too low.
   #' 
   #' @return file paths to maps
   
@@ -359,6 +362,17 @@ make_class_prediction_map <- function(class_probs, reaches, out_dir){
   LikelyRanks <- as.data.frame(apply(X = LikelyRanks, MARGIN = 2, FUN = as.character, simplify = FALSE))
   #Add ID
   LikelyRanks$ID <- rank_mat$ID
+  
+  #Remove rank labels when the probability is < plotting threshold
+  for(i in 1:nrow(LikelyRanks)){
+    #Get the classes that are less than the plot_threshold
+    ind_NA_classes <- which(class_probs[class_probs$ID == LikelyRanks$ID[i],] < plot_threshold)
+    
+    #Get the column indices in LikelyRanks that contain those classes
+    ind_col_NA <- which(LikelyRanks[i,] %in% ind_NA_classes)
+    
+    LikelyRanks[i,ind_col_NA] <- NA
+  }
   
   #Join ranks to reaches for plotting
   reaches <- left_join(reaches, LikelyRanks, by = "ID")

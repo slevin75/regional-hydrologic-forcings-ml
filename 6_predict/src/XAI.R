@@ -395,3 +395,101 @@ predict_pdp_data <- function(object, newdata){
   
   return(preds)
 }
+
+
+#PDP
+compute_pdp <- function(model, data, ice = FALSE, ncores = 1, predict_fxn,
+                        avg_pred = TRUE){
+  #'
+  #' @description Computes PDP or ICE values for each feature in data
+  #'
+  #' @param model the model to be used. Can be a list of models, in which case
+  #' average values will be returned for the unique features across all of 
+  #' the models (models do not need to have the same features)
+  #' @param data the dataframe used to make model predictions within the workflow
+  #' @param ice logical. if TRUE, computes ICE values.
+  #' @param ncores number of cores to use for parallel calculations
+  #' @param predict_fxn the prediction function to use, unquoted
+  #' @param avg_pred logical indicating what the predict_fxn provides. When TRUE, it
+  #' should provide an average over all models (bootstraps) and values
+  #' correspond to that average. FALSE is currently not supported.
+  #'
+  #' @return Returns a list of length=ncol(data) with the pdp values for each feature
+  
+  cl = parallel::makeCluster(ncores)
+  doParallel::registerDoParallel(cl)
+  parallel::clusterExport(cl = cl, varlist = 'predict_fxn',
+                          envir = environment())
+  parallel::clusterEvalQ(cl = cl, expr = options(tidyverse.quiet = TRUE))
+  
+  partial <- list()
+  
+  if(avg_pred){
+    #compute values for the average over all models
+    # partial will be a list with length(predict_fxn) elements
+    # each element will have the PDP values for that class
+    
+    #Get only the attributes that are used within this list of models
+    attr_used <- vector('character', length = 0)
+    for(i in 1:length(model)){
+      attr_used <- unique(c(attr_used, model[[i]]$forest$independent.variable.names))
+    }
+    data <- data[, which(colnames(data) %in% attr_used)]
+    
+    #Compute values for each feature
+    for(j in 1:ncol(data)){
+      partial_j <- pdp::partial(object = model,
+                                pred.var = colnames(data)[j],
+                                plot = FALSE,
+                                ice = FALSE,
+                                train = data,
+                                type = 'classification',
+                                prob = TRUE,
+                                pred.fun = predict_fxn, 
+                                grid.resolution = 25,
+                                parallel = TRUE,
+                                paropts = list(.packages = c('tidyverse', 'ranger')))
+      
+      partial <- c(partial, list(partial_j))
+    }
+    names(partial) <- colnames(data)
+    
+  }else{
+    #compute values for each model
+    # partial will be a list with length(model) elements (bootstraps)
+    #  each element will have a list of matrices with length(predict_fxn)
+    #  averages and error values will be computed over the bootstraps
+    stop('function currently does not support returning values for each model.
+         use avg_pred = TRUE instead.')
+  }
+  
+  return(partial)
+}
+
+predict_pdp_multiclass <- function(object, newdata){
+  #' @description provides mean class probability for all classes
+  #' 
+  #' @param object trained model(s) used to make predictions for each reach in newdata
+  #' @param newdata dataframe of reaches (rows) and attributes (columns) for which
+  #' predictions will be made. Must have a "ID" column.
+  #' 
+  #' @returns vector of predicted mean class probabilities
+  
+  #loop over models within model to make predictions
+  predictions <- array(data = NA, dim = c(length(object), nrow(newdata), ncol(object[[1]]$predictions)), 
+  )
+  for (i in 1:length(object)){
+    #get the reach attrs used for this model
+    attrs <- select(newdata, all_of(names(object[[i]]$variable.importance)))
+    preds <- predict(object[[i]], attrs)$predictions
+    
+    predictions[i,,] <- preds
+  }
+  
+  #compute the average predictions for each reach over all models
+  avg_predications <- apply(X = predictions, MARGIN = c(2,3), FUN = mean)
+  colnames(avg_predications) <- seq(1,ncol(avg_predications),1)
+  avg_predications <- as.data.frame(avg_predications)
+  
+  return(colMeans(avg_predications))
+}

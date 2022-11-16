@@ -657,50 +657,43 @@ plot_shap_individual <- function(shap, data, reach, date, model_name, out_dir,
 
 
 #PDP and ICE
-plot_pdp <- function(model, data, model_name, out_dir, 
-                     ice = FALSE, ncores = 1, predict_fxn){
+plot_pdp <- function(partial, data, model_name, out_dir, 
+                     ncores = 1, ice = FALSE){
   #'
-  #' @description Creates PDP or ICE plots for each feature in data
+  #' @description Creates PDP plots for each feature
   #'
-  #' @param model the model to be used. Can be a list of models, in which case
-  #' average values will be returned for the unique features across all of 
-  #' the models (models do not need to have the same features)
-  #' @param data the dataframe used to make model predictions within the workflow
+  #' @param partial result from compute_pdp
+  #' @param data the dataframe used to make model predictions
   #' @param model_name character string describing the model. Will be added
   #' to the end of the filename before the file extension, and also be the plot title.
   #' @param out_dir output directory
-  #' @param ice logical. if TRUE, makes ICE plots with PDP overlain.
   #' @param ncores number of cores to use for parallel plot creation
+  #' @param ice logical. if TRUE, plots ICE values.
   #'
-  #' @return Returns the paths to png files of PDP or ICE for each feature
-  
-  #number of features to make plots for
-  n_plts <- ncol(data)
+  #' @return Returns the paths to png files of PDP for each feature
   
   cl = parallel::makeCluster(ncores)
   doParallel::registerDoParallel(cl)
-  parallel::clusterExport(cl = cl, varlist = 'predict_pdp_data')
+  
+  #number of features to make plots for
+  n_plts <- length(partial)
   
   foreach(i = 1:n_plts, .inorder = TRUE, .combine = c, 
           .packages = c('ggplot2', 'pdp', 'tidyverse')) %dopar% {
             filesout <- file.path(out_dir,
-                                  paste0(ifelse(ice, 'ICE_', 'PDP_'), colnames(data)[i], '_',
+                                  paste0(ifelse(ice, 'ICE_', 'PDP_'), names(partial)[i], '_',
                                          model_name, '.png'))
             
-            #get data into class partial to make plots
-            partial_1 <- pdp::partial(object = model,
-                                      pred.var = colnames(data)[i],
-                                      plot = FALSE,
-                                      train = data[train_id,],
-                                      type = 'regression',
-                                      pred.fun = predict_pdp_data, 
-                                      grid.resolution = 25)
+            #Convert class ID to character to plot correctly
+            partial[[i]]$yhat.id <- as.character(partial[[i]]$yhat.id) 
             
-            p <- autoplot(partial_1, 
-                          rug = TRUE,
-                          train = data[train_id,]) +
+            p <- ggplot(data = as.data.frame(partial[[i]]), 
+                        mapping = aes(x = as.data.frame(partial[[i]])[,1], y = yhat, color = yhat.id)) + 
+              geom_line() + 
+              ylim(0,1) +
               ggtitle(model_name) +
-              ylab(expression(paste('Class probability', sep = ''))) +
+              ylab('Average Class Probability') +
+              xlab(colnames(as.data.frame(partial[[i]]))[1]) +
               theme_classic()
             
             ggsave(filename = fileout, plot = p, device = 'png')

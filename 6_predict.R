@@ -1270,14 +1270,45 @@ p6_targets_list<- list(
   ),
   
   
-  #PDP and ICE plots - not ready yet
-  tar_target(p6_pdp_multiclass_high_png,
-             plot_pdp(model = filter(p6_cluster_model_high$RF_models, 
-                                 HM == "0.75,0.8,0.85,0.9,0.95_k5") %>% 
-                            pull(model),
+  #PDP 
+  tar_target(p6_pdp_multiclass_midhigh,
+             compute_pdp(model = filter(p6_cluster_model_high$RF_models, 
+                                        HM == "0.5,0.55,0.6,0.65,0.7_k5") %>% 
+                           pull(model),
+                         data = p5_attr_g2,
+                         predict_fxn = predict_pdp_multiclass,
+                         ice = FALSE,
+                         ncores = SHAP_cores,
+                         avg_pred = TRUE),
+             format = "file"
+  ),
+  tar_target(p6_pdp_multiclass_midhigh_png,
+             plot_pdp(partial = p6_pdp_multiclass_midhigh,
                       data = p5_attr_g2,
+                      ncores = SHAP_cores,
+                      ice = FALSE,
+                      model_name = 'RF_multiclass_midhigh',
+                      out_dir = '6_predict/out/multiclass/High/dependence/midhigh'),
+             format = "file"
+  ),
+  tar_target(p6_pdp_multiclass_high,
+             compute_pdp(model = filter(p6_cluster_model_high$RF_models, 
+                                        HM == "0.75,0.8,0.85,0.9,0.95_k5") %>% 
+                           pull(model),
+                         data = p5_attr_g2,
+                         predict_fxn = predict_pdp_multiclass,
+                         ice = FALSE,
+                         ncores = SHAP_cores,
+                         avg_pred = TRUE),
+             format = "file"
+  ),
+  tar_target(p6_pdp_multiclass_high_png,
+             plot_pdp(partial = p6_pdp_multiclass_high,
+                      data = p5_attr_g2,
+                      ncores = SHAP_cores,
+                      ice = FALSE,
                       model_name = 'RF_multiclass_high',
-                      out_dir = '6_predict/out/multiclass/High/dependence'),
+                      out_dir = '6_predict/out/multiclass/High/dependence/high'),
              format = "file"
   )
 )

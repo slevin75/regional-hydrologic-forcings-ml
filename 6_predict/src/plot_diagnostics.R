@@ -325,7 +325,7 @@ make_residual_map <- function(df_pred_obs, sites, metric, pred_gage_ids, region,
 
 
 make_class_prediction_map <- function(class_probs, reaches, out_dir,
-                                      plot_threshold = 0.05){
+                                      plot_threshold = 0.05, model_name){
   #' @description this function creates maps of predicted class probabilities for
   #' each reach
   #' 
@@ -336,6 +336,7 @@ make_class_prediction_map <- function(class_probs, reaches, out_dir,
   #' @param out_dir where output figures are saved
   #' @param plot_threshold threshold below which sites / reaches are not plotted
   #' because the probability is too low.
+  #' @param model_name name to add to the file name that describes this model
   #' 
   #' @return file paths to maps
   
@@ -385,7 +386,7 @@ make_class_prediction_map <- function(class_probs, reaches, out_dir,
   
   for(i in 1:length(fnames)){
     col_name <- colnames(LikelyRanks)[i]
-    fname <- file.path(out_dir, paste0(col_name, '_map.png'))
+    fname <- file.path(out_dir, paste0(model_name, '_', col_name, '_map.png'))
     
     #Only plot if some data are not NA (< plotting threshold)
     if(!all(is.na(reaches[[col_name]]))){
@@ -464,6 +465,47 @@ plot_shap_global <- function(shap, model_name, out_dir, num_features = 40){
   
   return(fileout)
 }
+plot_shap_global_sv <- function(shap, data, model_name, out_dir, num_features = 40,
+                                sv_kind = 'both'){
+  #' 
+  #' @description Creates SHAP global importance plot using the shapviz package
+  #'
+  #' @param shap SHAP value results from compute_SHAP
+  #' @param data attributes data for the columns within shap
+  #' @param model_name character string describing the model. Will be added 
+  #' to the end of the filename before the file extension, and also be the plot title.
+  #' @param out_dir output directory
+  #' @param sv_kind kind of shapviz plot. bar, beeswarm, or both.
+  #'
+  #' @return Returns the paths to png files of SHAP dependence plots for each feature
+  
+  if(class(shap) == 'list'){
+    #make plots for each list
+    filesout <- vector('character', length = length(shap))
+    
+    for (i in 1:length(filesout)){
+      filesout[i] <- file.path(out_dir, 
+                           paste0('SHAP_global_', model_name, '_', names(shap)[i], '.png'))
+      
+      p1 <- sv_importance(shapviz(shap[[i]], X = data[,colnames(data) %in% colnames(shap[[i]])]), 
+                    kind = sv_kind, max_display = num_features, fill = 'black') +
+        ggtitle(model_name)
+      
+      ggsave(filename = filesout[i], plot = p1, device = 'png')
+    }
+  }else{
+    filesout <- file.path(out_dir, 
+                         paste0('SHAP_global_', model_name, '.png'))
+    
+    p1 <- sv_importance(shapviz(shap, X = data[,colnames(data) %in% colnames(shap)]), 
+                        kind = sv_kind, max_display = num_features, fill = 'black') +
+      ggtitle(model_name)
+    
+    ggsave(filename = filesout, plot = p1, device = 'png')
+  }
+  
+  return(filesout)
+}
 
 plot_shap_dependence <- function(shap, data, model_name, out_dir, ncores = 1){
   #' 
@@ -499,6 +541,81 @@ plot_shap_dependence <- function(shap, data, model_name, out_dir, ncores = 1){
                         
                         fileout
                       }
+  
+  parallel::stopCluster(cl)
+  
+  return(filesout)
+}
+plot_shap_dependence_sv <- function(shap, data, model_name, out_dir, ncores = 1){
+  #' 
+  #' @description Creates SHAP dependence plots for each feature using the shapviz package
+  #'
+  #' @param shap SHAP value results from compute_SHAP
+  #' @param data the X dataframe used to compute SHAP values
+  #' @param model_name character string describing the model. Will be added 
+  #' to the end of the filename before the file extension, and also be the plot title.
+  #' @param out_dir output directory
+  #' @param ncores number of cores to use for parallel plot creation
+  #'
+  #' @return Returns the paths to png files of SHAP dependence plots for each feature
+  
+  cl = parallel::makeCluster(ncores)
+  doParallel::registerDoParallel(cl)
+  
+  if(class(shap) == 'list'){
+    #make plots for each list
+    
+    #number of features to make plots for
+    n_plts <- ncol(shap[[1]])
+    
+    filesout <- vector('character', length = 0)
+    for (j in 1:length(shap)){
+      filesout_j <- foreach(i = 1:n_plts, .inorder = TRUE, .combine = c, 
+                          .packages = c('ggplot2', 'fastshap', 'shapviz')) %dopar% {
+                            fileout <- file.path(out_dir, 
+                                                 paste0(model_name, '_', 
+                                                        names(shap)[j], 
+                                                        '_SHAP_dependence_', 
+                                                        colnames(shap[[j]])[i], 
+                                                        '.png'))
+                            
+                            p <- sv_dependence(shapviz(shap[[j]], 
+                                                       X = data[,colnames(data) %in% colnames(shap[[j]])]), 
+                                               v = colnames(shap[[j]])[i],
+                                               alpha = 0.5) +
+                              ggtitle(model_name)
+                            
+                            ggsave(filename = fileout, plot = p, device = 'png')
+                            
+                            fileout
+                          }
+      
+      filesout <- c(filesout, filesout_j)
+    }
+    
+  }else{
+    #number of features to make plots for
+    n_plts <- ncol(shap)
+    
+    filesout <- foreach(i = 1:n_plts, .inorder = TRUE, .combine = c, 
+                        .packages = c('ggplot2', 'fastshap', 'shapviz')) %dopar% {
+                          fileout <- file.path(out_dir, 
+                                               paste0(model_name, '_', 
+                                                      '_SHAP_dependence_', 
+                                                      colnames(shap)[i], 
+                                                      '.png'))
+                          
+                          p <- sv_dependence(shapviz(shap, 
+                                                     X = data[,colnames(data) %in% colnames(shap)]), 
+                                             v = colnames(shap)[i],
+                                             alpha = 0.5) +
+                            ggtitle(model_name)
+                          
+                          ggsave(filename = fileout, plot = p, device = 'png')
+                          
+                          fileout
+                        }
+  }
   
   parallel::stopCluster(cl)
   
@@ -540,11 +657,14 @@ plot_shap_individual <- function(shap, data, reach, date, model_name, out_dir,
 
 
 #PDP and ICE
-plot_pdp <- function(model, data, train_id, model_name, out_dir, 
-                     ice = FALSE, ncores = 1){
+plot_pdp <- function(model, data, model_name, out_dir, 
+                     ice = FALSE, ncores = 1, predict_fxn){
   #'
   #' @description Creates PDP or ICE plots for each feature in data
   #'
+  #' @param model the model to be used. Can be a list of models, in which case
+  #' average values will be returned for the unique features across all of 
+  #' the models (models do not need to have the same features)
   #' @param data the dataframe used to make model predictions within the workflow
   #' @param model_name character string describing the model. Will be added
   #' to the end of the filename before the file extension, and also be the plot title.
@@ -552,7 +672,7 @@ plot_pdp <- function(model, data, train_id, model_name, out_dir,
   #' @param ice logical. if TRUE, makes ICE plots with PDP overlain.
   #' @param ncores number of cores to use for parallel plot creation
   #'
-  #' @return Returns the paths to png files of PDP and ICE for each feature
+  #' @return Returns the paths to png files of PDP or ICE for each feature
   
   #number of features to make plots for
   n_plts <- ncol(data)
@@ -580,7 +700,7 @@ plot_pdp <- function(model, data, train_id, model_name, out_dir,
                           rug = TRUE,
                           train = data[train_id,]) +
               ggtitle(model_name) +
-              ylab(expression(paste('Predicted Specific Conductivity (', mu, 'S/cm)', sep = ''))) +
+              ylab(expression(paste('Class probability', sep = ''))) +
               theme_classic()
             
             ggsave(filename = fileout, plot = p, device = 'png')

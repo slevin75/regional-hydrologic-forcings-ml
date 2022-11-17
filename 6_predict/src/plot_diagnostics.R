@@ -675,6 +675,9 @@ plot_pdp <- function(partial, data, model_name, out_dir,
   cl = parallel::makeCluster(ncores)
   doParallel::registerDoParallel(cl)
   
+  #add y=0 for rug
+  data$y0 <- 0
+  
   #number of features to make plots for
   n_plts <- length(partial)
   
@@ -690,6 +693,11 @@ plot_pdp <- function(partial, data, model_name, out_dir,
             p <- ggplot(data = as.data.frame(partial[[i]]), 
                         mapping = aes(x = as.data.frame(partial[[i]])[,1], y = yhat, color = yhat.id)) + 
               geom_line() + 
+              #add rug to indicate observation loactions
+              geom_point(data = data, mapping = aes(x = as.data.frame(data[,colnames(partial[[i]])[1]])[,1],
+                                                   y = y0, 
+                                                   color = NA),
+                         shape = '|') +
               ylim(0,1) +
               ggtitle(model_name) +
               ylab('Average Class Probability') +

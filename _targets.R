@@ -98,6 +98,14 @@ dir.create('6_predict/out/multiclass/High/dependence/midhigh', showWarnings = FA
 dir.create('6_predict/out/multiclass/Low', showWarnings = FALSE)
 dir.create('6_predict/out/multiclass/EcoFlows_High', showWarnings = FALSE)
 dir.create('6_predict/out/multiclass/EcoFlows_Low', showWarnings = FALSE)
+#No physio predictor
+dir.create('6_predict/out/multiclass/High/NoPhysio', showWarnings = FALSE)
+dir.create('6_predict/out/multiclass/High/NoPhysio/shap', showWarnings = FALSE)
+dir.create('6_predict/out/multiclass/High/NoPhysio/shap/high', showWarnings = FALSE)
+dir.create('6_predict/out/multiclass/High/NoPhysio/shap/midhigh', showWarnings = FALSE)
+dir.create('6_predict/out/multiclass/High/NoPhysio/dependence', showWarnings = FALSE)
+dir.create('6_predict/out/multiclass/High/NoPhysio/dependence/high', showWarnings = FALSE)
+dir.create('6_predict/out/multiclass/High/NoPhysio/dependence/midhigh', showWarnings = FALSE)
 
 ##Load user defined functions
 source("1_fetch.R")

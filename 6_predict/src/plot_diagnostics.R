@@ -489,7 +489,7 @@ plot_shap_global_sv <- function(shap, data, model_name, out_dir, num_features = 
       
       p1 <- sv_importance(shapviz(shap[[i]], X = data[,colnames(data) %in% colnames(shap[[i]])]), 
                     kind = sv_kind, max_display = num_features, fill = 'black') +
-        ggtitle(model_name)
+        ggtitle(model_name, subtitle = names(shap)[i])
       
       ggsave(filename = filesout[i], plot = p1, device = 'png')
     }
@@ -583,7 +583,7 @@ plot_shap_dependence_sv <- function(shap, data, model_name, out_dir, ncores = 1)
                                                        X = data[,colnames(data) %in% colnames(shap[[j]])]), 
                                                v = colnames(shap[[j]])[i],
                                                alpha = 0.5) +
-                              ggtitle(model_name)
+                              ggtitle(model_name, subtitle = names(shap)[j])
                             
                             ggsave(filename = fileout, plot = p, device = 'png')
                             
@@ -678,9 +678,9 @@ plot_pdp <- function(partial, data, model_name, out_dir,
   #number of features to make plots for
   n_plts <- length(partial)
   
-  foreach(i = 1:n_plts, .inorder = TRUE, .combine = c, 
+  filesout <- foreach(i = 1:n_plts, .inorder = TRUE, .combine = c, 
           .packages = c('ggplot2', 'pdp', 'tidyverse')) %dopar% {
-            filesout <- file.path(out_dir,
+            fileout <- file.path(out_dir,
                                   paste0(ifelse(ice, 'ICE_', 'PDP_'), names(partial)[i], '_',
                                          model_name, '.png'))
             
@@ -697,6 +697,8 @@ plot_pdp <- function(partial, data, model_name, out_dir,
               theme_classic()
             
             ggsave(filename = fileout, plot = p, device = 'png')
+            
+            fileout
           }
   
   parallel::stopCluster(cl)

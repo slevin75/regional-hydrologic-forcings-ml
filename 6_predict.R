@@ -1279,8 +1279,7 @@ p6_targets_list<- list(
                          predict_fxn = predict_pdp_multiclass,
                          ice = FALSE,
                          ncores = SHAP_cores,
-                         avg_pred = TRUE),
-             format = "file"
+                         avg_pred = TRUE)
   ),
   tar_target(p6_pdp_multiclass_midhigh_png,
              plot_pdp(partial = p6_pdp_multiclass_midhigh,
@@ -1299,8 +1298,7 @@ p6_targets_list<- list(
                          predict_fxn = predict_pdp_multiclass,
                          ice = FALSE,
                          ncores = SHAP_cores,
-                         avg_pred = TRUE),
-             format = "file"
+                         avg_pred = TRUE)
   ),
   tar_target(p6_pdp_multiclass_high_png,
              plot_pdp(partial = p6_pdp_multiclass_high,

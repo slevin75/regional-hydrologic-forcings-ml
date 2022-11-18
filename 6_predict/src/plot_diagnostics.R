@@ -488,7 +488,8 @@ plot_shap_global_sv <- function(shap, data, model_name, out_dir, num_features = 
                            paste0('SHAP_global_', model_name, '_', names(shap)[i], '.png'))
       
       p1 <- sv_importance(shapviz(shap[[i]], X = data[,colnames(data) %in% colnames(shap[[i]])]), 
-                    kind = sv_kind, max_display = num_features, fill = 'black') +
+                    kind = sv_kind, max_display = num_features, fill = 'black',
+                    alpha = 0.5) +
         ggtitle(model_name, subtitle = names(shap)[i])
       
       ggsave(filename = filesout[i], plot = p1, device = 'png')
@@ -498,7 +499,8 @@ plot_shap_global_sv <- function(shap, data, model_name, out_dir, num_features = 
                          paste0('SHAP_global_', model_name, '.png'))
     
     p1 <- sv_importance(shapviz(shap, X = data[,colnames(data) %in% colnames(shap)]), 
-                        kind = sv_kind, max_display = num_features, fill = 'black') +
+                        kind = sv_kind, max_display = num_features, fill = 'black',
+                        alpha = 0.5) +
       ggtitle(model_name)
     
     ggsave(filename = filesout, plot = p1, device = 'png')
@@ -658,7 +660,7 @@ plot_shap_individual <- function(shap, data, reach, date, model_name, out_dir,
 
 #PDP and ICE
 plot_pdp <- function(partial, data, model_name, out_dir, 
-                     ncores = 1, ice = FALSE){
+                     ncores = 1, ice = FALSE, offset = FALSE){
   #'
   #' @description Creates PDP plots for each feature
   #'
@@ -669,40 +671,72 @@ plot_pdp <- function(partial, data, model_name, out_dir,
   #' @param out_dir output directory
   #' @param ncores number of cores to use for parallel plot creation
   #' @param ice logical. if TRUE, plots ICE values.
+  #' @param offset logical. if TRUE, offset first pdp element to 0.
   #'
   #' @return Returns the paths to png files of PDP for each feature
   
   cl = parallel::makeCluster(ncores)
   doParallel::registerDoParallel(cl)
   
-  #add y=0 for rug
-  data$y0 <- 0
-  
   #number of features to make plots for
   n_plts <- length(partial)
   
   filesout <- foreach(i = 1:n_plts, .inorder = TRUE, .combine = c, 
-          .packages = c('ggplot2', 'pdp', 'tidyverse')) %dopar% {
-            fileout <- file.path(out_dir,
-                                  paste0(ifelse(ice, 'ICE_', 'PDP_'), names(partial)[i], '_',
-                                         model_name, '.png'))
-            
+          .packages = c('ggplot2', 'pdp', 'tidyverse'), .export = 'offset_partial') %dopar% {
             #Convert class ID to character to plot correctly
             partial[[i]]$yhat.id <- as.character(partial[[i]]$yhat.id) 
             
-            p <- ggplot(data = as.data.frame(partial[[i]]), 
-                        mapping = aes(x = as.data.frame(partial[[i]])[,1], y = yhat, color = yhat.id)) + 
-              geom_line() + 
-              #add rug to indicate observation loactions
-              geom_point(data = data, mapping = aes(x = as.data.frame(data[,colnames(partial[[i]])[1]])[,1],
-                                                   y = y0, 
-                                                   color = NA),
-                         shape = '|') +
-              ylim(0,1) +
-              ggtitle(model_name) +
-              ylab('Average Class Probability') +
-              xlab(colnames(as.data.frame(partial[[i]]))[1]) +
-              theme_classic()
+            if(offset){
+              #offset each yhat.id such that it starts at 0
+              partial[[i]]$yhat <- offset_partial(partial[[i]]) 
+              
+              #add y=-0.5 for rug
+              data$y0 <- -0.5
+              
+              fileout <- file.path(out_dir,
+                                   paste0(ifelse(ice, 'ICE_offset_', 'PDP_offset_'), names(partial)[i], '_',
+                                          model_name, '.png'))
+              
+              p <- ggplot(data = as.data.frame(partial[[i]]), 
+                          mapping = aes(x = as.data.frame(partial[[i]])[,1], y = yhat, color = yhat.id)) + 
+                geom_line() + 
+                #add rug to indicate observation loactions
+                geom_point(data = data, mapping = aes(x = as.data.frame(data[,colnames(partial[[i]])[1]])[,1],
+                                                      y = y0, 
+                                                      color = NA),
+                           shape = '|',
+                           show.legend = FALSE) +
+                ylim(-0.5,0.5) +
+                ggtitle(model_name) +
+                ylab('Centered Region Probability') +
+                xlab(colnames(as.data.frame(partial[[i]]))[1]) +
+                theme_classic() +
+                labs(color = "Region")
+              
+            }else{
+              #add y=0 for rug
+              data$y0 <- 0
+              
+              fileout <- file.path(out_dir,
+                                   paste0(ifelse(ice, 'ICE_', 'PDP_'), names(partial)[i], '_',
+                                          model_name, '.png'))
+              
+              p <- ggplot(data = as.data.frame(partial[[i]]), 
+                          mapping = aes(x = as.data.frame(partial[[i]])[,1], y = yhat, color = yhat.id)) + 
+                geom_line() + 
+                #add rug to indicate observation loactions
+                geom_point(data = data, mapping = aes(x = as.data.frame(data[,colnames(partial[[i]])[1]])[,1],
+                                                      y = y0, 
+                                                      color = NA),
+                           shape = '|',
+                           show.legend = FALSE) +
+                ylim(0,1) +
+                ggtitle(model_name) +
+                ylab('Average Class Probability') +
+                xlab(colnames(as.data.frame(partial[[i]]))[1]) +
+                theme_classic() +
+                labs(color = "Region")
+            }
             
             ggsave(filename = fileout, plot = p, device = 'png')
             
@@ -712,4 +746,23 @@ plot_pdp <- function(partial, data, model_name, out_dir,
   parallel::stopCluster(cl)
   
   return(filesout)
+}
+
+
+offset_partial <- function(partial_data){
+  #'
+  #' @description Creates an offset yhat value in which the first element is 0
+  #' and all other elements are their original value minus the original first
+  #' element value.
+  #'
+  #' @param partial_data data.frame with columns yhat (numeric) and yhat.id (character)
+  #'
+  #' @return Returns the offset yhat vector
+  
+  for(i in 1:length(unique(partial_data$yhat.id))){
+    inds_i <- which(partial_data$yhat.id == as.character(i))
+    partial_data$yhat[inds_i] <- partial_data$yhat[inds_i] - partial_data$yhat[inds_i][1]
+  }
+  
+  return(partial_data$yhat)
 }

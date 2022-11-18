@@ -1410,6 +1410,16 @@ p6_targets_list<- list(
                       out_dir = '6_predict/out/multiclass/High/dependence/midhigh'),
              format = "file"
   ),
+  tar_target(p6_pdp_multiclass_midhigh_offset_png,
+             plot_pdp(partial = p6_pdp_multiclass_midhigh,
+                      data = p5_attr_g2,
+                      ncores = SHAP_cores,
+                      ice = FALSE,
+                      offset = TRUE,
+                      model_name = 'RF_multiclass_midhigh',
+                      out_dir = '6_predict/out/multiclass/High/dependence/midhigh'),
+             format = "file"
+  ),
   tar_target(p6_pdp_multiclass_high,
              compute_pdp(model = filter(p6_cluster_model_high$RF_models, 
                                         HM == "0.75,0.8,0.85,0.9,0.95_k5") %>% 
@@ -1425,6 +1435,16 @@ p6_targets_list<- list(
                       data = p5_attr_g2,
                       ncores = SHAP_cores,
                       ice = FALSE,
+                      model_name = 'RF_multiclass_high',
+                      out_dir = '6_predict/out/multiclass/High/dependence/high'),
+             format = "file"
+  ),
+  tar_target(p6_pdp_multiclass_high_offset_png,
+             plot_pdp(partial = p6_pdp_multiclass_high,
+                      data = p5_attr_g2,
+                      ncores = SHAP_cores,
+                      ice = FALSE,
+                      offset = TRUE,
                       model_name = 'RF_multiclass_high',
                       out_dir = '6_predict/out/multiclass/High/dependence/high'),
              format = "file"

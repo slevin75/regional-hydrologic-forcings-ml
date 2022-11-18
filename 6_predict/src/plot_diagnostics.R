@@ -624,16 +624,15 @@ plot_shap_dependence_sv <- function(shap, data, model_name, out_dir, ncores = 1)
   return(filesout)
 }
 
-plot_shap_individual <- function(shap, data, reach, date, model_name, out_dir,
+plot_shap_individual <- function(shap, data, reach, model_name, out_dir,
                                  num_features = 40){
   #' 
   #' @description Creates a SHAP contribution plot for an individual prediction index.
   #'
   #' @param shap SHAP value results from compute_SHAP
-  #' @param data dataframe with PRMS_segid and Date columns with rows in the
+  #' @param data dataframe with COMID column with rows in the
   #' same order as shap
-  #' @param reach PRMS_segid of observation to plot
-  #' @param date date of observation to plot as YYYY-MM-DD
+  #' @param reach COMID of observation to plot
   #' @param model_name character string describing the model. Will be added 
   #' to the end of the filename before the file extension, and also be the plot title.
   #' @param out_dir output directory
@@ -641,15 +640,13 @@ plot_shap_individual <- function(shap, data, reach, date, model_name, out_dir,
   #' @return Returns the path to the png file of feature contributions to the index prediction
   
   #row index for which to compute plot
-  ind_plt <- which(data$PRMS_segid == reach & data$Date == date)
+  ind_plt <- which(data$COMID == reach)
   
   fileout <- file.path(out_dir, paste0('SHAP_individual_', model_name, 
-                                       '_reach-', reach, 
-                                       '_date-', date, '.png'))
+                                       '_reach-', reach, '.png'))
   
   p1 <- autoplot(shap[ind_plt,], type = "contribution", num_features = num_features) +
-    ggtitle(model_name, subtitle = paste0('reach ', reach,
-                                          ', Date ', date)) +
+    ggtitle(model_name, subtitle = paste0('reach ', reach)) +
     theme(axis.text.y = element_text(size = 5))
   
   ggsave(filename = fileout, plot = p1, device = 'png')

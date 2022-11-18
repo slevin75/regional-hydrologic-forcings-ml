@@ -430,16 +430,29 @@ screen_Boruta_exact <- function(features, cluster_table, metrics_table, metric_n
               brf_All = brf_All, input_data = screened_input_data))
 }
 
-train_models_grid <- function(brf_output, v_folds, ncores,nested_groups){
+train_models_grid <- function(brf_output, v_folds, ncores, nested_groups,
+                              range_mtry, range_minn, range_trees,
+                              gridsize){
   #' 
   #' @description optimizes hyperparameters using a grid search
   #'
   #' @param brf_output output of the screen_Boruta function
   #' @param v_folds number of cross validation folds to use
   #' @param ncores number of cores to use
+  #' @param nested_groups matrix identifying nestedness from p4_nested_groups.
+  #' @param range_mtry 2-element numeric vector for min and max values of mtry
+  #' to use within ranger random forest
+  #' @param range_minn 2-element numeric vector for min and max values of min_n
+  #' to use within ranger random forest
+  #' @param range_trees 2-element numeric vector for min and max values of trees
+  #' to use within ranger random forest
+  #' @param gridsize numeric number of points to evaluate within the 3D grid
   #' 
   #' @return Returns a list of the evaluated grid parameters, the 
   #' best fit parameters, and the workflow for those parameters.
+  
+  #faster parallelization for ranger is to use the built-in num.threads parameter.
+  threads <- floor((ncores - v_folds)/v_folds)
   
   #Set the parameters to be tuned
   #Test with and without write.forest
@@ -447,18 +460,18 @@ train_models_grid <- function(brf_output, v_folds, ncores,nested_groups){
                            mtry = tune(), 
                            min_n = tune(), 
                            trees = tune()) %>% 
-    set_engine(engine = "ranger", 
+    set_engine(engine = "ranger", num.threads = threads,
                verbose = FALSE, importance = 'permutation', 
                probability = FALSE, keep.inbag = TRUE, respect.unordered.factors = TRUE)
   
   #Set parameter ranges
-  params <- parameters(list(mtry = mtry() %>% range_set(c(10,100)), 
-                            min_n = min_n() %>% range_set(c(2,10)),
-                            trees = trees() %>% range_set(c(500,2000))))
+  params <- parameters(list(mtry = mtry() %>% range_set(range_mtry), 
+                            min_n = min_n() %>% range_set(range_minn),
+                            trees = trees() %>% range_set(range_trees)))
   
   #Space filled grid to search
   grid <- grid_max_entropy(params,
-                           size = 100,
+                           size = gridsize,
                            iter = 1000)
 
   #number of cross validation folds (v)
@@ -475,7 +488,7 @@ train_models_grid <- function(brf_output, v_folds, ncores,nested_groups){
   cl = parallel::makeCluster(ncores)
   doParallel::registerDoParallel(cl)
   #Send variables to worker environments
-  parallel::clusterExport(cl = cl, varlist = c('brf_output'), 
+  parallel::clusterExport(cl = cl, varlist = c('brf_output', 'threads'), 
                           envir = environment())
   
   grid_result <- tune_grid(wf, 
@@ -483,14 +496,14 @@ train_models_grid <- function(brf_output, v_folds, ncores,nested_groups){
                            grid = grid, 
                            metrics = metric_set(rmse, mae, rsq),
                            control = control_grid(
-                             verbose = TRUE,
+                             verbose = FALSE,
                              allow_par = TRUE,
                              extract = NULL,
                              save_pred = FALSE,
                              pkgs = NULL,
                              save_workflow = FALSE,
                              event_level = "first",
-                             parallel_over = "everything"
+                             parallel_over = "resamples"
                            )
   )
   #refine hyperparameters with a Bayesian optimizaton
@@ -533,6 +546,9 @@ train_models_grid <- function(brf_output, v_folds, ncores,nested_groups){
   final_wf_trained <- extract_workflow(final_fit)
   
   parallel::stopCluster(cl)
+  
+  #remove data from grid_result to reduce file size
+  grid_result$splits <- NULL
   
   return(list(grid_params = grid_result, 
               best_fit = final_fit, 

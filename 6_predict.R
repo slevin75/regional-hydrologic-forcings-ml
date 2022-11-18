@@ -3,7 +3,7 @@ source("6_predict/src/plot_diagnostics.R")
 source("6_predict/src/train_multiclass_models.R")
 source("6_predict/src/XAI.R")
 
-#p_6 params only
+#p6 params only
 
 #Random Forest Parameters
 #maximum number of runs for Boruta feature screening algorithm
@@ -21,7 +21,7 @@ SHAP_nsim <- 20
 
 
 
-p6_targets_list<- list(
+p6_targets_list <- list(
   #########
   #Predict
   #Note - may be best to select features again using the local region databases
@@ -52,7 +52,11 @@ p6_targets_list<- list(
              train_models_grid(brf_output = p6_Boruta_rain,
                                ncores = Boruta_cores,
                                v_folds = cv_folds, 
-                               nested_groups = p4_nested_groups
+                               nested_groups = p4_nested_groups,
+                               range_mtry = c(5,30), 
+                               range_minn = c(2,10), 
+                               range_trees = c(100,500),
+                               gridsize = 50
              ),
              #map(p6_Boruta_rain),
              deployment = 'worker'
@@ -136,7 +140,11 @@ p6_targets_list<- list(
              train_models_grid(brf_output = p6_Boruta_snow,
                                ncores = Boruta_cores,
                                v_folds = cv_folds,
-                               nested_groups = p4_nested_groups
+                               nested_groups = p4_nested_groups,
+                               range_mtry = c(5,30), 
+                               range_minn = c(2,10), 
+                               range_trees = c(100,500),
+                               gridsize = 50
              ),
              #map(p6_Boruta_snow),
              deployment = 'worker'
@@ -220,7 +228,11 @@ p6_targets_list<- list(
              train_models_grid(brf_output = p6_Boruta_rain_snow,
                                ncores = Boruta_cores,
                                v_folds = cv_folds,
-                               nested_groups = p4_nested_groups
+                               nested_groups = p4_nested_groups,
+                               range_mtry = c(5,30), 
+                               range_minn = c(2,10), 
+                               range_trees = c(100,500),
+                               gridsize = 50
              ),
              #map(p6_Boruta_rain_snow),
              deployment = 'worker'
@@ -278,7 +290,11 @@ p6_targets_list<- list(
              train_models_grid(brf_output = p6_Boruta_rain_snow_exact,
                                ncores = Boruta_cores,
                                v_folds = cv_folds,
-                               nested_groups = p4_nested_groups),
+                               nested_groups = p4_nested_groups,
+                               range_mtry = c(5,30), 
+                               range_minn = c(2,10), 
+                               range_trees = c(100,500),
+                               gridsize = 50),
              #map(p6_Boruta_rain_snow_exact),
              deployment = 'worker'
   ),
@@ -361,7 +377,11 @@ p6_targets_list<- list(
              train_models_grid(brf_output = p6_Boruta_CONUS_g2,
                                ncores = Boruta_cores,
                                v_folds = cv_folds,
-                               nested_groups = p4_nested_groups
+                               nested_groups = p4_nested_groups,
+                               range_mtry = c(5,30), 
+                               range_minn = c(2,10), 
+                               range_trees = c(100,500),
+                               gridsize = 50
              ),
              #map(p6_Boruta_CONUS_g2),
              deployment = 'worker'
@@ -419,7 +439,11 @@ p6_targets_list<- list(
              train_models_grid(brf_output = p6_Boruta_CONUS_g2_exact,
                                ncores = Boruta_cores,
                                v_folds = cv_folds,
-                               nested_groups = p4_nested_groups),
+                               nested_groups = p4_nested_groups,
+                               range_mtry = c(5,30), 
+                               range_minn = c(2,10), 
+                               range_trees = c(100,500),
+                               gridsize = 50),
              #map(p6_Boruta_CONUS_g2_exact),
              deployment = 'worker'
   ),
@@ -508,7 +532,11 @@ p6_targets_list<- list(
              train_models_grid(brf_output = p6_Boruta_CONUS_g2_exact_clust,
                                ncores = Boruta_cores,
                                v_folds = cv_folds,
-                               nested_groups = p4_nested_groups),
+                               nested_groups = p4_nested_groups,
+                               range_mtry = c(5,30), 
+                               range_minn = c(2,10), 
+                               range_trees = c(100,500),
+                               gridsize = 50),
              #map(p6_Boruta_CONUS_g2_exact_clust),
              deployment = 'worker'
   ),
@@ -761,6 +789,63 @@ p6_targets_list<- list(
   ),
   tar_target(p6_hypopt_CONUS_g2_exact_clust_png,
              plot_hyperparam_opt_results_RF(p6_train_RF_CONUS_g2_exact_clust$grid_params,
+                                            metric = p6_Boruta_CONUS_g2_exact_clust$metric,
+                                            region = 'CONUS_g2_exact_clust',
+                                            out_dir = '6_predict/out/hypopt'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  #marginals
+  tar_target(p6_hypopt_marginals_rain_png,
+             plot_hyperparam_opt_marginals(p6_train_RF_rain$grid_params,
+                                            metric = p6_Boruta_rain$metric,
+                                            region = 'rain',
+                                            out_dir = '6_predict/out/hypopt'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_hypopt_marginals_snow_png,
+             plot_hyperparam_opt_marginals(p6_train_RF_snow$grid_params,
+                                            metric = p6_Boruta_snow$metric,
+                                            region = 'snow',
+                                            out_dir = '6_predict/out/hypopt'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_hypopt_marginals_rain_snow_png,
+             plot_hyperparam_opt_marginals(p6_train_RF_rain_snow$grid_params,
+                                            metric = p6_Boruta_rain_snow$metric,
+                                            region = 'rain_snow',
+                                            out_dir = '6_predict/out/hypopt'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_hypopt_marginals_rain_snow_exact_png,
+             plot_hyperparam_opt_marginals(p6_train_RF_rain_snow_exact$grid_params,
+                                            metric = p6_Boruta_rain_snow_exact$metric,
+                                            region = 'rain_snow_exact',
+                                            out_dir = '6_predict/out/hypopt'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_hypopt_marginals_CONUS_g2_png,
+             plot_hyperparam_opt_marginals(p6_train_RF_CONUS_g2$grid_params,
+                                            metric = p6_Boruta_CONUS_g2$metric,
+                                            region = 'CONUS_g2',
+                                            out_dir = '6_predict/out/hypopt'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_hypopt_marginals_CONUS_g2_exact_png,
+             plot_hyperparam_opt_marginals(p6_train_RF_CONUS_g2_exact$grid_params,
+                                            metric = p6_Boruta_CONUS_g2_exact$metric,
+                                            region = 'CONUS_g2_exact',
+                                            out_dir = '6_predict/out/hypopt'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_hypopt_marginals_CONUS_g2_exact_clust_png,
+             plot_hyperparam_opt_marginals(p6_train_RF_CONUS_g2_exact_clust$grid_params,
                                             metric = p6_Boruta_CONUS_g2_exact_clust$metric,
                                             region = 'CONUS_g2_exact_clust',
                                             out_dir = '6_predict/out/hypopt'),

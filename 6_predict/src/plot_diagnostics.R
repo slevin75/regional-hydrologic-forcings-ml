@@ -47,6 +47,33 @@ plot_hyperparam_opt_results_RF <- function(opt_result, metric, region, out_dir){
   return(fileout)  
 }
 
+plot_hyperparam_opt_marginals <- function(opt_result, metric, region, 
+                                          plt_type = "marginals",
+                                          perf_metric = NULL, out_dir){
+  #' @description Plots hyperparameter optimization results
+  #'
+  #' @param opt_result output of RF model hyperparameter optimization
+  #' @param metric metric name
+  #' @param region region name for file name
+  #' @param plt_type passed to tune::autoplot type parameter
+  #' @param perf_metric performance metric passed to tune::autoplot metric parameter
+  #' Leave as NULL to plot all computed metrics.
+  #' @param out_dir output directory
+  #'
+  #' @return filepath to resulting plot
+  
+  fileout <- file.path(out_dir, paste0('hyperparam_marginals_', 
+                                       metric, '_', region, '.png'))
+  
+  p1 <- tune::autoplot(object = opt_result, type = plt_type, 
+                       metric = perf_metric) +
+    ggtitle(metric, subtitle = region)
+  
+  ggsave(filename = fileout, plot = p1, device = 'png')
+  
+  return(fileout)
+}
+
 plot_vip <- function(RF_model, metric, region, num_features, out_dir){
   #' 
   #' @description Plots the variable importance plot from a RF model
@@ -235,6 +262,10 @@ plot_pred_obs <- function(df_pred_obs, metric, region, out_dir,
   #' @param df_pred_obs df with obs and .pred columns
   #' @param metric performance metric name
   #' @param region the modeling region
+  #' @param from_predict logical stating if predictions should be made within
+  #' this function using the provided model_wf and pred_data
+  #' @param model_wf model workflow
+  #' @param pred_data new_data for predict.workflow
   #'
   #' @return filepath to the resulting plot
   

@@ -1143,7 +1143,8 @@ p6_targets_list<- list(
                                                                             ID == '12209500_12209490' ~ '12209500',
                                                                             TRUE ~ ID)), 
                                                     p6_EcoFlowsAttrs, 
-                                                    by = 'ID'), 
+                                                    by = 'ID') %>%
+                                na.omit(), 
                               y_columns = c(2:4,6:8), 
                               GAGEID_column = 1,
                               x_columns = 10:(ncol(p6_EcoFlowsAttrs) - 1 + 9), 
@@ -1165,7 +1166,8 @@ p6_targets_list<- list(
                                                                             ID == '12209500_12209490' ~ '12209500',
                                                                             TRUE ~ ID)), 
                                                     p6_EcoFlowsAttrs, 
-                                                    by = 'ID'), 
+                                                    by = 'ID') %>%
+                                na.omit(), 
                               y_columns = c(2,4,6,9,11,13), 
                               GAGEID_column = 1,
                               x_columns = 16:(ncol(p6_EcoFlowsAttrs) - 1 + 15), 

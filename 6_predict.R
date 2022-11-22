@@ -30,7 +30,8 @@ p6_targets_list <- list(
   #Boruta screening
   # Not using the target map argument for now so that we get only the vhfdc1_q0.9 metric
   tar_target(p6_Boruta_rain,
-             screen_Boruta(features = p5_attr_g2,
+             screen_Boruta(features = p5_attr_g2 %>% 
+                             select(-contains('PHYSIO')),
                            cluster_table = p3_gages_clusters_quants_agg_selected %>%
                              select(ID, contains('_k5')) %>%
                              rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
@@ -118,7 +119,8 @@ p6_targets_list <- list(
   # Snow dominated region
   # Boruta screening
   tar_target(p6_Boruta_snow,
-             screen_Boruta(features = p5_attr_g2,
+             screen_Boruta(features = p5_attr_g2 %>% 
+                             select(-contains('PHYSIO')),
                            cluster_table = p3_gages_clusters_quants_agg_selected %>%
                              select(ID, contains('_k5')) %>%
                              rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
@@ -206,7 +208,8 @@ p6_targets_list <- list(
   # All data in both regions
   # Boruta screening
   tar_target(p6_Boruta_rain_snow,
-             screen_Boruta(features = p5_attr_g2,
+             screen_Boruta(features = p5_attr_g2 %>% 
+                             select(-contains('PHYSIO')),
                            cluster_table = p3_gages_clusters_quants_agg_selected %>%
                              select(ID, contains('_k5')) %>%
                              rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
@@ -266,7 +269,8 @@ p6_targets_list <- list(
   # Exact same testing data as rain and snow regions above
   # Boruta screening
   tar_target(p6_Boruta_rain_snow_exact,
-             screen_Boruta_exact(features = p5_attr_g2,
+             screen_Boruta_exact(features = p5_attr_g2 %>% 
+                                   select(-contains('PHYSIO')),
                                  cluster_table = p3_gages_clusters_quants_agg_selected %>%
                                    select(ID, contains('_k5')) %>%
                                    rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
@@ -355,7 +359,8 @@ p6_targets_list <- list(
   # All data CONUS OOB error
   # Boruta screening
   tar_target(p6_Boruta_CONUS_g2,
-             screen_Boruta(features = p5_attr_g2,
+             screen_Boruta(features = p5_attr_g2 %>% 
+                             select(-contains('PHYSIO')),
                            cluster_table = p3_gages_clusters_quants_agg_selected %>%
                              select(ID, contains('_k5')) %>%
                              rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
@@ -415,7 +420,8 @@ p6_targets_list <- list(
   # Exact same testing data as rain and snow regions above
   # Boruta screening
   tar_target(p6_Boruta_CONUS_g2_exact,
-             screen_Boruta_exact(features = p5_attr_g2,
+             screen_Boruta_exact(features = p5_attr_g2 %>% 
+                                   select(-contains('PHYSIO')),
                                  cluster_table = p3_gages_clusters_quants_agg_selected %>%
                                    select(ID, contains('_k5')) %>%
                                    rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
@@ -504,7 +510,9 @@ p6_targets_list <- list(
   # With cluster regions as input feature
   # Boruta screening
   tar_target(p6_Boruta_CONUS_g2_exact_clust,
-             screen_Boruta_exact(features = left_join(p5_attr_g2, p3_gages_clusters_quants_agg_selected %>% 
+             screen_Boruta_exact(features = left_join(p5_attr_g2 %>% 
+                                                        select(-contains('PHYSIO')), 
+                                                      p3_gages_clusters_quants_agg_selected %>% 
                                                         select(ID, '0.75,0.8,0.85,0.9,0.95_k5') %>%
                                                         rename(clusters = '0.75,0.8,0.85,0.9,0.95_k5'), 
                                                       by = c('GAGES_ID' = 'ID')) %>% 

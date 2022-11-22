@@ -169,7 +169,7 @@ screen_Boruta <- function(features, cluster_table, metrics_table, metric_name,
   #Noticed that there were switches when applied 2 times, probably due to correlation
   #applying once to CAT+dev only, then ACC+dev only
   brf_noACC <- Boruta(x = input_data_split$training %>% 
-                        select(-COMID, -GAGES_ID, -{{metric_name}}, -starts_with('ACC_')) %>%
+                        select(-COMID, -GAGES_ID, -region, -{{metric_name}}, -starts_with('ACC_')) %>%
                         as.data.frame(),
                       y = input_data_split$training %>% 
                         pull({{metric_name}}),
@@ -181,10 +181,11 @@ screen_Boruta <- function(features, cluster_table, metrics_table, metric_name,
                       getImp = getImpRfZ,
                       num.trees = ntrees,
                       oob.error = TRUE,
-                      num.threads = ncores)
+                      num.threads = ncores,
+                      respect.unordered.factors = TRUE)
 
   brf_noCAT <- Boruta(x = input_data_split$training %>% 
-                        select(-COMID, -GAGES_ID, -{{metric_name}}, -starts_with('CAT_')) %>%
+                        select(-COMID, -GAGES_ID, -region, -{{metric_name}}, -starts_with('CAT_')) %>%
                         as.data.frame(),
                       y = input_data_split$training %>% 
                         pull({{metric_name}}),
@@ -196,10 +197,11 @@ screen_Boruta <- function(features, cluster_table, metrics_table, metric_name,
                       getImp = getImpRfZ,
                       num.trees = ntrees,
                       oob.error = TRUE,
-                      num.threads = ncores)
+                      num.threads = ncores,
+                      respect.unordered.factors = TRUE)
   
   brf_All <- Boruta(x = input_data_split$training %>%
-                      select(-COMID, -GAGES_ID, -{{metric_name}}) %>%
+                      select(-COMID, -GAGES_ID, -region, -{{metric_name}}) %>%
                       as.data.frame(),
                     y = input_data_split$training %>%
                       pull({{metric_name}}),
@@ -211,7 +213,8 @@ screen_Boruta <- function(features, cluster_table, metrics_table, metric_name,
                     getImp = getImpRfZ,
                     num.trees = ntrees,
                     oob.error = TRUE,
-                    num.threads = ncores)
+                    num.threads = ncores,
+                    respect.unordered.factors = TRUE)
   
   #Select all features that were not rejected over these 3 screenings
   names_unique = unique(c(names(brf_All$finalDecision[brf_All$finalDecision != 'Rejected']),
@@ -361,7 +364,7 @@ screen_Boruta_exact <- function(features, cluster_table, metrics_table, metric_n
   #Noticed that there were switches when applied 2 times, probably due to correlation
   #applying once to CAT+dev only, then ACC+dev only
   brf_noACC <- Boruta(x = input_data_split$training %>% 
-                        select(-COMID, -GAGES_ID, -{{metric_name}}, -starts_with('ACC_')) %>%
+                        select(-COMID, -GAGES_ID, -region, -{{metric_name}}, -starts_with('ACC_')) %>%
                         as.data.frame(),
                       y = input_data_split$training %>% 
                         pull({{metric_name}}),
@@ -373,10 +376,11 @@ screen_Boruta_exact <- function(features, cluster_table, metrics_table, metric_n
                       getImp = getImpRfZ,
                       num.trees = ntrees,
                       oob.error = TRUE,
-                      num.threads = ncores)
+                      num.threads = ncores,
+                      respect.unordered.factors = TRUE)
   
   brf_noCAT <- Boruta(x = input_data_split$training %>% 
-                        select(-COMID, -GAGES_ID, -{{metric_name}}, -starts_with('CAT_')) %>%
+                        select(-COMID, -GAGES_ID, -region, -{{metric_name}}, -starts_with('CAT_')) %>%
                         as.data.frame(),
                       y = input_data_split$training %>% 
                         pull({{metric_name}}),
@@ -388,10 +392,11 @@ screen_Boruta_exact <- function(features, cluster_table, metrics_table, metric_n
                       getImp = getImpRfZ,
                       num.trees = ntrees,
                       oob.error = TRUE,
-                      num.threads = ncores)
+                      num.threads = ncores,
+                      respect.unordered.factors = TRUE)
   
   brf_All <- Boruta(x = input_data_split$training %>%
-                      select(-COMID, -GAGES_ID, -{{metric_name}}) %>%
+                      select(-COMID, -GAGES_ID, -region, -{{metric_name}}) %>%
                       as.data.frame(),
                     y = input_data_split$training %>%
                       pull({{metric_name}}),
@@ -403,7 +408,8 @@ screen_Boruta_exact <- function(features, cluster_table, metrics_table, metric_n
                     getImp = getImpRfZ,
                     num.trees = ntrees,
                     oob.error = TRUE,
-                    num.threads = ncores)
+                    num.threads = ncores,
+                    respect.unordered.factors = TRUE)
   
   #Select all features that were not rejected over these 3 screenings
   names_unique = unique(c(names(brf_All$finalDecision[brf_All$finalDecision != 'Rejected']),
@@ -482,7 +488,7 @@ train_models_grid <- function(brf_output, v_folds, ncores, nested_groups,
   wf <- workflow() %>%
     add_model(tune_spec) %>%
     add_variables(outcomes = contains(brf_output$metric),
-                  predictors = (!(contains('COMID') | contains('GAGES_ID') | contains(brf_output$metric))))
+                  predictors = (!(contains('COMID') | contains('GAGES_ID') | contains('region') | contains(brf_output$metric))))
   
   #Find best model with a grid search over hyperparameters
   cl = parallel::makeCluster(ncores)

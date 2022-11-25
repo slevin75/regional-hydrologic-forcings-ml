@@ -424,7 +424,7 @@ make_class_prediction_map <- function(class_probs, reaches, out_dir,
       plot_sites <- reaches[!is.na(reaches[[col_name]]),]
       
       p1 <- ggplot(states, aes(x = long, y = lat, group = group)) +
-        geom_polygon(fill = "gray60", colour = "gray80") +
+        geom_polygon(fill = "white", colour = "gray80") +
         geom_sf(data = plot_sites, inherit.aes = FALSE, 
                 aes(color = .data[[col_name]]), 
                 size = 0.5) +
@@ -516,7 +516,8 @@ plot_shap_global_sv <- function(shap, data, model_name, out_dir, num_features = 
     
     for (i in 1:length(filesout)){
       filesout[i] <- file.path(out_dir, 
-                           paste0('SHAP_global_', model_name, '_', names(shap)[i], '.png'))
+                           paste0('SHAP_global_', model_name, '_', names(shap)[i], 
+                                  '_vars', num_features, '.png'))
       
       p1 <- sv_importance(shapviz(shap[[i]], X = data[,colnames(data) %in% colnames(shap[[i]])]), 
                     kind = sv_kind, max_display = num_features, fill = 'black',
@@ -527,7 +528,7 @@ plot_shap_global_sv <- function(shap, data, model_name, out_dir, num_features = 
     }
   }else{
     filesout <- file.path(out_dir, 
-                         paste0('SHAP_global_', model_name, '.png'))
+                         paste0('SHAP_global_', model_name, '_vars', num_features, '.png'))
     
     p1 <- sv_importance(shapviz(shap, X = data[,colnames(data) %in% colnames(shap)]), 
                         kind = sv_kind, max_display = num_features, fill = 'black',
@@ -616,6 +617,7 @@ plot_shap_dependence_sv <- function(shap, data, model_name, out_dir, ncores = 1)
                                                        X = data[,colnames(data) %in% colnames(shap[[j]])]), 
                                                v = colnames(shap[[j]])[i],
                                                alpha = 0.5) +
+                              geom_smooth(method = 'loess', se = FALSE, show.legend = FALSE) +
                               ggtitle(model_name, subtitle = names(shap)[j])
                             
                             ggsave(filename = fileout, plot = p, device = 'png')
@@ -642,6 +644,7 @@ plot_shap_dependence_sv <- function(shap, data, model_name, out_dir, ncores = 1)
                                                      X = data[,colnames(data) %in% colnames(shap)]), 
                                              v = colnames(shap)[i],
                                              alpha = 0.5) +
+                            geom_smooth(method = 'loess', se = FALSE, show.legend = FALSE) +
                             ggtitle(model_name)
                           
                           ggsave(filename = fileout, plot = p, device = 'png')
@@ -674,7 +677,7 @@ plot_shap_individual <- function(shap, data, reach, model_name, out_dir,
   ind_plt <- which(data$COMID == reach)
   
   fileout <- file.path(out_dir, paste0('SHAP_individual_', model_name, 
-                                       '_reach-', reach, '.png'))
+                                       '_reach-', reach, '_vars', num_features, '.png'))
   
   p1 <- autoplot(shap[ind_plt,], type = "contribution", num_features = num_features) +
     ggtitle(model_name, subtitle = paste0('reach ', reach)) +
@@ -710,7 +713,7 @@ plot_pdp <- function(partial, data, model_name, out_dir,
   n_plts <- length(partial)
   
   filesout <- foreach(i = 1:n_plts, .inorder = TRUE, .combine = c, 
-          .packages = c('ggplot2', 'pdp', 'tidyverse'), .export = 'offset_partial') %dopar% {
+          .packages = c('ggplot2', 'pdp', 'tidyverse', 'scico'), .export = 'offset_partial') %dopar% {
             #Convert class ID to character to plot correctly
             partial[[i]]$yhat.id <- as.character(partial[[i]]$yhat.id) 
             
@@ -727,7 +730,7 @@ plot_pdp <- function(partial, data, model_name, out_dir,
               
               p <- ggplot(data = as.data.frame(partial[[i]]), 
                           mapping = aes(x = as.data.frame(partial[[i]])[,1], y = yhat, color = yhat.id)) + 
-                geom_line() + 
+                geom_line(size = 3) + 
                 #add rug to indicate observation loactions
                 geom_point(data = data, mapping = aes(x = as.data.frame(data[,colnames(partial[[i]])[1]])[,1],
                                                       y = y0, 
@@ -739,6 +742,7 @@ plot_pdp <- function(partial, data, model_name, out_dir,
                 ylab('Centered Region Probability') +
                 xlab(colnames(as.data.frame(partial[[i]]))[1]) +
                 theme_classic() +
+                scale_color_scico_d(palette = 'batlow') +
                 labs(color = "Region")
               
             }else{
@@ -751,7 +755,7 @@ plot_pdp <- function(partial, data, model_name, out_dir,
               
               p <- ggplot(data = as.data.frame(partial[[i]]), 
                           mapping = aes(x = as.data.frame(partial[[i]])[,1], y = yhat, color = yhat.id)) + 
-                geom_line() + 
+                geom_line(size = 3) + 
                 #add rug to indicate observation loactions
                 geom_point(data = data, mapping = aes(x = as.data.frame(data[,colnames(partial[[i]])[1]])[,1],
                                                       y = y0, 
@@ -763,6 +767,7 @@ plot_pdp <- function(partial, data, model_name, out_dir,
                 ylab('Average Class Probability') +
                 xlab(colnames(as.data.frame(partial[[i]]))[1]) +
                 theme_classic() +
+                scale_color_scico_d(palette = 'batlow') +
                 labs(color = "Region")
             }
             

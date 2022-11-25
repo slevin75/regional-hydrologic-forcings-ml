@@ -1448,6 +1448,15 @@ p6_targets_list <- list(
                                  sv_kind = 'both'),
              format = "file"
   ),
+  tar_target(p6_shap_importance_multiclass_high_noPhysio_10vars_png,
+             plot_shap_global_sv(shap = p6_shap_multiclass_high_noPhysio,
+                                 model_name = 'RF_multiclass_high_NoPhysio',
+                                 out_dir = '6_predict/out/multiclass/High/NoPhysio/shap/high',
+                                 num_features = 10,
+                                 data = p5_attr_g2,
+                                 sv_kind = 'both'),
+             format = "file"
+  ),
   
   #shap dependence plots
   tar_target(p6_shap_dependence_multiclass_midhigh_png,

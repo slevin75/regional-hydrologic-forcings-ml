@@ -463,6 +463,8 @@ compute_pdp <- function(model, data, ice = FALSE, ncores = 1, predict_fxn,
          use avg_pred = TRUE instead.')
   }
   
+  parallel::stopCluster(cl)
+  
   return(partial)
 }
 

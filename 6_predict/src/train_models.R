@@ -114,14 +114,14 @@ screen_Boruta <- function(features, cluster_table, metrics_table, metric_name,
   
   #determine if the metric should use the high flow region or mid-high flow region
   if (metric_name %in% c('ma','ml17', 'ml18')){
-    region <- 'midhigh'
+    region_check <- 'midhigh'
   } else if (!grepl("_q", metric_name)){
     ##other metrics from HIT
-    region <- 'high'
+    region_check <- 'high'
   }else{
     ##get quantile from FDC metric name
     metric_quantile <- as.numeric(str_split(metric_name,pattern="_q")[[1]][2])
-    region <- ifelse(metric_quantile < 0.75, 'midhigh', 'high')
+    region_check <- ifelse(metric_quantile < 0.75, 'midhigh', 'high')
   }
   
   #Select training region
@@ -129,7 +129,7 @@ screen_Boruta <- function(features, cluster_table, metrics_table, metric_name,
     metrics_table$region = 'all'
   }else{
     #select only gages for high and mid-high model regions
-    if (region == 'high'){
+    if (region_check == 'high'){
       metrics_table <- mutate(metrics_table,
                               region = case_when(site_num %in% cluster_table$ID[cluster_table$high == 4] ~ 'snow',
                                                  site_num %in% cluster_table$ID[cluster_table$high == 2] ~ 'rain')) %>%
@@ -169,7 +169,8 @@ screen_Boruta <- function(features, cluster_table, metrics_table, metric_name,
   #Noticed that there were switches when applied 2 times, probably due to correlation
   #applying once to CAT+dev only, then ACC+dev only
   brf_noACC <- Boruta(x = input_data_split$training %>% 
-                        select(-COMID, -GAGES_ID, -region, -{{metric_name}}, -starts_with('ACC_')) %>%
+                        select(-COMID, -GAGES_ID, -contains('region'), 
+                               -{{metric_name}}, -starts_with('ACC_')) %>%
                         as.data.frame(),
                       y = input_data_split$training %>% 
                         pull({{metric_name}}),
@@ -185,7 +186,8 @@ screen_Boruta <- function(features, cluster_table, metrics_table, metric_name,
                       respect.unordered.factors = TRUE)
 
   brf_noCAT <- Boruta(x = input_data_split$training %>% 
-                        select(-COMID, -GAGES_ID, -region, -{{metric_name}}, -starts_with('CAT_')) %>%
+                        select(-COMID, -GAGES_ID, -contains('region'), 
+                               -{{metric_name}}, -starts_with('CAT_')) %>%
                         as.data.frame(),
                       y = input_data_split$training %>% 
                         pull({{metric_name}}),
@@ -201,7 +203,8 @@ screen_Boruta <- function(features, cluster_table, metrics_table, metric_name,
                       respect.unordered.factors = TRUE)
   
   brf_All <- Boruta(x = input_data_split$training %>%
-                      select(-COMID, -GAGES_ID, -region, -{{metric_name}}) %>%
+                      select(-COMID, -GAGES_ID, -contains('region'), 
+                             -{{metric_name}}) %>%
                       as.data.frame(),
                     y = input_data_split$training %>%
                       pull({{metric_name}}),
@@ -276,14 +279,14 @@ screen_Boruta_exact <- function(features, cluster_table, metrics_table, metric_n
   
   #determine if the metric should use the high flow region or mid-high flow region
   if (metric_name %in% c('ma','ml17', 'ml18')){
-    region <- 'midhigh'
+    region_check <- 'midhigh'
   } else if (!grepl("_q", metric_name)){
     ##other metrics from HIT
-    region <- 'high'
+    region_check <- 'high'
   }else{
     ##get quantile from FDC metric name
     metric_quantile <- as.numeric(str_split(metric_name,pattern="_q")[[1]][2])
-    region <- ifelse(metric_quantile < 0.75, 'midhigh', 'high')
+    region_check <- ifelse(metric_quantile < 0.75, 'midhigh', 'high')
   }
   
   #Select training region
@@ -291,7 +294,7 @@ screen_Boruta_exact <- function(features, cluster_table, metrics_table, metric_n
     metrics_table$region = 'all'
   }else{
     #select only gages for high and mid-high model regions
-    if (region == 'high'){
+    if (region_check == 'high'){
       metrics_table <- mutate(metrics_table,
                               region = case_when(site_num %in% cluster_table$ID[cluster_table$high == 4] ~ 'snow',
                                                  site_num %in% cluster_table$ID[cluster_table$high == 2] ~ 'rain')) %>%
@@ -329,17 +332,17 @@ screen_Boruta_exact <- function(features, cluster_table, metrics_table, metric_n
     input_data_split$testing <- input_data_split$split$data[-input_data_split$split$in_id,]
   }else{
     #add cluster information to the table
-    input_data <- left_join(input_data, cluster_table %>% select(ID, {{region}}), 
+    input_data <- left_join(input_data, cluster_table %>% select(ID, {{region_check}}), 
                             by = c('GAGES_ID' = 'ID'))
     
-    if(region == 'high'){
+    if(region_check == 'high'){
       #randomize for clusters 1, 3, and 5
-      input_data_split3 <- split_data(input_data %>% filter(.data[[region]] %in% c(1,3,5)), 
+      input_data_split3 <- split_data(input_data %>% filter(.data[['high']] %in% c(1,3,5)), 
                                         train_prop = train_prop,
                                       nested_groups = nested_groups)
     }else{
       #randomize for clusters 1, 2, and 4
-      input_data_split3 <- split_data(input_data %>% filter(.data[[region]] %in% c(1,2,4)), 
+      input_data_split3 <- split_data(input_data %>% filter(.data[['midhigh']] %in% c(1,2,4)), 
                                         train_prop = train_prop,nested_groups = nested_groups)
     }
     
@@ -354,9 +357,9 @@ screen_Boruta_exact <- function(features, cluster_table, metrics_table, metric_n
                                             input_data_split$training$GAGES_ID)
     
     #Remove the cluster column
-    input_data_split$training <- select(input_data_split$training, -{{region}})
-    input_data_split$testing <- select(input_data_split$testing, -{{region}})
-    input_data_split$split$data <- select(input_data_split$split$data, -{{region}})
+    input_data_split$training <- select(input_data_split$training, -{{region_check}})
+    input_data_split$testing <- select(input_data_split$testing, -{{region_check}})
+    input_data_split$split$data <- select(input_data_split$split$data, -{{region_check}})
   }
   
   #Apply Boruta to down-select features
@@ -364,7 +367,8 @@ screen_Boruta_exact <- function(features, cluster_table, metrics_table, metric_n
   #Noticed that there were switches when applied 2 times, probably due to correlation
   #applying once to CAT+dev only, then ACC+dev only
   brf_noACC <- Boruta(x = input_data_split$training %>% 
-                        select(-COMID, -GAGES_ID, -region, -{{metric_name}}, -starts_with('ACC_')) %>%
+                        select(-COMID, -GAGES_ID, -contains('region'), 
+                               -{{metric_name}}, -starts_with('ACC_')) %>%
                         as.data.frame(),
                       y = input_data_split$training %>% 
                         pull({{metric_name}}),
@@ -380,7 +384,8 @@ screen_Boruta_exact <- function(features, cluster_table, metrics_table, metric_n
                       respect.unordered.factors = TRUE)
   
   brf_noCAT <- Boruta(x = input_data_split$training %>% 
-                        select(-COMID, -GAGES_ID, -region, -{{metric_name}}, -starts_with('CAT_')) %>%
+                        select(-COMID, -GAGES_ID, -contains('region'), 
+                               -{{metric_name}}, -starts_with('CAT_')) %>%
                         as.data.frame(),
                       y = input_data_split$training %>% 
                         pull({{metric_name}}),
@@ -396,7 +401,8 @@ screen_Boruta_exact <- function(features, cluster_table, metrics_table, metric_n
                       respect.unordered.factors = TRUE)
   
   brf_All <- Boruta(x = input_data_split$training %>%
-                      select(-COMID, -GAGES_ID, -region, -{{metric_name}}) %>%
+                      select(-COMID, -GAGES_ID, -contains('region'), 
+                             -{{metric_name}}) %>%
                       as.data.frame(),
                     y = input_data_split$training %>%
                       pull({{metric_name}}),
@@ -619,14 +625,14 @@ predict_test_data <- function(model_wf, features, cluster_table, metrics_table,
   
   #determine if the metric should use the high flow region or mid-high flow region
   if (metric_name %in% c('ma','ml17', 'ml18')){
-    region <- 'midhigh'
+    region_check <- 'midhigh'
   } else if (!grepl("_q", metric_name)){
     ##other metrics from HIT
-    region <- 'high'
+    region_check <- 'high'
   }else{
     ##get quantile from FDC metric name
     metric_quantile <- as.numeric(str_split(metric_name, pattern="_q")[[1]][2])
-    region <- ifelse(metric_quantile < 0.75, 'midhigh', 'high')
+    region_check <- ifelse(metric_quantile < 0.75, 'midhigh', 'high')
   }
   
   #Select training region
@@ -634,7 +640,7 @@ predict_test_data <- function(model_wf, features, cluster_table, metrics_table,
     metrics_table$region = 'all'
   }else{
     #select only gages for high and mid-high model regions
-    if (region == 'high'){
+    if (region_check == 'high'){
       metrics_table <- mutate(metrics_table,
                               region = case_when(site_num %in% cluster_table$ID[cluster_table$high == 4] ~ 'snow',
                                                  site_num %in% cluster_table$ID[cluster_table$high == 2] ~ 'rain')) %>%
@@ -695,14 +701,14 @@ predict_test_data_from_data <- function(model_wf, features, cluster_table, metri
   
   #determine if the metric should use the high flow region or mid-high flow region
   if (metric_name %in% c('ma','ml17', 'ml18')){
-    region <- 'midhigh'
+    region_check <- 'midhigh'
   } else if (!grepl("_q", metric_name)){
     ##other metrics from HIT
-    region <- 'high'
+    region_check <- 'high'
   }else{
     ##get quantile from FDC metric name
     metric_quantile <- as.numeric(str_split(metric_name, pattern="_q")[[1]][2])
-    region <- ifelse(metric_quantile < 0.75, 'midhigh', 'high')
+    region_check <- ifelse(metric_quantile < 0.75, 'midhigh', 'high')
   }
   
   #Select training region
@@ -710,7 +716,7 @@ predict_test_data_from_data <- function(model_wf, features, cluster_table, metri
     metrics_table$region = 'all'
   }else{
     #select only gages for high and mid-high model regions
-    if (region == 'high'){
+    if (region_check == 'high'){
       metrics_table <- mutate(metrics_table,
                               region = case_when(site_num %in% cluster_table$ID[cluster_table$high == 4] ~ 'snow',
                                                  site_num %in% cluster_table$ID[cluster_table$high == 2] ~ 'rain')) %>%

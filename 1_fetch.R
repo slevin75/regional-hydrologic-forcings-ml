@@ -1,6 +1,6 @@
 
 source("1_fetch/src/get_nwis_data.R")
-source("1_fetch/src/get_sb_data.R")
+source("1_fetch/src/get_feature_vars.R")
 source("1_fetch/src/moving_window_functions.R")
 
 ##p1- only parameters
@@ -189,6 +189,7 @@ p1_targets_list <- list(
              deployment = 'main',
              format = "file"
   ),
+  
   #read in sciencebase variable list csv
   tar_target(p1_sb_var_ids,
              read_csv(file = p1_sb_var_ids_csv, show_col_types = FALSE),
@@ -205,6 +206,13 @@ p1_targets_list <- list(
                          out_file_name = "sb_data_g2_"),
              map(p1_sb_var_ids),
              iteration = "list",
+             deployment = 'main',
+             format = "file"
+  ),
+  
+  ##downloads nhd geodatabase
+  tar_target(p1_nhd_conus, 
+             get_nhd_conus(outdir = "./1_fetch/out/nhd_plus/"), 
              deployment = 'main',
              format = "file"
   ),

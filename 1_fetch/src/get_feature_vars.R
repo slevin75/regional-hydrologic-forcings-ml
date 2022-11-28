@@ -1,3 +1,31 @@
+get_nhd_conus <- function(outdir) {
+  
+  #'@description uses nhdPlusTools package to download nhd geodatabase
+  #'
+  #'@param outdir filepath for final data downloads
+  #'
+  #'@return nhd geodatabase
+  
+  download_nhdplusv2(
+    outdir,
+    url = paste0("https://edap-ow-data-commons.s3.amazonaws.com/NHDPlusV21/",
+                 "Data/NationalData/NHDPlusV21_NationalData_Seamless", 
+                 "_Geodatabase_Lower48_07.7z"),
+    progress = TRUE
+  )
+  
+  nhd_plus <- st_read(paste0(outdir, "NHDPlusNationalData/NHDPlusV21_National_Seamless_Flattened_Lower48.gdb"), 
+                      layer = 'NHDFlowline_Network')
+  nhd_plus_slim <- select(nhd_plus, COMID, GNIS_NAME, LENGTHKM, FTYPE, StreamLeve, 
+                          StreamOrde, StreamCalc, Divergence, StartFlag, TerminalFl, 
+                          AreaSqKM, TotDASqKM, DivDASqKM, Tidal, SLOPE, LakeFract,
+                          SurfArea, Shape)
+  
+  filepath <- paste0(outdir, "nhd_plus_slim.csv")
+  write_csv(nhd_plus_slim, filepath)
+  return(filepath)
+}
+
 
 get_sb_data <- function(sites, sb_var_ids, dldir, workdir, outdir, out_file_name) {
   

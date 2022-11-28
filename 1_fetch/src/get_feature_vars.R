@@ -14,15 +14,10 @@ get_nhd_conus <- function(outdir) {
     progress = TRUE
   )
   
-  nhd_plus <- st_read(paste0(outdir, "NHDPlusNationalData/NHDPlusV21_National_Seamless_Flattened_Lower48.gdb"), 
-                      layer = 'NHDFlowline_Network')
-  nhd_plus_slim <- select(nhd_plus, COMID, GNIS_NAME, LENGTHKM, FTYPE, StreamLeve, 
-                          StreamOrde, StreamCalc, Divergence, StartFlag, TerminalFl, 
-                          AreaSqKM, TotDASqKM, DivDASqKM, Tidal, SLOPE, LakeFract,
-                          SurfArea, Shape)
   
-  filepath <- paste0(outdir, "nhd_plus_slim.csv")
-  write_csv(nhd_plus_slim, filepath)
+  
+  filepath <- paste0(outdir, "NHDPlusNationalData/NHDPlusV21_National_Seamless_Flattened_Lower48.gdb")
+  write_csv(nhd_plus, filepath)
   return(filepath)
 }
 
@@ -466,7 +461,7 @@ prep_feature_vars <- function(sb_var_data, sites_all, sites_screened,
     dom_phys_reg <- bind_rows(dom_phys_reg, dom_phys_reg_comid)
   }
   
-  dom_phys_reg$region <- as.numeric(dom_phys_reg$region)
+  dom_phys_reg$region <- as.factor(dom_phys_reg$region)
   phys_region <- dom_phys_reg %>%
     mutate(label = paste0(unit, "_PHYSIO")) %>%
     arrange(COMID, label) %>%
@@ -488,12 +483,14 @@ prep_feature_vars <- function(sb_var_data, sites_all, sites_screened,
     left_join(weather_weighted_avg, by = "COMID") %>%
     left_join(wildfire_shortterm_avg, by = "COMID")
   
-  #rename duplicated headers (if any)
+  #rename duplicated headers (if any) and replace headers containing "/" with "-"
   rename_dup_headers <- list()
   for (i in 1:ncol(data)) {
     header <- names(data)[i]
     if (str_sub(header, -2) == ".x") {
       new_header <- str_sub(header, 1, -3)
+    } else if (str_detect(header, "/")) {
+      new_header <- str_replace(header, "/", "-")
     } else {
       new_header <- header
     }

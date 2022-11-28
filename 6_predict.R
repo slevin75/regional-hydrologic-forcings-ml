@@ -1,8 +1,9 @@
 source("6_predict/src/train_models.R")
 source("6_predict/src/plot_diagnostics.R")
 source("6_predict/src/train_multiclass_models.R")
+source("6_predict/src/XAI.R")
 
-#p_6 params only
+#p6 params only
 
 #Random Forest Parameters
 #maximum number of runs for Boruta feature screening algorithm
@@ -14,9 +15,13 @@ Boruta_cores <- 35
 #Cross validation folds
 cv_folds <- 5
 
+#XAI parameters
+SHAP_cores <- 35
+SHAP_nsim <- 20
 
 
-p6_targets_list<- list(
+
+p6_targets_list <- list(
   #########
   #Predict
   #Note - may be best to select features again using the local region databases
@@ -25,7 +30,8 @@ p6_targets_list<- list(
   #Boruta screening
   # Not using the target map argument for now so that we get only the vhfdc1_q0.9 metric
   tar_target(p6_Boruta_rain,
-             screen_Boruta(features = p5_attr_g2,
+             screen_Boruta(features = p5_attr_g2 %>% 
+                             select(-contains('PHYSIO')),
                            cluster_table = p3_gages_clusters_quants_agg_selected %>%
                              select(ID, contains('_k5')) %>%
                              rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
@@ -47,7 +53,11 @@ p6_targets_list<- list(
              train_models_grid(brf_output = p6_Boruta_rain,
                                ncores = Boruta_cores,
                                v_folds = cv_folds, 
-                               nested_groups = p4_nested_groups
+                               nested_groups = p4_nested_groups,
+                               range_mtry = c(5,30), 
+                               range_minn = c(2,10), 
+                               range_trees = c(100,500),
+                               gridsize = 50
              ),
              #map(p6_Boruta_rain),
              deployment = 'worker'
@@ -109,7 +119,8 @@ p6_targets_list<- list(
   # Snow dominated region
   # Boruta screening
   tar_target(p6_Boruta_snow,
-             screen_Boruta(features = p5_attr_g2,
+             screen_Boruta(features = p5_attr_g2 %>% 
+                             select(-contains('PHYSIO')),
                            cluster_table = p3_gages_clusters_quants_agg_selected %>%
                              select(ID, contains('_k5')) %>%
                              rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
@@ -131,7 +142,11 @@ p6_targets_list<- list(
              train_models_grid(brf_output = p6_Boruta_snow,
                                ncores = Boruta_cores,
                                v_folds = cv_folds,
-                               nested_groups = p4_nested_groups
+                               nested_groups = p4_nested_groups,
+                               range_mtry = c(5,30), 
+                               range_minn = c(2,10), 
+                               range_trees = c(100,500),
+                               gridsize = 50
              ),
              #map(p6_Boruta_snow),
              deployment = 'worker'
@@ -193,7 +208,8 @@ p6_targets_list<- list(
   # All data in both regions
   # Boruta screening
   tar_target(p6_Boruta_rain_snow,
-             screen_Boruta(features = p5_attr_g2,
+             screen_Boruta(features = p5_attr_g2 %>% 
+                             select(-contains('PHYSIO')),
                            cluster_table = p3_gages_clusters_quants_agg_selected %>%
                              select(ID, contains('_k5')) %>%
                              rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
@@ -215,7 +231,11 @@ p6_targets_list<- list(
              train_models_grid(brf_output = p6_Boruta_rain_snow,
                                ncores = Boruta_cores,
                                v_folds = cv_folds,
-                               nested_groups = p4_nested_groups
+                               nested_groups = p4_nested_groups,
+                               range_mtry = c(5,30), 
+                               range_minn = c(2,10), 
+                               range_trees = c(100,500),
+                               gridsize = 50
              ),
              #map(p6_Boruta_rain_snow),
              deployment = 'worker'
@@ -249,7 +269,8 @@ p6_targets_list<- list(
   # Exact same testing data as rain and snow regions above
   # Boruta screening
   tar_target(p6_Boruta_rain_snow_exact,
-             screen_Boruta_exact(features = p5_attr_g2,
+             screen_Boruta_exact(features = p5_attr_g2 %>% 
+                                   select(-contains('PHYSIO')),
                                  cluster_table = p3_gages_clusters_quants_agg_selected %>%
                                    select(ID, contains('_k5')) %>%
                                    rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
@@ -273,7 +294,11 @@ p6_targets_list<- list(
              train_models_grid(brf_output = p6_Boruta_rain_snow_exact,
                                ncores = Boruta_cores,
                                v_folds = cv_folds,
-                               nested_groups = p4_nested_groups),
+                               nested_groups = p4_nested_groups,
+                               range_mtry = c(5,30), 
+                               range_minn = c(2,10), 
+                               range_trees = c(100,500),
+                               gridsize = 50),
              #map(p6_Boruta_rain_snow_exact),
              deployment = 'worker'
   ),
@@ -334,7 +359,8 @@ p6_targets_list<- list(
   # All data CONUS OOB error
   # Boruta screening
   tar_target(p6_Boruta_CONUS_g2,
-             screen_Boruta(features = p5_attr_g2,
+             screen_Boruta(features = p5_attr_g2 %>% 
+                             select(-contains('PHYSIO')),
                            cluster_table = p3_gages_clusters_quants_agg_selected %>%
                              select(ID, contains('_k5')) %>%
                              rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
@@ -356,7 +382,11 @@ p6_targets_list<- list(
              train_models_grid(brf_output = p6_Boruta_CONUS_g2,
                                ncores = Boruta_cores,
                                v_folds = cv_folds,
-                               nested_groups = p4_nested_groups
+                               nested_groups = p4_nested_groups,
+                               range_mtry = c(5,30), 
+                               range_minn = c(2,10), 
+                               range_trees = c(100,500),
+                               gridsize = 50
              ),
              #map(p6_Boruta_CONUS_g2),
              deployment = 'worker'
@@ -390,7 +420,8 @@ p6_targets_list<- list(
   # Exact same testing data as rain and snow regions above
   # Boruta screening
   tar_target(p6_Boruta_CONUS_g2_exact,
-             screen_Boruta_exact(features = p5_attr_g2,
+             screen_Boruta_exact(features = p5_attr_g2 %>% 
+                                   select(-contains('PHYSIO')),
                                  cluster_table = p3_gages_clusters_quants_agg_selected %>%
                                    select(ID, contains('_k5')) %>%
                                    rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
@@ -414,7 +445,11 @@ p6_targets_list<- list(
              train_models_grid(brf_output = p6_Boruta_CONUS_g2_exact,
                                ncores = Boruta_cores,
                                v_folds = cv_folds,
-                               nested_groups = p4_nested_groups),
+                               nested_groups = p4_nested_groups,
+                               range_mtry = c(5,30), 
+                               range_minn = c(2,10), 
+                               range_trees = c(100,500),
+                               gridsize = 50),
              #map(p6_Boruta_CONUS_g2_exact),
              deployment = 'worker'
   ),
@@ -475,7 +510,9 @@ p6_targets_list<- list(
   # With cluster regions as input feature
   # Boruta screening
   tar_target(p6_Boruta_CONUS_g2_exact_clust,
-             screen_Boruta_exact(features = left_join(p5_attr_g2, p3_gages_clusters_quants_agg_selected %>% 
+             screen_Boruta_exact(features = left_join(p5_attr_g2 %>% 
+                                                        select(-contains('PHYSIO')), 
+                                                      p3_gages_clusters_quants_agg_selected %>% 
                                                         select(ID, '0.75,0.8,0.85,0.9,0.95_k5') %>%
                                                         rename(clusters = '0.75,0.8,0.85,0.9,0.95_k5'), 
                                                       by = c('GAGES_ID' = 'ID')) %>% 
@@ -503,7 +540,11 @@ p6_targets_list<- list(
              train_models_grid(brf_output = p6_Boruta_CONUS_g2_exact_clust,
                                ncores = Boruta_cores,
                                v_folds = cv_folds,
-                               nested_groups = p4_nested_groups),
+                               nested_groups = p4_nested_groups,
+                               range_mtry = c(5,30), 
+                               range_minn = c(2,10), 
+                               range_trees = c(100,500),
+                               gridsize = 50),
              #map(p6_Boruta_CONUS_g2_exact_clust),
              deployment = 'worker'
   ),
@@ -756,6 +797,63 @@ p6_targets_list<- list(
   ),
   tar_target(p6_hypopt_CONUS_g2_exact_clust_png,
              plot_hyperparam_opt_results_RF(p6_train_RF_CONUS_g2_exact_clust$grid_params,
+                                            metric = p6_Boruta_CONUS_g2_exact_clust$metric,
+                                            region = 'CONUS_g2_exact_clust',
+                                            out_dir = '6_predict/out/hypopt'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  #marginals
+  tar_target(p6_hypopt_marginals_rain_png,
+             plot_hyperparam_opt_marginals(p6_train_RF_rain$grid_params,
+                                            metric = p6_Boruta_rain$metric,
+                                            region = 'rain',
+                                            out_dir = '6_predict/out/hypopt'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_hypopt_marginals_snow_png,
+             plot_hyperparam_opt_marginals(p6_train_RF_snow$grid_params,
+                                            metric = p6_Boruta_snow$metric,
+                                            region = 'snow',
+                                            out_dir = '6_predict/out/hypopt'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_hypopt_marginals_rain_snow_png,
+             plot_hyperparam_opt_marginals(p6_train_RF_rain_snow$grid_params,
+                                            metric = p6_Boruta_rain_snow$metric,
+                                            region = 'rain_snow',
+                                            out_dir = '6_predict/out/hypopt'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_hypopt_marginals_rain_snow_exact_png,
+             plot_hyperparam_opt_marginals(p6_train_RF_rain_snow_exact$grid_params,
+                                            metric = p6_Boruta_rain_snow_exact$metric,
+                                            region = 'rain_snow_exact',
+                                            out_dir = '6_predict/out/hypopt'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_hypopt_marginals_CONUS_g2_png,
+             plot_hyperparam_opt_marginals(p6_train_RF_CONUS_g2$grid_params,
+                                            metric = p6_Boruta_CONUS_g2$metric,
+                                            region = 'CONUS_g2',
+                                            out_dir = '6_predict/out/hypopt'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_hypopt_marginals_CONUS_g2_exact_png,
+             plot_hyperparam_opt_marginals(p6_train_RF_CONUS_g2_exact$grid_params,
+                                            metric = p6_Boruta_CONUS_g2_exact$metric,
+                                            region = 'CONUS_g2_exact',
+                                            out_dir = '6_predict/out/hypopt'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p6_hypopt_marginals_CONUS_g2_exact_clust_png,
+             plot_hyperparam_opt_marginals(p6_train_RF_CONUS_g2_exact_clust$grid_params,
                                             metric = p6_Boruta_CONUS_g2_exact_clust$metric,
                                             region = 'CONUS_g2_exact_clust',
                                             out_dir = '6_predict/out/hypopt'),
@@ -1079,6 +1177,25 @@ p6_targets_list<- list(
                               ranger_threads = Boruta_cores,
                               probability = TRUE, save_txt_files = FALSE)
              ),
+  tar_target(p6_cluster_model_high_noPhysio,
+             train_multiclass(InputData = left_join(p3_gages_clusters_quants_agg_selected,
+                                                    p5_attr_g2 %>%
+                                                      select(-COMID, -contains('PHYSIO')),
+                                                    by = c('ID' = 'GAGES_ID')) %>%
+                                na.omit(),
+                              y_columns = 2:7,
+                              GAGEID_column = 1,
+                              #"-2" from removing COMID and the shared GAGES_ID column
+                              x_columns = 8:(ncol(p5_attr_g2 %>% select(-contains('PHYSIO'))) + ncol(p3_gages_clusters_quants_agg_selected) - 2),
+                              Val_Pct = 0.2,
+                              bootstraps = 20,
+                              num_features_retain = 40,
+                              ranger_mtry = seq(5,40,5),
+                              ranger_ntree = seq(100, 1100, 200),
+                              file_prefix = '6_predict/out/multiclass/High/NoPhysio/',
+                              ranger_threads = Boruta_cores,
+                              probability = TRUE, save_txt_files = FALSE)
+  ),
   
   #Commenting out the low flows for now. Currently untested and out of scope.
   # tar_target(p6_cluster_model_low,
@@ -1119,7 +1236,8 @@ p6_targets_list<- list(
                                                                             ID == '12209500_12209490' ~ '12209500',
                                                                             TRUE ~ ID)), 
                                                     p6_EcoFlowsAttrs, 
-                                                    by = 'ID'), 
+                                                    by = 'ID') %>%
+                                na.omit(), 
                               y_columns = c(2:4,6:8), 
                               GAGEID_column = 1,
                               x_columns = 10:(ncol(p6_EcoFlowsAttrs) - 1 + 9), 
@@ -1141,7 +1259,8 @@ p6_targets_list<- list(
                                                                             ID == '12209500_12209490' ~ '12209500',
                                                                             TRUE ~ ID)), 
                                                     p6_EcoFlowsAttrs, 
-                                                    by = 'ID'), 
+                                                    by = 'ID') %>%
+                                na.omit(), 
                               y_columns = c(2,4,6,9,11,13), 
                               GAGEID_column = 1,
                               x_columns = 16:(ncol(p6_EcoFlowsAttrs) - 1 + 15), 
@@ -1157,19 +1276,342 @@ p6_targets_list<- list(
              cue = tar_cue('never')),
   
   #Make class predictions for CONUS reaches
-  #example for high flows with 5 clusters.
+  tar_target(p6_region_class_pred_midhigh_CONUS,
+             predict_multiclass(model = filter(p6_cluster_model_high$RF_models, 
+                                               HM == "0.5,0.55,0.6,0.65,0.7_k5") %>% 
+                                  pull(model),
+                                reach_attrs = p5_attr_g2 %>%
+                                  mutate(ID = GAGES_ID))),
   tar_target(p6_region_class_pred_high_CONUS,
              predict_multiclass(model = filter(p6_cluster_model_high$RF_models, 
                                                    HM == "0.75,0.8,0.85,0.9,0.95_k5") %>% 
                                       pull(model),
                                     reach_attrs = p5_attr_g2 %>%
                                   mutate(ID = GAGES_ID))),
+  #No Physio
+  tar_target(p6_region_class_pred_midhigh_noPhysio_CONUS,
+             predict_multiclass(model = filter(p6_cluster_model_high_noPhysio$RF_models, 
+                                               HM == "0.5,0.55,0.6,0.65,0.7_k5") %>% 
+                                  pull(model),
+                                reach_attrs = p5_attr_g2 %>%
+                                  mutate(ID = GAGES_ID))),
+  tar_target(p6_region_class_pred_high_noPhysio_CONUS,
+             predict_multiclass(model = filter(p6_cluster_model_high_noPhysio$RF_models, 
+                                               HM == "0.75,0.8,0.85,0.9,0.95_k5") %>% 
+                                  pull(model),
+                                reach_attrs = p5_attr_g2 %>%
+                                  mutate(ID = GAGES_ID))),
   
   #Maps of the most likely cluster region class for CONUS
   #example for gage points instead of reaches
+  tar_target(p6_region_class_pred_midhigh_CONUS_png,
+             make_class_prediction_map(class_probs = p6_region_class_pred_midhigh_CONUS,
+                                       reaches = p1_sites_g2_sf,
+                                       out_dir = "6_predict/out/multiclass/High/",
+                                       plot_threshold = 0.05,
+                                       model_name = 'Midhigh_k5')),
   tar_target(p6_region_class_pred_high_CONUS_png,
              make_class_prediction_map(class_probs = p6_region_class_pred_high_CONUS,
                                        reaches = p1_sites_g2_sf,
                                        out_dir = "6_predict/out/multiclass/High/",
-                                       plot_threshold = 0.05))
+                                       plot_threshold = 0.05,
+                                       model_name = 'High_k5')),
+  #No Physio
+  tar_target(p6_region_class_pred_midhigh_noPhysio_CONUS_png,
+             make_class_prediction_map(class_probs = p6_region_class_pred_midhigh_noPhysio_CONUS,
+                                       reaches = p1_sites_g2_sf,
+                                       out_dir = "6_predict/out/multiclass/High/NoPhysio/",
+                                       plot_threshold = 0.05,
+                                       model_name = 'Midhigh_NoPhysio_k5')),
+  tar_target(p6_region_class_pred_high_noPhysio_CONUS_png,
+             make_class_prediction_map(class_probs = p6_region_class_pred_high_noPhysio_CONUS,
+                                       reaches = p1_sites_g2_sf,
+                                       out_dir = "6_predict/out/multiclass/High/NoPhysio/",
+                                       plot_threshold = 0.05,
+                                       model_name = 'High_NoPhysio_k5')),
+  
+  
+  #SHAP values and plots
+  tar_target(p6_shap_multiclass_midhigh,
+             #model is a list of models used to predict. 
+             #Average SHAP values will be returned for the unique
+             #features across all of the models (models do not need to have the
+             #same features)
+             #for probability model, SHAP values are returned for each class
+             compute_shap(model = filter(p6_cluster_model_high$RF_models, 
+                                         HM == "0.5,0.55,0.6,0.65,0.7_k5") %>% 
+                            pull(model),
+                          data = p5_attr_g2 %>%
+                            select(-COMID, -GAGES_ID),
+                          ncores = SHAP_cores,
+                          nsim = SHAP_nsim,
+                          predict_fxn = c(predict_shap_multiclass_1, 
+                                          predict_shap_multiclass_2,
+                                          predict_shap_multiclass_3,
+                                          predict_shap_multiclass_4,
+                                          predict_shap_multiclass_5))
+  ),
+  tar_target(p6_shap_multiclass_high,
+             #model is a list of models used to predict. 
+             #Average SHAP values will be returned for the unique
+             #features across all of the models (models do not need to have the
+             #same features)
+             #for probability model, SHAP values are returned for each class
+             compute_shap(model = filter(p6_cluster_model_high$RF_models, 
+                                 HM == "0.75,0.8,0.85,0.9,0.95_k5") %>% 
+                            pull(model),
+                          data = p5_attr_g2 %>%
+                            select(-COMID, -GAGES_ID),
+                          ncores = SHAP_cores,
+                          nsim = SHAP_nsim,
+                          predict_fxn = c(predict_shap_multiclass_1, 
+                                          predict_shap_multiclass_2,
+                                          predict_shap_multiclass_3,
+                                          predict_shap_multiclass_4,
+                                          predict_shap_multiclass_5))
+  ),
+  #No Physio
+  tar_target(p6_shap_multiclass_midhigh_noPhysio,
+             #model is a list of models used to predict. 
+             #Average SHAP values will be returned for the unique
+             #features across all of the models (models do not need to have the
+             #same features)
+             #for probability model, SHAP values are returned for each class
+             compute_shap(model = filter(p6_cluster_model_high_noPhysio$RF_models, 
+                                         HM == "0.5,0.55,0.6,0.65,0.7_k5") %>% 
+                            pull(model),
+                          data = p5_attr_g2 %>%
+                            select(-COMID, -GAGES_ID, -contains('PHYSIO')),
+                          ncores = SHAP_cores,
+                          nsim = SHAP_nsim,
+                          predict_fxn = c(predict_shap_multiclass_1, 
+                                          predict_shap_multiclass_2,
+                                          predict_shap_multiclass_3,
+                                          predict_shap_multiclass_4,
+                                          predict_shap_multiclass_5))
+  ),
+  tar_target(p6_shap_multiclass_high_noPhysio,
+             #model is a list of models used to predict. 
+             #Average SHAP values will be returned for the unique
+             #features across all of the models (models do not need to have the
+             #same features)
+             #for probability model, SHAP values are returned for each class
+             compute_shap(model = filter(p6_cluster_model_high_noPhysio$RF_models, 
+                                         HM == "0.75,0.8,0.85,0.9,0.95_k5") %>% 
+                            pull(model),
+                          data = p5_attr_g2 %>%
+                            select(-COMID, -GAGES_ID, -contains('PHYSIO')),
+                          ncores = SHAP_cores,
+                          nsim = SHAP_nsim,
+                          predict_fxn = c(predict_shap_multiclass_1, 
+                                          predict_shap_multiclass_2,
+                                          predict_shap_multiclass_3,
+                                          predict_shap_multiclass_4,
+                                          predict_shap_multiclass_5))
+  ),
+  
+  #Global shap importance
+  tar_target(p6_shap_importance_multiclass_midhigh_png,
+             plot_shap_global_sv(shap = p6_shap_multiclass_midhigh,
+                              model_name = 'RF_multiclass_midhigh',
+                              out_dir = '6_predict/out/multiclass/High/shap/midhigh',
+                              num_features = 20,
+                              data = p5_attr_g2,
+                              sv_kind = 'both'),
+             format = "file"
+  ),
+  tar_target(p6_shap_importance_multiclass_high_png,
+             plot_shap_global_sv(shap = p6_shap_multiclass_high,
+                              model_name = 'RF_multiclass_high',
+                              out_dir = '6_predict/out/multiclass/High/shap/high',
+                              num_features = 20,
+                              data = p5_attr_g2,
+                              sv_kind = 'both'),
+             format = "file"
+  ),
+  #No Physio
+  tar_target(p6_shap_importance_multiclass_midhigh_noPhysio_png,
+             plot_shap_global_sv(shap = p6_shap_multiclass_midhigh_noPhysio,
+                                 model_name = 'RF_multiclass_midhigh_NoPhysio',
+                                 out_dir = '6_predict/out/multiclass/High/NoPhysio/shap/midhigh',
+                                 num_features = 20,
+                                 data = p5_attr_g2,
+                                 sv_kind = 'both'),
+             format = "file"
+  ),
+  tar_target(p6_shap_importance_multiclass_high_noPhysio_png,
+             plot_shap_global_sv(shap = p6_shap_multiclass_high_noPhysio,
+                                 model_name = 'RF_multiclass_high_NoPhysio',
+                                 out_dir = '6_predict/out/multiclass/High/NoPhysio/shap/high',
+                                 num_features = 20,
+                                 data = p5_attr_g2,
+                                 sv_kind = 'both'),
+             format = "file"
+  ),
+  tar_target(p6_shap_importance_multiclass_high_noPhysio_10vars_png,
+             plot_shap_global_sv(shap = p6_shap_multiclass_high_noPhysio,
+                                 model_name = 'RF_multiclass_high_NoPhysio',
+                                 out_dir = '6_predict/out/multiclass/High/NoPhysio/shap/high',
+                                 num_features = 10,
+                                 data = p5_attr_g2,
+                                 sv_kind = 'both'),
+             format = "file"
+  ),
+  
+  #shap dependence plots
+  tar_target(p6_shap_dependence_multiclass_midhigh_png,
+             plot_shap_dependence_sv(shap = p6_shap_multiclass_midhigh,
+                                     data = p5_attr_g2,
+                                     model_name = 'RF_multiclass_midhigh',
+                                     out_dir = '6_predict/out/multiclass/High/shap/midhigh',
+                                     ncores = SHAP_cores),
+             format = "file"
+  ),
+  tar_target(p6_shap_dependence_multiclass_high_png,
+             plot_shap_dependence_sv(shap = p6_shap_multiclass_high,
+                                     data = p5_attr_g2,
+                                     model_name = 'RF_multiclass_high',
+                                     out_dir = '6_predict/out/multiclass/High/shap/high',
+                                     ncores = SHAP_cores),
+             format = "file"
+  ),
+  #No Physio
+  tar_target(p6_shap_dependence_multiclass_midhigh_noPhysio_png,
+             plot_shap_dependence_sv(shap = p6_shap_multiclass_midhigh_noPhysio,
+                                     data = p5_attr_g2,
+                                     model_name = 'RF_multiclass_midhigh_NoPhysio',
+                                     out_dir = '6_predict/out/multiclass/High/NoPhysio/shap/midhigh',
+                                     ncores = SHAP_cores),
+             format = "file"
+  ),
+  tar_target(p6_shap_dependence_multiclass_high_noPhysio_png,
+             plot_shap_dependence_sv(shap = p6_shap_multiclass_high_noPhysio,
+                                     data = p5_attr_g2,
+                                     model_name = 'RF_multiclass_high_NoPhysio',
+                                     out_dir = '6_predict/out/multiclass/High/NoPhysio/shap/high',
+                                     ncores = SHAP_cores),
+             format = "file"
+  ),
+  
+  
+  #PDP 
+  tar_target(p6_pdp_multiclass_midhigh,
+             compute_pdp(model = filter(p6_cluster_model_high$RF_models, 
+                                        HM == "0.5,0.55,0.6,0.65,0.7_k5") %>% 
+                           pull(model),
+                         data = p5_attr_g2,
+                         predict_fxn = predict_pdp_multiclass,
+                         ice = FALSE,
+                         ncores = SHAP_cores,
+                         avg_pred = TRUE)
+  ),
+  tar_target(p6_pdp_multiclass_midhigh_png,
+             plot_pdp(partial = p6_pdp_multiclass_midhigh,
+                      data = p5_attr_g2,
+                      ncores = SHAP_cores,
+                      ice = FALSE,
+                      model_name = 'RF_multiclass_midhigh',
+                      out_dir = '6_predict/out/multiclass/High/dependence/midhigh'),
+             format = "file"
+  ),
+  tar_target(p6_pdp_multiclass_midhigh_offset_png,
+             plot_pdp(partial = p6_pdp_multiclass_midhigh,
+                      data = p5_attr_g2,
+                      ncores = SHAP_cores,
+                      ice = FALSE,
+                      offset = TRUE,
+                      model_name = 'RF_multiclass_midhigh',
+                      out_dir = '6_predict/out/multiclass/High/dependence/midhigh'),
+             format = "file"
+  ),
+  tar_target(p6_pdp_multiclass_high,
+             compute_pdp(model = filter(p6_cluster_model_high$RF_models, 
+                                        HM == "0.75,0.8,0.85,0.9,0.95_k5") %>% 
+                           pull(model),
+                         data = p5_attr_g2,
+                         predict_fxn = predict_pdp_multiclass,
+                         ice = FALSE,
+                         ncores = SHAP_cores,
+                         avg_pred = TRUE)
+  ),
+  tar_target(p6_pdp_multiclass_high_png,
+             plot_pdp(partial = p6_pdp_multiclass_high,
+                      data = p5_attr_g2,
+                      ncores = SHAP_cores,
+                      ice = FALSE,
+                      model_name = 'RF_multiclass_high',
+                      out_dir = '6_predict/out/multiclass/High/dependence/high'),
+             format = "file"
+  ),
+  tar_target(p6_pdp_multiclass_high_offset_png,
+             plot_pdp(partial = p6_pdp_multiclass_high,
+                      data = p5_attr_g2,
+                      ncores = SHAP_cores,
+                      ice = FALSE,
+                      offset = TRUE,
+                      model_name = 'RF_multiclass_high',
+                      out_dir = '6_predict/out/multiclass/High/dependence/high'),
+             format = "file"
+  ),
+  #No Physio
+  tar_target(p6_pdp_multiclass_midhigh_noPhysio,
+             compute_pdp(model = filter(p6_cluster_model_high_noPhysio$RF_models, 
+                                        HM == "0.5,0.55,0.6,0.65,0.7_k5") %>% 
+                           pull(model),
+                         data = p5_attr_g2,
+                         predict_fxn = predict_pdp_multiclass,
+                         ice = FALSE,
+                         ncores = SHAP_cores,
+                         avg_pred = TRUE)
+  ),
+  tar_target(p6_pdp_multiclass_midhigh_noPhysio_png,
+             plot_pdp(partial = p6_pdp_multiclass_midhigh_noPhysio,
+                      data = p5_attr_g2,
+                      ncores = 1,
+                      ice = FALSE,
+                      offset = FALSE,
+                      model_name = 'RF_multiclass_midhigh_NoPhysio',
+                      out_dir = '6_predict/out/multiclass/High/NoPhysio/dependence/midhigh'),
+             format = "file"
+  ),
+  tar_target(p6_pdp_multiclass_midhigh_noPhysio_offset_png,
+             plot_pdp(partial = p6_pdp_multiclass_midhigh_noPhysio,
+                      data = p5_attr_g2,
+                      ncores = 1,
+                      ice = FALSE,
+                      offset = TRUE,
+                      model_name = 'RF_multiclass_midhigh_NoPhysio',
+                      out_dir = '6_predict/out/multiclass/High/NoPhysio/dependence/midhigh'),
+             format = "file"
+  ),
+  tar_target(p6_pdp_multiclass_high_noPhysio,
+             compute_pdp(model = filter(p6_cluster_model_high_noPhysio$RF_models, 
+                                        HM == "0.75,0.8,0.85,0.9,0.95_k5") %>% 
+                           pull(model),
+                         data = p5_attr_g2,
+                         predict_fxn = predict_pdp_multiclass,
+                         ice = FALSE,
+                         ncores = SHAP_cores,
+                         avg_pred = TRUE)
+  ),
+  tar_target(p6_pdp_multiclass_high_noPhysio_png,
+             plot_pdp(partial = p6_pdp_multiclass_high_noPhysio,
+                      data = p5_attr_g2,
+                      ncores = 1,
+                      ice = FALSE,
+                      offset = FALSE,
+                      model_name = 'RF_multiclass_high_NoPhysio',
+                      out_dir = '6_predict/out/multiclass/High/NoPhysio/dependence/high'),
+             format = "file"
+  ),
+  tar_target(p6_pdp_multiclass_high_noPhysio_offset_png,
+             plot_pdp(partial = p6_pdp_multiclass_high_noPhysio,
+                      data = p5_attr_g2,
+                      ncores = 1,
+                      ice = FALSE,
+                      offset = TRUE,
+                      model_name = 'RF_multiclass_high_NoPhysio',
+                      out_dir = '6_predict/out/multiclass/High/NoPhysio/dependence/high'),
+             format = "file"
+  )
 )

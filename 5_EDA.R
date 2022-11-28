@@ -59,10 +59,15 @@ p5_targets_list<- list(
                                               "SRL35AG", "SRL45AG",
                                               #Min elevation nearly identical for ACC and CAT
                                               "CAT_ELEV_MIN",
-                                              #Canal ditch cndp better than CANALDITCH (no 0s)
-                                              "TOT_CANALDITCH", "ACC_CANALDITCH",
+                                              #Canal ditch cndp better than CANALDITCH (no 0s),
+                                              # but not available everywhere.
+                                              "cndp",
                                               #storage available everywhere with NID and NORM STORAGE
                                               "strg",
+                                              #development available everywhere from SOHL
+                                              "devl",
+                                              #these GAGESII data are not available everywhere
+                                              "fwwd", "npdes",
                                               #CAT storage almost same for NID and NORM
                                               "CAT_NORM_STORAGE",
                                               #ACC and TOT correlations strange:

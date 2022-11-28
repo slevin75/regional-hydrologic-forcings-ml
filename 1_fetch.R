@@ -212,9 +212,9 @@ p1_targets_list <- list(
   
   ##downloads nhd geodatabase
   tar_target(p1_nhd_conus, 
-             get_nhd_conus(outdir = "./1_fetch/out/nhd_plus/"), 
+             get_nhd_conus(outdir = "./1_fetch/out/nhd_plus/", 
+                           seven_zip = "/caldera/projects/usgs/water/impd/fhwa/seven_zip/7zz"), 
              deployment = 'main',
-             format = "file"
   ),
   
   ##generate log file to track updates to sb variables

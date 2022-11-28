@@ -1,4 +1,4 @@
-get_nhd_conus <- function(outdir, seven_zip) {
+get_nhd_conus_gdb <- function(outdir, seven_zip) {
   
   #'@description uses nhdPlusTools package to download nhd geodatabase
   #'
@@ -18,7 +18,7 @@ get_nhd_conus <- function(outdir, seven_zip) {
   system(paste0(seven_zip, " -o", outdir, " x ", outdir, 
                 "NHDPlusV21_NationalData_Seamless_Geodatabase_Lower48_07.7z"))
   
-  filepath <- paste0(outdir, "NHDPlusNationalData/NHDPlusV21_National_Seamless_Flattened_Lower48.gdb")
+  filepath <- paste0(outdir, "NHDPlusNationalData/NHDPlusV21_NationalData_Seamless_Geodatabase_Lower48_07.txt")
   return(filepath)
 }
 

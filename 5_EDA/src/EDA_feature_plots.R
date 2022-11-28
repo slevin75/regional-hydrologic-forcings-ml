@@ -9,6 +9,8 @@ make_EDA_feature_plots <- function(feature_vars, out_dir) {
   #' 
   #' @return maps and plots to output directory
   
+  filesout <- vector('character', length = length(5:ncol(feature_vars)))
+  
   for (i in 5:ncol(feature_vars)) {
     
     data_to_plot <- select(feature_vars, 1:4, all_of(i)) %>%
@@ -48,6 +50,9 @@ make_EDA_feature_plots <- function(feature_vars, out_dir) {
       suppressWarnings()
     fileout <- file.path(out_dir, paste0(col_name, ".png"))
     save_plot(filename = fileout, combo)
+    
+    filesout[i-4] <- fileout
   }
-  return(out_dir)
+  
+  return(filesout)
 }

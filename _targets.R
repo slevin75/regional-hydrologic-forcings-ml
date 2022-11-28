@@ -12,10 +12,12 @@ tar_option_set(packages = c("fasstr", "EflowStats", "dataRetrieval",
                             "sf", "cowplot", "gridGraphics", "stringi",
                             "dendextend", "scico", "tidyverse", "nhdplusTools",
                             "sbtools", "maps", "mapproj", "ranger", "Boruta",
-                            "tidymodels", "doParallel", "vip", "gstat"),
+                            "tidymodels", "doParallel", "vip", "gstat", "rlist", 
+                            "measures", "fastshap", "shapviz", "pdp"),
                imports = c("fasstr", "EflowStats", "dataRetrieval", 
                            "cluster","factoextra", "NbClust", "dendextend",
-                           "tidyverse", "ranger", "Boruta", "tidymodels"))
+                           "tidyverse", "ranger", "Boruta", "tidymodels",
+                           "fastshap", "pdp"))
 
 ##Create output file directories
 dir.create('1_fetch/out', showWarnings = FALSE)
@@ -85,7 +87,25 @@ dir.create('6_predict/out/vip', showWarnings = FALSE)
 dir.create('6_predict/out/hypopt', showWarnings = FALSE)
 dir.create('6_predict/out/split_boxplots', showWarnings = FALSE)
 dir.create('6_predict/out/pred_obs', showWarnings = FALSE)
-
+dir.create('6_predict/out/multiclass', showWarnings = FALSE)
+dir.create('6_predict/out/multiclass/High', showWarnings = FALSE)
+dir.create('6_predict/out/multiclass/High/shap', showWarnings = FALSE)
+dir.create('6_predict/out/multiclass/High/shap/high', showWarnings = FALSE)
+dir.create('6_predict/out/multiclass/High/shap/midhigh', showWarnings = FALSE)
+dir.create('6_predict/out/multiclass/High/dependence', showWarnings = FALSE)
+dir.create('6_predict/out/multiclass/High/dependence/high', showWarnings = FALSE)
+dir.create('6_predict/out/multiclass/High/dependence/midhigh', showWarnings = FALSE)
+dir.create('6_predict/out/multiclass/Low', showWarnings = FALSE)
+dir.create('6_predict/out/multiclass/EcoFlows_High', showWarnings = FALSE)
+dir.create('6_predict/out/multiclass/EcoFlows_Low', showWarnings = FALSE)
+#No physio predictor
+dir.create('6_predict/out/multiclass/High/NoPhysio', showWarnings = FALSE)
+dir.create('6_predict/out/multiclass/High/NoPhysio/shap', showWarnings = FALSE)
+dir.create('6_predict/out/multiclass/High/NoPhysio/shap/high', showWarnings = FALSE)
+dir.create('6_predict/out/multiclass/High/NoPhysio/shap/midhigh', showWarnings = FALSE)
+dir.create('6_predict/out/multiclass/High/NoPhysio/dependence', showWarnings = FALSE)
+dir.create('6_predict/out/multiclass/High/NoPhysio/dependence/high', showWarnings = FALSE)
+dir.create('6_predict/out/multiclass/High/NoPhysio/dependence/midhigh', showWarnings = FALSE)
 
 ##Load user defined functions
 source("1_fetch.R")

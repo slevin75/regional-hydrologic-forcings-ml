@@ -114,14 +114,14 @@ screen_Boruta <- function(features, cluster_table, metrics_table, metric_name,
   
   #determine if the metric should use the high flow region or mid-high flow region
   if (metric_name %in% c('ma','ml17', 'ml18')){
-    region <- 'midhigh'
+    region_check <- 'midhigh'
   } else if (!grepl("_q", metric_name)){
     ##other metrics from HIT
-    region <- 'high'
+    region_check <- 'high'
   }else{
     ##get quantile from FDC metric name
     metric_quantile <- as.numeric(str_split(metric_name,pattern="_q")[[1]][2])
-    region <- ifelse(metric_quantile < 0.75, 'midhigh', 'high')
+    region_check <- ifelse(metric_quantile < 0.75, 'midhigh', 'high')
   }
   
   #Select training region
@@ -129,7 +129,7 @@ screen_Boruta <- function(features, cluster_table, metrics_table, metric_name,
     metrics_table$region = 'all'
   }else{
     #select only gages for high and mid-high model regions
-    if (region == 'high'){
+    if (region_check == 'high'){
       metrics_table <- mutate(metrics_table,
                               region = case_when(site_num %in% cluster_table$ID[cluster_table$high == 4] ~ 'snow',
                                                  site_num %in% cluster_table$ID[cluster_table$high == 2] ~ 'rain')) %>%
@@ -169,7 +169,8 @@ screen_Boruta <- function(features, cluster_table, metrics_table, metric_name,
   #Noticed that there were switches when applied 2 times, probably due to correlation
   #applying once to CAT+dev only, then ACC+dev only
   brf_noACC <- Boruta(x = input_data_split$training %>% 
-                        select(-COMID, -GAGES_ID, -{{metric_name}}, -starts_with('ACC_')) %>%
+                        select(-COMID, -GAGES_ID, -contains('region'), 
+                               -{{metric_name}}, -starts_with('ACC_')) %>%
                         as.data.frame(),
                       y = input_data_split$training %>% 
                         pull({{metric_name}}),
@@ -181,10 +182,12 @@ screen_Boruta <- function(features, cluster_table, metrics_table, metric_name,
                       getImp = getImpRfZ,
                       num.trees = ntrees,
                       oob.error = TRUE,
-                      num.threads = ncores)
+                      num.threads = ncores,
+                      respect.unordered.factors = TRUE)
 
   brf_noCAT <- Boruta(x = input_data_split$training %>% 
-                        select(-COMID, -GAGES_ID, -{{metric_name}}, -starts_with('CAT_')) %>%
+                        select(-COMID, -GAGES_ID, -contains('region'), 
+                               -{{metric_name}}, -starts_with('CAT_')) %>%
                         as.data.frame(),
                       y = input_data_split$training %>% 
                         pull({{metric_name}}),
@@ -196,10 +199,12 @@ screen_Boruta <- function(features, cluster_table, metrics_table, metric_name,
                       getImp = getImpRfZ,
                       num.trees = ntrees,
                       oob.error = TRUE,
-                      num.threads = ncores)
+                      num.threads = ncores,
+                      respect.unordered.factors = TRUE)
   
   brf_All <- Boruta(x = input_data_split$training %>%
-                      select(-COMID, -GAGES_ID, -{{metric_name}}) %>%
+                      select(-COMID, -GAGES_ID, -contains('region'), 
+                             -{{metric_name}}) %>%
                       as.data.frame(),
                     y = input_data_split$training %>%
                       pull({{metric_name}}),
@@ -211,7 +216,8 @@ screen_Boruta <- function(features, cluster_table, metrics_table, metric_name,
                     getImp = getImpRfZ,
                     num.trees = ntrees,
                     oob.error = TRUE,
-                    num.threads = ncores)
+                    num.threads = ncores,
+                    respect.unordered.factors = TRUE)
   
   #Select all features that were not rejected over these 3 screenings
   names_unique = unique(c(names(brf_All$finalDecision[brf_All$finalDecision != 'Rejected']),
@@ -273,14 +279,14 @@ screen_Boruta_exact <- function(features, cluster_table, metrics_table, metric_n
   
   #determine if the metric should use the high flow region or mid-high flow region
   if (metric_name %in% c('ma','ml17', 'ml18')){
-    region <- 'midhigh'
+    region_check <- 'midhigh'
   } else if (!grepl("_q", metric_name)){
     ##other metrics from HIT
-    region <- 'high'
+    region_check <- 'high'
   }else{
     ##get quantile from FDC metric name
     metric_quantile <- as.numeric(str_split(metric_name,pattern="_q")[[1]][2])
-    region <- ifelse(metric_quantile < 0.75, 'midhigh', 'high')
+    region_check <- ifelse(metric_quantile < 0.75, 'midhigh', 'high')
   }
   
   #Select training region
@@ -288,7 +294,7 @@ screen_Boruta_exact <- function(features, cluster_table, metrics_table, metric_n
     metrics_table$region = 'all'
   }else{
     #select only gages for high and mid-high model regions
-    if (region == 'high'){
+    if (region_check == 'high'){
       metrics_table <- mutate(metrics_table,
                               region = case_when(site_num %in% cluster_table$ID[cluster_table$high == 4] ~ 'snow',
                                                  site_num %in% cluster_table$ID[cluster_table$high == 2] ~ 'rain')) %>%
@@ -326,17 +332,17 @@ screen_Boruta_exact <- function(features, cluster_table, metrics_table, metric_n
     input_data_split$testing <- input_data_split$split$data[-input_data_split$split$in_id,]
   }else{
     #add cluster information to the table
-    input_data <- left_join(input_data, cluster_table %>% select(ID, {{region}}), 
+    input_data <- left_join(input_data, cluster_table %>% select(ID, {{region_check}}), 
                             by = c('GAGES_ID' = 'ID'))
     
-    if(region == 'high'){
+    if(region_check == 'high'){
       #randomize for clusters 1, 3, and 5
-      input_data_split3 <- split_data(input_data %>% filter(.data[[region]] %in% c(1,3,5)), 
+      input_data_split3 <- split_data(input_data %>% filter(.data[['high']] %in% c(1,3,5)), 
                                         train_prop = train_prop,
                                       nested_groups = nested_groups)
     }else{
       #randomize for clusters 1, 2, and 4
-      input_data_split3 <- split_data(input_data %>% filter(.data[[region]] %in% c(1,2,4)), 
+      input_data_split3 <- split_data(input_data %>% filter(.data[['midhigh']] %in% c(1,2,4)), 
                                         train_prop = train_prop,nested_groups = nested_groups)
     }
     
@@ -351,9 +357,9 @@ screen_Boruta_exact <- function(features, cluster_table, metrics_table, metric_n
                                             input_data_split$training$GAGES_ID)
     
     #Remove the cluster column
-    input_data_split$training <- select(input_data_split$training, -{{region}})
-    input_data_split$testing <- select(input_data_split$testing, -{{region}})
-    input_data_split$split$data <- select(input_data_split$split$data, -{{region}})
+    input_data_split$training <- select(input_data_split$training, -{{region_check}})
+    input_data_split$testing <- select(input_data_split$testing, -{{region_check}})
+    input_data_split$split$data <- select(input_data_split$split$data, -{{region_check}})
   }
   
   #Apply Boruta to down-select features
@@ -361,7 +367,8 @@ screen_Boruta_exact <- function(features, cluster_table, metrics_table, metric_n
   #Noticed that there were switches when applied 2 times, probably due to correlation
   #applying once to CAT+dev only, then ACC+dev only
   brf_noACC <- Boruta(x = input_data_split$training %>% 
-                        select(-COMID, -GAGES_ID, -{{metric_name}}, -starts_with('ACC_')) %>%
+                        select(-COMID, -GAGES_ID, -contains('region'), 
+                               -{{metric_name}}, -starts_with('ACC_')) %>%
                         as.data.frame(),
                       y = input_data_split$training %>% 
                         pull({{metric_name}}),
@@ -373,10 +380,12 @@ screen_Boruta_exact <- function(features, cluster_table, metrics_table, metric_n
                       getImp = getImpRfZ,
                       num.trees = ntrees,
                       oob.error = TRUE,
-                      num.threads = ncores)
+                      num.threads = ncores,
+                      respect.unordered.factors = TRUE)
   
   brf_noCAT <- Boruta(x = input_data_split$training %>% 
-                        select(-COMID, -GAGES_ID, -{{metric_name}}, -starts_with('CAT_')) %>%
+                        select(-COMID, -GAGES_ID, -contains('region'), 
+                               -{{metric_name}}, -starts_with('CAT_')) %>%
                         as.data.frame(),
                       y = input_data_split$training %>% 
                         pull({{metric_name}}),
@@ -388,10 +397,12 @@ screen_Boruta_exact <- function(features, cluster_table, metrics_table, metric_n
                       getImp = getImpRfZ,
                       num.trees = ntrees,
                       oob.error = TRUE,
-                      num.threads = ncores)
+                      num.threads = ncores,
+                      respect.unordered.factors = TRUE)
   
   brf_All <- Boruta(x = input_data_split$training %>%
-                      select(-COMID, -GAGES_ID, -{{metric_name}}) %>%
+                      select(-COMID, -GAGES_ID, -contains('region'), 
+                             -{{metric_name}}) %>%
                       as.data.frame(),
                     y = input_data_split$training %>%
                       pull({{metric_name}}),
@@ -403,7 +414,8 @@ screen_Boruta_exact <- function(features, cluster_table, metrics_table, metric_n
                     getImp = getImpRfZ,
                     num.trees = ntrees,
                     oob.error = TRUE,
-                    num.threads = ncores)
+                    num.threads = ncores,
+                    respect.unordered.factors = TRUE)
   
   #Select all features that were not rejected over these 3 screenings
   names_unique = unique(c(names(brf_All$finalDecision[brf_All$finalDecision != 'Rejected']),
@@ -430,16 +442,29 @@ screen_Boruta_exact <- function(features, cluster_table, metrics_table, metric_n
               brf_All = brf_All, input_data = screened_input_data))
 }
 
-train_models_grid <- function(brf_output, v_folds, ncores,nested_groups){
+train_models_grid <- function(brf_output, v_folds, ncores, nested_groups,
+                              range_mtry, range_minn, range_trees,
+                              gridsize){
   #' 
   #' @description optimizes hyperparameters using a grid search
   #'
   #' @param brf_output output of the screen_Boruta function
   #' @param v_folds number of cross validation folds to use
   #' @param ncores number of cores to use
+  #' @param nested_groups matrix identifying nestedness from p4_nested_groups.
+  #' @param range_mtry 2-element numeric vector for min and max values of mtry
+  #' to use within ranger random forest
+  #' @param range_minn 2-element numeric vector for min and max values of min_n
+  #' to use within ranger random forest
+  #' @param range_trees 2-element numeric vector for min and max values of trees
+  #' to use within ranger random forest
+  #' @param gridsize numeric number of points to evaluate within the 3D grid
   #' 
   #' @return Returns a list of the evaluated grid parameters, the 
   #' best fit parameters, and the workflow for those parameters.
+  
+  #faster parallelization for ranger is to use the built-in num.threads parameter.
+  threads <- floor((ncores - v_folds)/v_folds)
   
   #Set the parameters to be tuned
   #Test with and without write.forest
@@ -447,18 +472,18 @@ train_models_grid <- function(brf_output, v_folds, ncores,nested_groups){
                            mtry = tune(), 
                            min_n = tune(), 
                            trees = tune()) %>% 
-    set_engine(engine = "ranger", 
+    set_engine(engine = "ranger", num.threads = threads,
                verbose = FALSE, importance = 'permutation', 
-               probability = FALSE)
+               probability = FALSE, keep.inbag = TRUE, respect.unordered.factors = TRUE)
   
   #Set parameter ranges
-  params <- parameters(list(mtry = mtry() %>% range_set(c(10,100)), 
-                            min_n = min_n() %>% range_set(c(2,10)),
-                            trees = trees() %>% range_set(c(500,2000))))
+  params <- parameters(list(mtry = mtry() %>% range_set(range_mtry), 
+                            min_n = min_n() %>% range_set(range_minn),
+                            trees = trees() %>% range_set(range_trees)))
   
   #Space filled grid to search
   grid <- grid_max_entropy(params,
-                           size = 100,
+                           size = gridsize,
                            iter = 1000)
 
   #number of cross validation folds (v)
@@ -469,13 +494,13 @@ train_models_grid <- function(brf_output, v_folds, ncores,nested_groups){
   wf <- workflow() %>%
     add_model(tune_spec) %>%
     add_variables(outcomes = contains(brf_output$metric),
-                  predictors = (!(contains('COMID') | contains('GAGES_ID') | contains(brf_output$metric))))
+                  predictors = (!(contains('COMID') | contains('GAGES_ID') | contains('region') | contains(brf_output$metric))))
   
   #Find best model with a grid search over hyperparameters
   cl = parallel::makeCluster(ncores)
   doParallel::registerDoParallel(cl)
   #Send variables to worker environments
-  parallel::clusterExport(cl = cl, varlist = c('brf_output'), 
+  parallel::clusterExport(cl = cl, varlist = c('brf_output', 'threads'), 
                           envir = environment())
   
   grid_result <- tune_grid(wf, 
@@ -483,14 +508,14 @@ train_models_grid <- function(brf_output, v_folds, ncores,nested_groups){
                            grid = grid, 
                            metrics = metric_set(rmse, mae, rsq),
                            control = control_grid(
-                             verbose = TRUE,
+                             verbose = FALSE,
                              allow_par = TRUE,
                              extract = NULL,
                              save_pred = FALSE,
                              pkgs = NULL,
                              save_workflow = FALSE,
                              event_level = "first",
-                             parallel_over = "everything"
+                             parallel_over = "resamples"
                            )
   )
   #refine hyperparameters with a Bayesian optimizaton
@@ -533,6 +558,9 @@ train_models_grid <- function(brf_output, v_folds, ncores,nested_groups){
   final_wf_trained <- extract_workflow(final_fit)
   
   parallel::stopCluster(cl)
+  
+  #remove data from grid_result to reduce file size
+  grid_result$splits <- NULL
   
   return(list(grid_params = grid_result, 
               best_fit = final_fit, 
@@ -597,14 +625,14 @@ predict_test_data <- function(model_wf, features, cluster_table, metrics_table,
   
   #determine if the metric should use the high flow region or mid-high flow region
   if (metric_name %in% c('ma','ml17', 'ml18')){
-    region <- 'midhigh'
+    region_check <- 'midhigh'
   } else if (!grepl("_q", metric_name)){
     ##other metrics from HIT
-    region <- 'high'
+    region_check <- 'high'
   }else{
     ##get quantile from FDC metric name
     metric_quantile <- as.numeric(str_split(metric_name, pattern="_q")[[1]][2])
-    region <- ifelse(metric_quantile < 0.75, 'midhigh', 'high')
+    region_check <- ifelse(metric_quantile < 0.75, 'midhigh', 'high')
   }
   
   #Select training region
@@ -612,7 +640,7 @@ predict_test_data <- function(model_wf, features, cluster_table, metrics_table,
     metrics_table$region = 'all'
   }else{
     #select only gages for high and mid-high model regions
-    if (region == 'high'){
+    if (region_check == 'high'){
       metrics_table <- mutate(metrics_table,
                               region = case_when(site_num %in% cluster_table$ID[cluster_table$high == 4] ~ 'snow',
                                                  site_num %in% cluster_table$ID[cluster_table$high == 2] ~ 'rain')) %>%
@@ -673,14 +701,14 @@ predict_test_data_from_data <- function(model_wf, features, cluster_table, metri
   
   #determine if the metric should use the high flow region or mid-high flow region
   if (metric_name %in% c('ma','ml17', 'ml18')){
-    region <- 'midhigh'
+    region_check <- 'midhigh'
   } else if (!grepl("_q", metric_name)){
     ##other metrics from HIT
-    region <- 'high'
+    region_check <- 'high'
   }else{
     ##get quantile from FDC metric name
     metric_quantile <- as.numeric(str_split(metric_name, pattern="_q")[[1]][2])
-    region <- ifelse(metric_quantile < 0.75, 'midhigh', 'high')
+    region_check <- ifelse(metric_quantile < 0.75, 'midhigh', 'high')
   }
   
   #Select training region
@@ -688,7 +716,7 @@ predict_test_data_from_data <- function(model_wf, features, cluster_table, metri
     metrics_table$region = 'all'
   }else{
     #select only gages for high and mid-high model regions
-    if (region == 'high'){
+    if (region_check == 'high'){
       metrics_table <- mutate(metrics_table,
                               region = case_when(site_num %in% cluster_table$ID[cluster_table$high == 4] ~ 'snow',
                                                  site_num %in% cluster_table$ID[cluster_table$high == 2] ~ 'rain')) %>%

@@ -98,13 +98,13 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
       #allow_event_overlap == FALSE, do not allow overlapping event definitions
       if(threshold_type== "high"){
         threshold_lower <- NE_flows[i]
-        threshold_upper <- ifelse(i == max(length(NE_flows)),max(data$discharge), NE_flows[i+ 1])
+        threshold_upper <- ifelse(i == max(length(NE_flows)),max(data$discharge), NE_flows[i + 1] + 10^-digits)
       }else {
         #threshold type == "low
         threshold_lower <- ifelse(i==1, 0, NE_flows[i-1])
         threshold_upper <- NE_flows[i] + 10^ -digits
         vhfdc_threshold_lower <- NE_flows[i]
-        vhfdc_threshold_upper <- ifelse(i == max(length(NE_flows)), max(data$discharge), NE_flows[i+ 1])
+        vhfdc_threshold_upper <- ifelse(i == max(length(NE_flows)), max(data$discharge), NE_flows[i + 1] + 10^-digits)
       }
     } #end threshold definitions
 
@@ -811,9 +811,9 @@ calc_season_average <- function(seasonal_var, metric_colname){
 
 find_events_mod <-function (x, threshold_lower, threshold_upper, type = "high") {
   #' @description this function is modified from the find_events function in Eflowstats.
-  # modified to pass an upper and lower bound to the threshold definition.
+  #' modified to pass an upper and lower bound to the threshold definition.
   #' @param threshold_lower is the lower bound of the threshold range 
-  #' @param theshold_high is upper bound of threshold range.  
+  #' @param theshold_upper is upper bound of threshold range.  
   
   
   x <- data.frame(flow = x)

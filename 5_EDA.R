@@ -59,10 +59,15 @@ p5_targets_list<- list(
                                               "SRL35AG", "SRL45AG",
                                               #Min elevation nearly identical for ACC and CAT
                                               "CAT_ELEV_MIN",
-                                              #Canal ditch cndp better than ACC_CANALDITCH (no 0s)
-                                              "TOT_CANALDITCH", "ACC_CANALDITCH",
+                                              #Canal ditch cndp better than CANALDITCH (no 0s),
+                                              # but not available everywhere.
+                                              "cndp",
                                               #storage available everywhere with NID and NORM STORAGE
                                               "strg",
+                                              #development available everywhere from SOHL
+                                              "devl",
+                                              #these GAGESII data are not available everywhere
+                                              "fwwd", "npdes",
                                               #CAT storage almost same for NID and NORM
                                               "CAT_NORM_STORAGE",
                                               #ACC and TOT correlations strange:
@@ -73,16 +78,18 @@ p5_targets_list<- list(
                                               'CAT_MAXP6190', 'CAT_FSTFZ6190', 'CAT_LSTFZ6190', 
                                               #5 odd TOT waterbody variables - using ACC instead
                                               'TOT_PLAYA', 'TOT_ICEMASS', 'TOT_LAKEPOND', 
-                                              'TOT_RESERVOIR', 'TOT_SWAMPMARSH')),
+                                              'TOT_RESERVOIR', 'TOT_SWAMPMARSH',
+                                              #Using ACC PHYSIO instead
+                                              'TOT_PHYSIO')),
              deployment = 'main'
   ),
   # remove TOT variables that are highly correlated with other variables (> 0.9)
   tar_target(p5_attr_g2,
              drop_high_corr_ACCTOT(features = p5_screen_attr_g2, 
                                    threshold_corr = 0.9,
-                                   drop_var = 'TOT'),
+                                   cor_method = 'spearman',
+                                   drop_var = 'TOT',
+                                   categorical_cols = 'PHYSIO'),
              deployment = 'main'
   )
-  
-  
 )

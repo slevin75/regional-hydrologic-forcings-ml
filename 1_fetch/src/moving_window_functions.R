@@ -1,4 +1,3 @@
-
 calc_moving_window_metrics <- function(site_num, window_length, increment, 
                                      min_yrs_in_window, clean_daily_flow, 
                                      yearType, drainArea_tab, NE_probs, 

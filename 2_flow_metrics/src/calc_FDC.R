@@ -95,7 +95,7 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
       #allow_event_overlap == FALSE, do not allow overlapping event definitions
       if(threshold_type== "high"){
         threshold_lower <- NE_flows[i]
-        threshold_upper <- ifelse(i == max(length(NE_flows)),max(data$discharge), NE_flows[i+ 1])
+        threshold_upper <- ifelse(i == max(length(NE_flows)),max(data$discharge), NE_flows[i + 1] + 10^-digits)
       }else {
         #threshold type == "low
         threshold_lower <- ifelse(i==1, 0, NE_flows[i-1])

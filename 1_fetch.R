@@ -260,10 +260,22 @@ p1_targets_list <- list(
   
   ##list of COMIDs for CONUS-wide predictions
   tar_target(p1_sites_conus, 
-             st_drop_geometry(p1_sites_conus_sf) %>%
-               select(COMID) %>% 
-               as.list(COMID), 
+             st_drop_geometry(p1_sites_conus_sf), 
              deployment = 'main'
+  ),
+  
+  ##
+  tar_target(p1_sb_data_conus_csv, 
+             get_sb_data(sites = p1_sites_conus, 
+                         sb_var_ids = p1_sb_var_ids,
+                         dldir = "./1_fetch/out/sb/dldir", 
+                         workdir = "./1_fetch/out/sb/workdir",
+                         outdir = "./1_fetch/out/sb/data",
+                         out_file_name = "sb_data_conus_"),
+             map(p1_sb_var_ids),
+             iteration = "list",
+             deployment = 'main',
+             format = "file"
   ),
   
   ##get flood threshold from NWIS for eflowstats

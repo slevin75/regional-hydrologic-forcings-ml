@@ -210,14 +210,6 @@ p1_targets_list <- list(
              format = "file"
   ),
   
-  ##downloads nhd geodatabase
-  tar_target(p1_nhd_conus_gdb, 
-             get_nhd_conus_gdb(outdir = "./1_fetch/out/nhd_plus/", 
-                               seven_zip = "/caldera/projects/usgs/water/impd/fhwa/seven_zip/7zz"), 
-             deployment = 'main',
-             format = "file"
-  ),
-  
   ##generate log file to track updates to sb variables
   tar_target(p1_sb_data_g2_log,
              get_sb_data_log(sb_var_ids = p1_sb_var_ids,
@@ -242,6 +234,35 @@ p1_targets_list <- list(
   tar_target(p1_feature_vars_g2_sf,
              st_as_sf(x = p1_feature_vars_g2, coords = c('LON', 'LAT'), 
                       remove = FALSE, dim = 'XY', na.fail = TRUE),
+             deployment = 'main'
+  ),
+  
+  ##download and unzip nhd geodatabase
+  tar_target(p1_nhd_conus_gdb, 
+             get_nhd_conus_gdb(outdir = "./1_fetch/out/nhd_plus/", 
+                               seven_zip = "/caldera/projects/usgs/water/impd/fhwa/seven_zip/7zz"), 
+             deployment = 'main',
+             format = "file"
+  ),
+  
+  ##filter nhd conus comids by flowline type and non-tidal, retain attributes of interest
+  tar_target(p1_sites_conus_sf, 
+             prep_comid_conus(nhd_conus_gdb = p1_nhd_conus_gdb, 
+                              attrib_to_keep = 
+                                c("COMID", "GNIS_NAME", "LENGTHKM", "FTYPE", 
+                                  "StreamOrde", "Divergence", "StartFlag", 
+                                  "TerminalFl", "AreaSqKM", "TotDASqKM", "DivDASqKM", 
+                                  "Tidal", "SLOPE", "LakeFract", "SurfArea"), 
+                              ftype_to_keep = c("StreamRiver"), 
+                              outdir = "./1_fetch/out/nhd_plus/"), 
+             deployment = 'main'
+  ),
+  
+  ##list of COMIDs for CONUS-wide predictions
+  tar_target(p1_sites_conus, 
+             st_drop_geometry(p1_sites_conus_sf) %>%
+               select(COMID) %>% 
+               as.list(COMID), 
              deployment = 'main'
   ),
   

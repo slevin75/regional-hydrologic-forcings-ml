@@ -18,7 +18,7 @@ get_nhd_conus_gdb <- function(outdir, seven_zip) {
   system(paste0(seven_zip, " -o", outdir, " x ", outdir, 
                 "NHDPlusV21_NationalData_Seamless_Geodatabase_Lower48_07.7z"))
   
-  filepath <- paste0(outdir, "NHDPlusNationalData/NHDPlusV21_NationalData_Seamless_Geodatabase_Lower48_07.txt")
+  filepath <- paste0(outdir, "NHDPlusNationalData/NHDPlusV21_National_Seamless_Flattened_Lower48.gdb")
   return(filepath)
 }
 
@@ -138,6 +138,30 @@ get_sb_data_log <- function(sb_var_ids, file_out) {
   return(file_out)
   
 }
+
+
+prep_comid_conus <- function(nhd_conus_gdb, attrib_to_keep, ftype_to_keep, outdir) {
+  
+  #'@description Selects comids of interest for conus-wide predictions
+  #'
+  #'@param nhd_conus_gdb target from p1_nhd_conus_gdb (raw unzipped nhd geodatabase)
+  #'@param attrib_to_keep character list of attributes to keep (columns in nhd_conus_gdb)
+  #'@param ftype_to_keep character list of flowline types to retain (of the following:
+  #'ArtificialPath, StreamRiver, Connector, CanalDitch, Coastline, Pipeline)
+  #'@param outdir filepath to save final csv
+  #'
+  #'@return non-tidal conus-wide comids of specified ftype(s)
+  #'with specified attributes retained from geodatabase (class 'sf')
+  
+  nhd_full <- st_read(nhd_conus_gdb, layer = 'NHDFlowline_Network')
+  comid_conus <- nhd_full %>%
+    select(all_of(attrib_to_keep)) %>%
+    filter(FTYPE %in% all_of(ftype_to_keep)) %>%
+    filter(Tidal == 0)
+  
+  return(comid_conus)
+}
+
 
 prep_feature_vars <- function(sb_var_data, sites_all, sites_screened, 
                               combine_gages, years_by_site, retain_vars) {

@@ -23,8 +23,11 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
   #' the EflowStats format. Use 'pivot' for a simpler table.
   #' @param threshold_type one of either 'high' or 'low' indicating if the threshold
   #' should consider all flows higher or lower than the threshold.false, events are defined such that
-  #' there are no overlapping events between quantile groups.  If false, it is the default event
-  #' definition within EflowStats
+  #' there are no overlapping events between quantile groups.  If false, the same set of dates may
+  #' be defined as an event for more than one quantile group.
+  #' @param allow_event_overlap logical indicating whether events should be allowed to span accross 
+  #' more than one quantile range.
+  #' 
   #' @return table of FDC metrics for each gage
   
   message(paste('starting site', site_num))
@@ -78,9 +81,9 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
   for (i in 1:length(NE_flows)){
     #set upper and lower bounds for event definitions.  
     if(allow_event_overlap == TRUE){
-      #allow overlapping event definitions between quantile groups.  vhfdc threshold
+      #allow overlapping event definitions between quantile groups.  vhfdc thresholds
       #are the reverse when threshold type is low so that it can compute the volume
-      #above the low threshold.
+      #above the low threshold as an additional metric.
       if(threshold_type == "high"){
         threshold_lower <- NE_flows[i]
         threshold_upper <- max(data$discharge)
@@ -303,8 +306,8 @@ prep_seasonal_data <- function(data, threshold_lower, threshold_upper,  type = '
   #' and adds a column of event numbers to data.
   #' 
   #' @param data tbl containing columns for "groups" and "discharge"
-  #' @param NE_flow flow threshold to use. A small buffer will be added because
-  #' the EflowStats function does not grab the exact value of the threshold
+  #' @param threshold_lower lower quantile threshold to use when defining an event
+  #' @param threshold_upper uppwer quantile threshold to use when defining an event
   #' @param type threshold type to use. Can be "low" for flows less than the threshold
   #' or "high" for flows greater than the threshold.
   #' 
@@ -328,13 +331,13 @@ prep_seasonal_data <- function(data, threshold_lower, threshold_upper,  type = '
   return(data)
 }
 
-prep_data <- function(data, threshold_lower, threshold_upper, type = 'high', digits = 3){
+prep_data <- function(data, threshold_lower, threshold_upper, type = 'high'){
   #' @description prepares the data by finding events that meet the NE_flow threshold,
   #' and adds a column of event numbers to data. Threshold is represented as a range with
   #' an upper and lower bound. 
   #' @param data tbl containing columns for "groups" and "discharge"
-  #' @param NE_flow flow threshold to use. A small buffer will be added because
-  #' the EflowStats function does not grab the exact value of the threshold
+  #' @param threshold_lower lower quantile threshold to use when defining an event
+  #' @param threshold_upper upper quantile threshold to use when defining an event
   #' @param type threshold type to use. Can be "low" for flows less than the threshold
   #' or "high" for flows greater than the threshold.
   #' 

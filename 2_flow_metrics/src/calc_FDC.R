@@ -101,7 +101,7 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
         threshold_lower <- ifelse(i==1, 0, NE_flows[i-1])
         threshold_upper <- NE_flows[i] + 10^ -digits
         vhfdc_threshold_lower <- NE_flows[i]
-        vhfdc_threshold_upper <- ifelse(i == max(length(NE_flows)), max(data$discharge), NE_flows[i+ 1])
+        vhfdc_threshold_upper <- ifelse(i == max(length(NE_flows)), max(data$discharge), NE_flows[i + 1] + 10^-digits)
       }
     } #end threshold definitions
 

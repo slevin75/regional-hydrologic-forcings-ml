@@ -806,24 +806,57 @@ calc_season_average <- function(seasonal_var, metric_colname){
 }
 
 
-
 find_events_mod <-function (x, threshold_lower, threshold_upper, type = "high") {
   #' @description this function is modified from the find_events function in Eflowstats.
   # modified to pass an upper and lower bound to the threshold definition.
   #' @param threshold_lower is the lower bound of the threshold range 
   #' @param theshold_high is upper bound of threshold range.  
   
-
+  
   x <- data.frame(flow = x)
   if (type == "high") {
     #everything over the lower threshold or less than or equal to the upper threshold is 
     #an event
-    x$event <- ifelse(((x$flow > threshold_lower) & (x$flow <= threshold_upper)), T,F)
+    x$event <- ifelse((x$flow > threshold_lower), T,F)
+    #temporary event number
+    runLengths <- rle(x$event)
+    runLengths <- data.frame(lengths = runLengths$lengths, values = runLengths$values, 
+                             eventNum = NA)
+    events <- 1:sum(runLengths$values == T)
+    runLengths$eventNum[runLengths$values == T] <- events
+    eventVector <- rep(runLengths$eventNum, runLengths$lengths)
+    x$event <- eventVector
+    #keep only events where the maximum is less than or equal to the upper threshold
+    keep_events<- x %>%
+      group_by(event) %>%
+      drop_na(event)%>%
+      summarise(maxflow= max(flow)) %>%
+      filter(maxflow <= threshold_upper)
+    #convert back into T/F
+    x$event<- ifelse((x$event %in% keep_events$event), T, F)
+    
+    
   }else {
     #everything lower than the upper threshold and higher or equal to the lower threshold is
     #and event
-    x$event <- ifelse(((x$flow < threshold_upper) & (x$flow >= threshold_lower)),T,F)
-
+    x$event <- ifelse((x$flow < threshold_upper),T,F)
+    #temporary event number
+    runLengths <- rle(x$event)
+    runLengths <- data.frame(lengths = runLengths$lengths, values = runLengths$values, 
+                             eventNum = NA)
+    events <- 1:sum(runLengths$values == T)
+    runLengths$eventNum[runLengths$values == T] <- events
+    eventVector <- rep(runLengths$eventNum, runLengths$lengths)
+    x$event <- eventVector
+    #keep only events where the minimum is greater than or equal to the lower threshold and less than upper threshold
+    keep_events<- x %>%
+      group_by(event) %>%
+      drop_na(event)%>%
+      summarise(minflow= min(flow)) %>%
+      filter(minflow >= threshold_lower)
+    #convert back into T/F
+    x$event<- ifelse((x$event %in% keep_events$event), T, F)
+    
   } #end if (type...)
   
   runLengths <- rle(x$event)
@@ -836,4 +869,3 @@ find_events_mod <-function (x, threshold_lower, threshold_upper, type = "high") 
   flowEvents <- x[c("flow", "event")]
   return(flowEvents)
 } #end function
-

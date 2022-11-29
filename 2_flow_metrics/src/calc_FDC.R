@@ -808,7 +808,7 @@ calc_season_average <- function(seasonal_var, metric_colname){
 
 find_events_mod <-function (x, threshold_lower, threshold_upper, type = "high") {
   #' @description this function is modified from the find_events function in Eflowstats.
-  # modified to pass an upper and lower bound to the threshold definition.
+  #' modified to pass an upper and lower bound to the threshold definition.
   #' @param threshold_lower is the lower bound of the threshold range 
   #' @param theshold_high is upper bound of threshold range.  
   

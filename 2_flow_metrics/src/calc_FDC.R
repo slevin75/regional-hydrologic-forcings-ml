@@ -140,11 +140,11 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
       ##not seasonal
       #prepare data for duration and volume calculations
       data_processed <- prep_data(data, threshold_lower, threshold_upper,
-                                  type = threshold_type, digits = digits)
+                                  type = threshold_type)
       #to compute volume above threshold for low flow metrics
       if(threshold_type == 'low'){
         data_processed_high <- prep_data(data, vhfdc_threshold_lower, vhfdc_threshold_upper, 
-                                         type = 'high', digits = digits)
+                                         type = 'high')
       }
       
       #calculate metrics

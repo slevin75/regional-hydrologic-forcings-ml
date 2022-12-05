@@ -6,8 +6,8 @@ finalize_vars_conus <- function(prep1_conus, prep2_conus, drop_attr) {
   #'@param prep1_conus filepaths for all variables except
   #'land cover variables (from prep1_vars_conus)
   #'@param prep2_conus filepath for land cover variables (from prep2_vars_conus)
-  #'@param retain_attr character list of COMID and other attributes used for 
-  #'left joins 
+  #'@param drop_attr character vector of attributes to drop from
+  #' prep1_conus tables before joining
   #'
   #'@return data frame including all conus-wide comids and their feature variables
   

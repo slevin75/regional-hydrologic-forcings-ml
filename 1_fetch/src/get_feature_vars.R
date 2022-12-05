@@ -3,7 +3,7 @@ finalize_vars_conus <- function(prep1_conus, prep2_conus, drop_attr) {
   #'@description combines outputs from prep1 and prep2 conus functions to provide
   #'full set of feature variables for all comids in conus
   #'
-  #'@param prep1_conus filepaths for all variables except land cover 
+  #'@param prep1_conus filepaths for all variables except
   #'land cover variables (from prep1_vars_conus)
   #'@param prep2_conus filepath for land cover variables (from prep2_vars_conus)
   #'@param retain_attr character list of COMID and other attributes used for 

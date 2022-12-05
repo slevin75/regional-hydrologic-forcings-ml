@@ -3,11 +3,10 @@ finalize_vars_conus <- function(prep1_conus, prep2_conus, drop_attr) {
   #'@description combines outputs from prep1 and prep2 conus functions to provide
   #'full set of feature variables for all comids in conus
   #'
-  #'@param prep1_conus filepaths for all variables except land cover 
-  #'land cover variables (from prep1_vars_conus)
-  #'@param prep2_conus filepath for land cover variables (from prep2_vars_conus)
-  #'@param retain_attr character list of COMID and other attributes used for 
-  #'left joins 
+  #'@param prep1_conus filepaths for all variables (land cover vars empty in prep1_conus)
+  #'@param prep2_conus filepath for land cover variables and trimmed comid list (fully inside conus)
+  #'@param drop_attr character list of attributes retained in `prep1_vars_conus()` to be 
+  #'dropped for the left joins
   #'
   #'@return data frame including all conus-wide comids and their feature variables
   
@@ -197,11 +196,15 @@ prep_feature_vars_g2 <- function(sb_var_data, sites_all, sites_screened,
   #'joined with the COMIDs contained in the 'sites' parameter
   #'@param sites_all data frame with a COMID column including all reaches of interest
   #'@param sites_screened list of sites that passed screening functions
+  #'@param combine_gages list of sites that are located on same comid (`to_be_combined` 
+  #'is kept, `assigned_rep` is re-assigned to its associated site in `to_be_combined`)
+  #'@param years_by_site data frame describing full years in record for each site
+  #'(output from `clean_daily_data()`)
   #'@param retain_vars character strings of additional column headers to keep in the 
-  #'sites data frame
+  #'sites data frame (from gages2.1)
   #'
   #'@return data frame with COMID column appended by all feature variables of interest; 
-  #'time-varying features converted to long-term averages where applicable
+  #'time-varying features converted to long-term averages and weighted averages where applicable
   
   # Identify all combinations of sites and their complete years (for weighted avgs)
   complete_years <- years_by_site %>% 
@@ -268,9 +271,9 @@ prep_feature_vars_g2 <- function(sb_var_data, sites_all, sites_screened,
                                  class == 7 ~ "BARREN", class == 8 ~ "FOREST", 
                                  class == 9 ~ "FOREST", class == 10 ~ "FOREST", 
                                  class == 11 ~ "GRASSLAND", class == 12 ~ "SHRUBLAND", 
-                                 class == 13 ~ "CROPLAND", class == 14 ~ "HAYPASTURE", 
+                                 class == 13 ~ "CROPLAND", class == 14 ~ "HAY-PASTURE", 
                                  class == 15 ~ "WETLAND", class == 16 ~ "WETLAND", 
-                                 class == 17 ~ "ICESNOW")) %>%
+                                 class == 17 ~ "ICE-SNOW")) %>%
     group_by(COMID, unit, year, new_class) %>%
     summarise(value = sum(value)) %>%
     mutate(lc_sum = sum(value)) %>%
@@ -469,7 +472,7 @@ prep_feature_vars_g2 <- function(sb_var_data, sites_all, sites_screened,
            year = str_sub(name, 14, 17)) %>%
     group_by(COMID, unit) %>%
     summarise(avg_annual = mean(value, na.rm = TRUE), .groups = "drop") %>%
-    mutate(label = paste0(unit, "_WILDFIRE_shortterm_avg")) %>%
+    mutate(label = paste0(unit, "_AVG_WILDFIRE_shortterm_avg")) %>%
     arrange(COMID, label) %>%
     select(COMID, label, avg_annual) %>%
     pivot_wider(names_from = "label", values_from = "avg_annual")
@@ -573,6 +576,7 @@ prep1_vars_conus <- function(sb_var_data, sites, retain_attr, outdir, out_file_l
   #'@param sites data frame with a COMID column including all reaches of interest
   #'@param retain_attr character strings of additional column headers (attributes) 
   #'to keep in the sites data frame
+  #'@outdir output directory
   #'@param out_file_label naming convention to label output files from this function
   #'
   #'@return data frame with COMID column appended by all feature variables of interest
@@ -651,7 +655,7 @@ prep1_vars_conus <- function(sb_var_data, sites, retain_attr, outdir, out_file_l
         select(COMID, contains(i)) %>%
         mutate(shortterm_avg = rowMeans(select(., -COMID))) %>%
         select(COMID, shortterm_avg)
-      name <- paste0(i, "_WILDFIRE_shortterm_avg")
+      name <- paste0(i, "_AVG_WILDFIRE_shortterm_avg")
       names(data_by_unit) <- c("COMID", name)
       data_all <- left_join(data_all, data_by_unit, by = "COMID")
     }
@@ -720,7 +724,8 @@ prep2_vars_conus <- function(sohl_early, sohl_late, outdir, out_file_label) {
   
   #'@description joins all data downloaded from ScienceBase with sites of interest
   #'
-  #'@param prep1_vars target generated from the 'prep1_vars_conus()' function
+  #'@param sohl_early sciencebase identifier for the 1940-1990 SOHL land cover data 
+  #'@param sohl_late sciencebase identifier for the 1992-2002 SOHL land cover data
   #'@param outdir output directory
   #'@param out_file_label naming convention to label output files from this function
   #'
@@ -737,7 +742,9 @@ prep2_vars_conus <- function(sohl_early, sohl_late, outdir, out_file_label) {
   sohl[sohl == -9999] <- NA_real_
   
   unit <- c("CAT", "ACC", "TOT")
-  category <- as.character(1:17)
+  category <- names(sohl)[2:length(names(sohl))] %>%
+    str_sub(12) %>% 
+    unique()
   
   data_all <- tibble(COMID = sohl$COMID)
   comid_out_conus_all <- tibble()
@@ -791,6 +798,8 @@ prep2_vars_conus <- function(sohl_early, sohl_late, outdir, out_file_label) {
              ICESNOW = (ICESNOW/lc_sum)*100) %>%
       select(-lc_sum) %>%
       rename_with(~ paste0(i, "_SOHL_", ., "_longterm_avg"), -COMID)
+    names(data_reclass) <- str_replace(names(data_reclass), "HAYPASTURE", "HAY-PASTURE")
+    names(data_reclass) <- str_replace(names(data_reclass), "ICESNOW", "ICE-SNOW")
     data_all <- left_join(data_all, data_reclass, by = "COMID")
   }
   

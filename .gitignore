@@ -19,9 +19,6 @@ rstudio*
 #Gages data
 Gages2.1_RefSiteList.xlsx
 
-#EcoFlows data
-6_predict/in/EcoFlowsAttrs.csv
-
 #R plots
 Rplots.pdf
 

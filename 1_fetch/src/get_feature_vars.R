@@ -574,6 +574,7 @@ prep1_vars_conus <- function(sb_var_data, sites, retain_attr, outdir, out_file_l
   #'@param sites data frame with a COMID column including all reaches of interest
   #'@param retain_attr character strings of additional column headers (attributes) 
   #'to keep in the sites data frame
+  #'@param out_dir output file directory
   #'@param out_file_label naming convention to label output files from this function
   #'
   #'@return data frame with COMID column appended by all feature variables of interest

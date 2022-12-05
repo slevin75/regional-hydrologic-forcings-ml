@@ -55,6 +55,7 @@ get_sb_data <- function(sites, sb_var_ids, dldir, workdir, outdir, out_file_labe
   #'@param dldir filepath for downloads
   #'@param workdir filepath for unzipping, joining, etc.
   #'@param outdir filepath for final data downloads
+  #'@param out_file_label name to append to the file name containing the downloaded data
   #'
   #'@return series of .csv files with ScienceBase feature variable values
   #'joined to a list of COMIDs of interest

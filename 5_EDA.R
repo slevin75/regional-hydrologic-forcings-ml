@@ -91,5 +91,12 @@ p5_targets_list<- list(
                                    drop_var = 'TOT',
                                    categorical_cols = 'PHYSIO'),
              deployment = 'main'
+  ),
+  
+  #map of gages used
+  tar_target(p5_g2_map_png,
+             make_gages_map(gages = p1_feature_vars_g2_sf, 
+                            out_dir = '5_EDA/out'),
+             deployment = 'main'
   )
 )

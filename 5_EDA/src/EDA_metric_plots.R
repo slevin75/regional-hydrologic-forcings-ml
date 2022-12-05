@@ -76,7 +76,7 @@ make_EDA_metric_plots <- function(metric, k, cluster_table, high_q_grep, low_q_g
             axis.text.x = element_blank())
     
     p_map <- ggplot(states, aes(x = long, y = lat, group = group)) +
-      geom_polygon(fill = "white", colour = "gray") +
+      geom_polygon(fill = "white", color = "gray") +
       geom_sf(data = df, inherit.aes = FALSE, 
               aes(color = .data[[metric]]), 
               size = 0.5) +

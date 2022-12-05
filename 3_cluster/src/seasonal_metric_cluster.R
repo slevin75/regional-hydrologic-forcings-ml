@@ -492,7 +492,7 @@ plot_cluster_map <- function(gages, cluster_table, dir_out,
     #png(filename = fileout[i], width = 8, height = 5, units = 'in', res = 200)
     #plot gage locations, colored by their cluster
     p1 <- ggplot(states, aes(x=long, y=lat, group=group)) +
-      geom_polygon(fill="white", colour="gray") +
+      geom_polygon(fill="white", color="gray") +
       geom_sf(data = gages, inherit.aes = FALSE, 
               aes(color = factor(.data[[colnames(gages)[ncol_gages+i]]])), 
               size = 0.75) + 
@@ -505,7 +505,8 @@ plot_cluster_map <- function(gages, cluster_table, dir_out,
       scale_color_scico_d(palette = 'batlow')
       if(facet){
         p1 <- p1 + facet_wrap(~.data[[colnames(gages)[ncol_gages+i]]]) +
-          theme(legend.position = 'none')
+          theme(legend.position = 'none', 
+                strip.text.x = element_text(size = 20))
       }
     
     ggsave(filename = fileout[i],

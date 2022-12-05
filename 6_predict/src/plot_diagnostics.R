@@ -323,7 +323,7 @@ make_residual_map <- function(df_pred_obs, sites, metric, pred_gage_ids, region,
   states <- map_data("state")
   limit <- quantile(df$resid, probs = c( 0.1, 0.9))
   p1<-ggplot(states, aes(x=long, y=lat, group=group)) +
-    geom_polygon(fill="gray60", colour="gray80") +
+    geom_polygon(fill="gray60", color="gray80") +
     geom_sf(data = df, inherit.aes = FALSE, 
             aes(color = .data[["resid"]]), 
             size = 0.5)+
@@ -424,13 +424,15 @@ make_class_prediction_map <- function(class_probs, reaches, out_dir,
       plot_sites <- reaches[!is.na(reaches[[col_name]]),]
       
       p1 <- ggplot(states, aes(x = long, y = lat, group = group)) +
-        geom_polygon(fill = "white", colour = "gray80") +
+        geom_polygon(fill = "white", color = "gray80") +
         geom_sf(data = plot_sites, inherit.aes = FALSE, 
                 aes(color = .data[[col_name]]), 
                 size = 0.5) +
         scale_color_scico_d(palette = 'batlow') +
         theme(legend.position="bottom",
-              legend.key.size=unit(.75,'cm'))+
+              legend.key.size=unit(2,'cm'),
+              legend.text=element_text(size=16)) +
+        guides(color = guide_legend(override.aes = list(size=10))) +
         xlab('Longitude') + 
         ylab('Latitude')
       

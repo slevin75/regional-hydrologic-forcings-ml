@@ -321,12 +321,4 @@ p1_targets_list <- list(
                                                "LakeFract", "SurfArea")), 
              deployment = "main"
   )
-  # 
-  # #create a spatial object for conus-wide feature variables
-  # tar_target(p1_feature_vars_conus_sf,
-  #            st_as_sf(x = p1_feature_vars_g2, coords = c('LON', 'LAT'), 
-  #                     remove = FALSE, dim = 'XY', na.fail = TRUE),
-  #            deployment = 'main'
-  # )
-  # 
 )

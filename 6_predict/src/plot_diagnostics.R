@@ -414,7 +414,7 @@ make_class_prediction_map <- function(class_probs, reaches, out_dir,
   states <- map_data("state")
   
   #plot and return filenames
-  fnames <- foreach(i = 1:(ncol(LikelyRanks)-1), .packages = c('ggplot2', 'scico', 'sf'),
+  fnames <- foreach(i = 1:num_ranks, .packages = c('ggplot2', 'scico', 'sf'),
                     .combine = c, .inorder = TRUE) %dopar% {
     col_name <- colnames(LikelyRanks)[i]
     fname <- file.path(out_dir, paste0(model_name, '_', col_name, '_map.png'))

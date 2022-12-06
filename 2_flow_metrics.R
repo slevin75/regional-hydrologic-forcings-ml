@@ -55,7 +55,8 @@ p2_targets_list<- list(
                              NE_probs = NE_quants,
                              seasonal = FALSE,
                              year_start = year_start,
-                             out_format = 'pivot'),
+                             out_format = 'pivot',
+                             allow_event_overlap = TRUE),
              map(p1_screened_site_list),
              deployment = 'worker'
   ),
@@ -69,7 +70,8 @@ p2_targets_list<- list(
                              seasonal = FALSE,
                              year_start = year_start,
                              out_format = 'pivot',
-                             threshold_type = 'low'),
+                             threshold_type = 'low',
+                             allow_event_overlap = TRUE),
              map(p1_screened_site_list),
              deployment = 'worker'
   ),
@@ -100,6 +102,64 @@ p2_targets_list<- list(
                   grep(colnames(p2_FDC_metrics_low), pattern = 'q0.01'))
              ]
   ),
+  ##Compute FDC-based metrics using non-overlapping event definitions
+  tar_target(p2_FDC_metrics_nonoverlapping,
+             calc_FDCmetrics(site_num = p1_screened_site_list, 
+                             clean_daily_flow = p1_clean_daily_flow, 
+                             yearType = yearType,
+                             drainArea_tab = p1_drainage_area,
+                             NE_probs = c(0.5, 0.75,0.95),
+                             seasonal = FALSE,
+                             year_start = year_start,
+                             out_format = 'pivot',
+                             allow_event_overlap = FALSE),
+             map(p1_screened_site_list),
+             deployment = 'worker'
+  ),
+  
+  tar_target(p2_FDC_metrics_low_nonoverlapping,
+             calc_FDCmetrics(site_num = p1_screened_site_list, 
+                             clean_daily_flow = p1_clean_daily_flow, 
+                             yearType = yearType,
+                             drainArea_tab = p1_drainage_area,
+                             NE_probs = c(0.5, 0.25,0.05),
+                             seasonal = FALSE,
+                             year_start = year_start,
+                             out_format = 'pivot',
+                             threshold_type = 'low',
+                             allow_event_overlap = FALSE),
+             map(p1_screened_site_list),
+             deployment = 'worker'
+  ),
+  #For these aggregated ranges of events, we would not be interested in the
+  # category above the second NE_quants (70-max in this case). Should remove
+  # that result from these targets.
+  tar_target(p2_FDC_metrics_nonoverlapping_agg5070,
+             calc_FDCmetrics(site_num = p1_screened_site_list, 
+                             clean_daily_flow = p1_clean_daily_flow, 
+                             yearType = yearType,
+                             drainArea_tab = p1_drainage_area,
+                             NE_probs = NE_quants[c(1,5)],
+                             seasonal = FALSE,
+                             year_start = year_start,
+                             out_format = 'pivot',
+                             allow_event_overlap = FALSE),
+             map(p1_screened_site_list),
+             deployment = 'worker'
+  ),
+  tar_target(p2_FDC_metrics_nonoverlapping_agg7595,
+             calc_FDCmetrics(site_num = p1_screened_site_list, 
+                             clean_daily_flow = p1_clean_daily_flow, 
+                             yearType = yearType,
+                             drainArea_tab = p1_drainage_area,
+                             NE_probs = NE_quants[c(6,10)],
+                             seasonal = FALSE,
+                             year_start = year_start,
+                             out_format = 'pivot',
+                             allow_event_overlap = FALSE),
+             map(p1_screened_site_list),
+             deployment = 'worker'
+  ),
   
   ##compute seasonal FDC-based metrics using water year seasons
   tar_target(p2_FDC_metrics_season,
@@ -112,7 +172,8 @@ p2_targets_list<- list(
                              season_months = season_months,
                              stat_type = 'POR',
                              year_start = season_year_start,
-                             out_format = 'pivot'),
+                             out_format = 'pivot',
+                             allow_event_overlap = TRUE),
              map(p1_screened_site_list_season),
              deployment = 'worker'
   ),
@@ -128,7 +189,43 @@ p2_targets_list<- list(
                              stat_type = 'POR',
                              year_start = season_year_start,
                              out_format = 'pivot',
-                             threshold_type = 'low'),
+                             threshold_type = 'low',
+                             allow_event_overlap= TRUE),
+             map(p1_screened_site_list_season),
+             deployment = 'worker'
+  ),
+  
+  ##compute seasonal FDC-based metrics using water year seasons and
+  ##non-overlapping event definitions
+  tar_target(p2_FDC_metrics_season_nonoverlapping,
+             calc_FDCmetrics(site_num = p1_screened_site_list_season, 
+                             clean_daily_flow = p1_clean_daily_flow_season, 
+                             yearType = yearType,
+                             drainArea_tab = NULL,
+                             NE_probs = c(0.5,0.75,0.95),
+                             seasonal = TRUE,
+                             season_months = season_months,
+                             stat_type = 'POR',
+                             year_start = season_year_start,
+                             out_format = 'pivot',
+                             allow_event_overlap = FALSE),
+             map(p1_screened_site_list_season),
+             deployment = 'worker'
+  ),
+  #Low flow
+  tar_target(p2_FDC_metrics_season_low_nonoverlapping,
+             calc_FDCmetrics(site_num = p1_screened_site_list_season, 
+                             clean_daily_flow = p1_clean_daily_flow_season, 
+                             yearType = yearType,
+                             drainArea_tab = NULL,
+                             NE_probs = c(0.5,0.25,0.05),
+                             seasonal = TRUE,
+                             season_months = season_months,
+                             stat_type = 'POR',
+                             year_start = season_year_start,
+                             out_format = 'pivot',
+                             threshold_type = 'low',
+                             allow_event_overlap= FALSE),
              map(p1_screened_site_list_season),
              deployment = 'worker'
   )

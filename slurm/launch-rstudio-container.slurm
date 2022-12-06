@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=rstudio              # human-readable label for squeue output
-#SBATCH --time=8:00:00                  # maximum time for this job
+#SBATCH --time=10:00:00                  # maximum time for this job
 #SBATCH --output=rstudio_%u.out         # user's output file (password here!)
 #SBATCH --partition=cpu                 # which SLURM partition to use
 #SBATCH --nodes=1                       # only request one node

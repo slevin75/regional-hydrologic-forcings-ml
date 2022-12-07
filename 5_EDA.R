@@ -1,6 +1,7 @@
 source("5_EDA/src/EDA_metric_plots.R")
 source("5_EDA/src/EDA_feature_plots.R")
 source("5_EDA/src/select_features.R")
+source("5_EDA/src/plot_gages_reaches.R")
 
 p5_targets_list<- list(
   

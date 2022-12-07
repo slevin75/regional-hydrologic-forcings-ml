@@ -1,5 +1,55 @@
+finalize_vars_conus <- function(prep1_conus, prep2_conus, drop_attr) {
+  
+  #'@description combines outputs from prep1 and prep2 conus functions to provide
+  #'full set of feature variables for all comids in conus
+  #'
+  #'@param prep1_conus filepaths for all variables (land cover vars empty in prep1_conus)
+  #'@param prep2_conus filepath for land cover variables and trimmed comid list (fully inside conus)
+  #'@param drop_attr character list of attributes retained in `prep1_vars_conus()` to be 
+  #'dropped for the left joins
+  #'
+  #'@return data frame including all conus-wide comids and their feature variables
+  
+  data <- read_csv(prep2_conus, show_col_types = FALSE)
+  for (i in prep1_conus) {
+    data_temp <- read_csv(i, show_col_types = FALSE) %>%
+      select(-all_of(drop_attr))
+    data <- left_join(data, data_temp, by = "COMID")
+  }
+  
+  data$CAT_PHYSIO <- as.factor(data$CAT_PHYSIO)
+  data$ACC_PHYSIO <- as.factor(data$ACC_PHYSIO)
+  data$TOT_PHYSIO <- as.factor(data$TOT_PHYSIO)
+  
+  return(data)
+}
 
-get_sb_data <- function(sites, sb_var_ids, dldir, workdir, outdir, out_file_name) {
+get_nhd_conus_gdb <- function(outdir, seven_zip) {
+  
+  #'@description uses nhdPlusTools package to download nhd geodatabase
+  #'
+  #'@param outdir filepath for final data downloads
+  #'@param seven_zip filepath (full, not relative) to 7zip executable
+  #'
+  #'@return unzipped nhd geodatabase
+  
+  download_nhdplusv2(
+    outdir,
+    url = paste0("https://edap-ow-data-commons.s3.amazonaws.com/NHDPlusV21/",
+                 "Data/NationalData/NHDPlusV21_NationalData_Seamless", 
+                 "_Geodatabase_Lower48_07.7z"),
+    progress = TRUE
+  )
+  
+  system(paste0(seven_zip, " -o", outdir, " x ", outdir, 
+                "NHDPlusV21_NationalData_Seamless_Geodatabase_Lower48_07.7z"))
+  
+  filepath <- paste0(outdir, "NHDPlusNationalData/NHDPlusV21_National_Seamless_Flattened_Lower48.gdb")
+  return(filepath)
+}
+
+
+get_sb_data <- function(sites, sb_var_ids, dldir, workdir, outdir, out_file_label) {
   
   #'@description recursively downloads and saves feature variable values from ScienceBase
   #'
@@ -8,7 +58,7 @@ get_sb_data <- function(sites, sb_var_ids, dldir, workdir, outdir, out_file_name
   #'@param dldir filepath for downloads
   #'@param workdir filepath for unzipping, joining, etc.
   #'@param outdir filepath for final data downloads
-  #'@param out_file_name filename for final data downloads
+  #'@param out_file_label name to append to the file name containing the downloaded data
   #'
   #'@return series of .csv files with ScienceBase feature variable values
   #'joined to a list of COMIDs of interest
@@ -84,13 +134,14 @@ get_sb_data <- function(sites, sb_var_ids, dldir, workdir, outdir, out_file_name
   
   itemfails <- as.data.frame(itemfails)
   
-  filepath1 <- paste0(outdir, "/", out_file_name, item, ".csv")
+  filepath1 <- paste0(outdir, "/sb_", item, "_", out_file_label, ".csv")
   write_csv(data_at_sites, filepath1)
-  filepath2 <- paste0(outdir, "/", out_file_name, item, "_FAILS.csv")
+  filepath2 <- paste0(outdir, "/sb_", item, "_", out_file_label, "_FAILS.csv")
   write_csv(itemfails, filepath2)
   return_df = c(filepath1, filepath2)
   return(return_df)
 }
+
 
 get_sb_data_log <- function(sb_var_ids, file_out) {
   
@@ -112,11 +163,33 @@ get_sb_data_log <- function(sb_var_ids, file_out) {
   
   write_csv(sb_log, file_out)
   return(file_out)
-  
 }
 
-prep_feature_vars <- function(sb_var_data, sites_all, sites_screened, 
-                              combine_gages, years_by_site, retain_vars) {
+
+prep_comid_conus <- function(nhd_conus_gdb, attrib_to_keep, outdir) {
+  
+  #'@description Selects comids of interest for conus-wide predictions
+  #'
+  #'@param nhd_conus_gdb target from p1_nhd_conus_gdb (raw unzipped nhd geodatabase)
+  #'@param attrib_to_keep character list of attributes to keep (columns in nhd_conus_gdb)
+  #'@param ftype_to_keep character list of flowline types to retain (of the following:
+  #'ArtificialPath, StreamRiver, Connector, CanalDitch, Coastline, Pipeline)
+  #'@param outdir filepath to save final csv
+  #'
+  #'@return non-tidal conus-wide comids of specified ftype(s)
+  #'with specified attributes retained from geodatabase (class 'sf')
+  
+  nhd_full <- st_read(nhd_conus_gdb, layer = 'NHDFlowline_Network')
+  comid_conus <- nhd_full %>%
+    select(all_of(attrib_to_keep))
+  comid_conus <- st_zm(comid_conus)
+  comid_conus <- st_transform(comid_conus, crs = 4326)
+  return(comid_conus)
+}
+
+
+prep_feature_vars_g2 <- function(sb_var_data, sites_all, sites_screened, 
+                                 combine_gages, years_by_site, retain_vars) {
   
   #'@description joins all data downloaded from ScienceBase with sites of interest
   #'
@@ -127,11 +200,15 @@ prep_feature_vars <- function(sb_var_data, sites_all, sites_screened,
   #'joined with the COMIDs contained in the 'sites' parameter
   #'@param sites_all data frame with a COMID column including all reaches of interest
   #'@param sites_screened list of sites that passed screening functions
+  #'@param combine_gages list of sites that are located on same comid (`to_be_combined` 
+  #'is kept, `assigned_rep` is re-assigned to its associated site in `to_be_combined`)
+  #'@param years_by_site data frame describing full years in record for each site
+  #'(output from `clean_daily_data()`)
   #'@param retain_vars character strings of additional column headers to keep in the 
-  #'sites data frame
+  #'sites data frame (from gages2.1)
   #'
   #'@return data frame with COMID column appended by all feature variables of interest; 
-  #'time-varying features converted to long-term averages where applicable
+  #'time-varying features converted to weighted averages where applicable
   
   # Identify all combinations of sites and their complete years (for weighted avgs)
   complete_years <- years_by_site %>% 
@@ -158,7 +235,7 @@ prep_feature_vars <- function(sb_var_data, sites_all, sites_screened,
   data <- sites_all %>%
     select(COMID, all_of(retain_vars)) %>%
     filter(ID %in% screened_site_list) %>%
-    mutate(across(where(is.character)  & !starts_with('ID'), as.numeric))
+    mutate(across(where(is.character) & !starts_with('ID'), as.numeric))
   
   if("ID" %in% retain_vars) {
     data <- rename(data, GAGES_ID = ID)
@@ -198,9 +275,9 @@ prep_feature_vars <- function(sb_var_data, sites_all, sites_screened,
                                  class == 7 ~ "BARREN", class == 8 ~ "FOREST", 
                                  class == 9 ~ "FOREST", class == 10 ~ "FOREST", 
                                  class == 11 ~ "GRASSLAND", class == 12 ~ "SHRUBLAND", 
-                                 class == 13 ~ "CROPLAND", class == 14 ~ "HAY/PASTURE", 
+                                 class == 13 ~ "CROPLAND", class == 14 ~ "HAY-PASTURE", 
                                  class == 15 ~ "WETLAND", class == 16 ~ "WETLAND", 
-                                 class == 17 ~ "ICE/SNOW")) %>%
+                                 class == 17 ~ "ICE-SNOW")) %>%
     group_by(COMID, unit, year, new_class) %>%
     summarise(value = sum(value)) %>%
     mutate(lc_sum = sum(value)) %>%
@@ -212,19 +289,6 @@ prep_feature_vars <- function(sb_var_data, sites_all, sites_screened,
   comid_out_conus <- unique(comid_out_conus$COMID)
   data <- data %>%
     subset(!(COMID %in% comid_out_conus))
-  
-  #convert decadal land use to long-term average land use
-  land_cover_longterm_avg <- land_cover %>%
-    subset(!(COMID %in% comid_out_conus)) %>%
-    group_by(COMID, unit, year, new_class) %>%
-    mutate(lc_adj = (value / lc_sum) * 100) %>%
-    ungroup() %>%
-    select(COMID, unit, new_class, lc_adj) %>%
-    group_by(COMID, unit, new_class) %>%
-    summarise(value = mean(lc_adj), .groups = "drop") %>%
-    mutate(label = paste0(unit, "_SOHL_", new_class, "_longterm_avg")) %>%
-    select(COMID, label, value) %>%
-    pivot_wider(names_from = "label", values_from = "value")
   
   #convert decadal land use to weighted average land use by year
   land_cover_weighted_avg <- data %>%
@@ -253,26 +317,9 @@ prep_feature_vars <- function(sb_var_data, sites_all, sites_screened,
     ungroup() %>%
     group_by(COMID, unit, new_class) %>%
     summarise(value = mean(lc_adj_by_year), .groups = "drop") %>%
-    mutate(label = paste0(unit, "_SOHL_", new_class, "_weighted_avg")) %>%
+    mutate(label = paste0(unit, "_SOHL_", new_class, "_avg")) %>%
     select(COMID, label, value) %>%
     pivot_wider(names_from = "label", values_from = "value")
-
-  #convert decadal dam information to long-term average dam information
-  dams_longterm_avg <- data %>%
-    select(COMID, contains("NDAMS"), contains("STORAGE"), contains("MAJOR")) %>%
-    distinct() %>%
-    pivot_longer(!COMID, names_to = "name", values_to = "value") %>%
-    mutate(unit = str_sub(name, 1, 3), 
-           feature = str_sub(name, 5, -5),
-           year = str_sub(name, -4)) %>%
-    filter(year <= 2010) %>%
-    group_by(COMID, unit, feature, year) %>%
-    summarise(value = mean(value), .groups = "drop") %>%
-    group_by(COMID, unit, feature) %>%
-    summarise(value = mean(value), .groups = "drop") %>%
-    mutate(label = paste0(unit, "_", feature, "_longterm_avg")) %>%
-    select(COMID, label, value) %>%
-    pivot_wider(names_from = label, values_from = value)
   
   #convert decadal dam information to weighted average dam information by year
   dams_weighted_avg <- data %>%
@@ -307,30 +354,9 @@ prep_feature_vars <- function(sb_var_data, sites_all, sites_screened,
     select(COMID, unit, feature, year_w_data, dams_by_year) %>%
     group_by(COMID, unit, feature) %>%
     summarise(value = mean(dams_by_year), .groups = "drop") %>%
-    mutate(label = paste0(unit, "_", feature, "_weighted_avg")) %>%
+    mutate(label = paste0(unit, "_", feature, "_avg")) %>%
     select(COMID, label, value) %>%
     pivot_wider(names_from = label, values_from = value)
- 
-  #convert annual monthly weather data to long-term average monthly weather data
-  weather_longterm_avg <- data %>%
-    select(COMID, contains("_PPT_"), contains("_TAV_")) %>%
-    distinct() %>%
-    pivot_longer(!COMID, names_to = "name", values_to = "value") %>%
-    mutate(unit = str_sub(name, 1, 3), 
-           type = str_sub(name, 5, 7),
-           month_name = str_sub(name, 9, 11)) %>%
-    group_by(COMID, unit, type, month_name) %>%
-    summarise(avg_monthly = mean(value, na.rm = TRUE), .groups = "drop") %>%
-    mutate(month_num = case_when(month_name == "JAN" ~ 1, month_name == "FEB" ~ 2, 
-                                 month_name == "MAR" ~ 3, month_name == "APR" ~ 4, 
-                                 month_name == "MAY" ~ 5, month_name == "JUN" ~ 6, 
-                                 month_name == "JUL" ~ 7, month_name == "AUG" ~ 8, 
-                                 month_name == "SEP" ~ 9, month_name == "OCT" ~ 10, 
-                                 month_name == "NOV" ~ 11, month_name == "DEC" ~ 12),
-           label = paste0(unit, "_", type, "_", month_name, "_longterm_avg")) %>%
-    arrange(COMID, type, unit, month_num) %>%
-    select(COMID, label, avg_monthly) %>%
-    pivot_wider(names_from = "label", values_from = "avg_monthly")
   
   #convert annual monthly weather data to weighted average monthly weather data by year
   #long-term avgs needed to backfill for years outside of range of weather data
@@ -384,12 +410,12 @@ prep_feature_vars <- function(sb_var_data, sites_all, sites_screened,
     summarise(value = mean(weather_by_year), 
               month_num = mean(month_num),
               .groups = "drop") %>%
-    mutate(label = paste0(unit, "_", type, "_", month_name, "_weighted_avg")) %>%
+    mutate(label = paste0(unit, "_", type, "_", month_name, "_avg")) %>%
     arrange(COMID, type, unit, month_num) %>%
     select(COMID, label, value) %>%
     pivot_wider(names_from = label, values_from = value)
   
-  #convert annual wildfire data to long-term average wildfire data
+  #convert annual wildfire data to short-term average wildfire data
   wildfire_shortterm_avg <- data %>%
     select(COMID, contains("_WILDFIRE_")) %>%
     group_by(COMID) %>%
@@ -399,7 +425,7 @@ prep_feature_vars <- function(sb_var_data, sites_all, sites_screened,
            year = str_sub(name, 14, 17)) %>%
     group_by(COMID, unit) %>%
     summarise(avg_annual = mean(value, na.rm = TRUE), .groups = "drop") %>%
-    mutate(label = paste0(unit, "_AVG_WILDFIRE_shorterm_avg")) %>%
+    mutate(label = paste0(unit, "_AVG_WILDFIRE_avg")) %>%
     arrange(COMID, label) %>%
     select(COMID, label, avg_annual) %>%
     pivot_wider(names_from = "label", values_from = "avg_annual")
@@ -452,11 +478,8 @@ prep_feature_vars <- function(sb_var_data, sites_all, sites_screened,
            -contains("STORAGE"), -contains("MAJOR"), -contains("_TAV_"), 
            -contains("_PPT_"), -contains("WILDFIRE")) %>%
     left_join(phys_region, by = "COMID") %>%
-    left_join(land_cover_longterm_avg, by = "COMID") %>%
     left_join(land_cover_weighted_avg, by = "COMID") %>%
-    left_join(dams_longterm_avg, by = "COMID") %>%
     left_join(dams_weighted_avg, by = "COMID") %>%
-    left_join(weather_longterm_avg, by = "COMID") %>%
     left_join(weather_weighted_avg, by = "COMID") %>%
     left_join(wildfire_shortterm_avg, by = "COMID")
   
@@ -489,3 +512,252 @@ prep_feature_vars <- function(sb_var_data, sites_all, sites_screened,
   
   return(final_data)
 }
+
+
+prep1_vars_conus <- function(sb_var_data, sites, retain_attr, outdir, out_file_label) {
+  
+  #'@description joins all data downloaded from ScienceBase with sites of interest
+  #'
+  #'@param sb_var_data target generated from the 'get_sb_data()' function mapped over the 
+  #''p1_sb_var_ids' targets; the 'p1_sb_var_ids' target reads in a .csv of ScienceBase
+  #'identifiers and names, and the 'get_sb_data()' function generates a list of .csv file
+  #'locations containing the feature variable data from each ScienceBase identifier
+  #'joined with the COMIDs contained in the 'sites' parameter
+  #'@param sites data frame with a COMID column including all reaches of interest
+  #'@param retain_attr character strings of additional column headers (attributes) 
+  #'to keep in the sites data frame
+  #'@param out_dir output file directory
+  #'@param out_file_label naming convention to label output files from this function
+  #'
+  #'@return data frame with COMID column appended by all feature variables of interest
+  
+  # Only keep retained feature variables and screened gages 
+  data <- sites %>%
+    select(COMID, all_of(retain_attr)) %>%
+    mutate(across(where(is.character), as.numeric))
+  
+  #read in sb data
+  filepath <- sb_var_data
+  filepath <- unlist(filepath)[1]
+  id <- str_sub(filepath, 26, -15)
+  data_temp <- read_csv(filepath, show_col_types = FALSE)
+  
+  if (str_detect(names(data_temp[2]), "SOHL")) {
+    
+    data <- data
+    
+  } else if (str_detect(names(data_temp[2]), "NDAMS")) {
+    
+    unit <- c("CAT", "ACC", "TOT")
+    type <- c("NDAMS", "NID_STORAGE", "NORM_STORAGE", "MAJOR")
+    
+    data_all <- tibble(COMID = data_temp$COMID)
+    for (i in unit) {
+      data_by_unit <- data_temp %>%
+        select(COMID, contains(i))
+      data_all_units <- tibble(COMID = data_temp$COMID)
+      for (j in type) {
+        data_by_type <- data_by_unit %>%
+          select(COMID, contains(j)) %>%
+          mutate(longterm_avg = rowMeans(select(., -COMID))) %>%
+          select(COMID, longterm_avg)
+        name <- paste0(i, "_", j, "_avg")
+        names(data_by_type) <- c("COMID", name)
+        data_all_units <- left_join(data_all_units, data_by_type, by = "COMID")
+      }
+      data_all <- left_join(data_all, data_all_units, by = "COMID")
+    }
+    
+    #re-join long-term average dam data
+    data <- data %>%
+      left_join(data_all, by = "COMID")
+    
+  } else if (str_sub(names(data_temp)[2], 5, 7) == "TAV" |
+             str_sub(names(data_temp)[2], 5, 7) == "PPT") {
+    
+    unit <- str_sub(names(data_temp)[2], 1, 3)
+    type <- str_sub(names(data_temp)[2], 5, 7)
+    months <- c("JAN", "FEB", "MAR", "APR", "MAY", "JUN", 
+                "JUL", "AUG", "SEP", "OCT", "NOV", "DEC")
+    
+    data_all <- tibble(COMID = data_temp$COMID)
+    for (i in months) {
+      data_by_month <- data_temp %>%
+        select(COMID, contains(i)) %>%
+        mutate(longterm_avg = rowMeans(select(., -COMID))) %>%
+        select(COMID, longterm_avg)
+      name <- paste0(unit, "_", type, "_", i, "_avg")
+      names(data_by_month) <- c("COMID", name)
+      data_all <- left_join(data_all, data_by_month, by = "COMID")
+    }
+    
+    #re-join long-term average weather data
+    data <- data %>%
+      left_join(data_all, by = "COMID")
+    
+  } else if (str_detect(names(data_temp[2]), "WILDFIRE")) {
+    
+    units <- c("CAT", "ACC", "TOT")
+    
+    data_all <- tibble(COMID = data_temp$COMID)
+    for (i in units) {
+      data_by_unit <- data_temp %>%
+        select(COMID, contains(i)) %>%
+        mutate(shortterm_avg = rowMeans(select(., -COMID))) %>%
+        select(COMID, shortterm_avg)
+      name <- paste0(i, "_AVG_WILDFIRE_avg")
+      names(data_by_unit) <- c("COMID", name)
+      data_all <- left_join(data_all, data_by_unit, by = "COMID")
+    }
+    
+    #re-join short-term average wildfire data
+    data <- data %>%
+      left_join(data_all, by = "COMID")
+    
+  } else if (str_detect(names(data_temp[2]), "PHYSIO")) {
+    
+    units <- c("CAT", "ACC", "TOT")
+    
+    data_all <- tibble(COMID = data_temp$COMID)
+    for (i in units) {
+      data_by_unit <- data_temp %>%
+        select(COMID, contains(i), -contains("AREA")) %>%
+        mutate(PHYSIO_name = names(select(., -COMID))[max.col(select(., -COMID))]) %>%
+        mutate(PHYSIO_reg = str_sub(PHYSIO_name, 12)) %>%
+        select(COMID, PHYSIO_reg)
+      data_by_unit$PHYSIO_reg <- as.factor(data_by_unit$PHYSIO_reg)
+      name <- paste0(i, "_PHYSIO")
+      names(data_by_unit) <- c("COMID", name)
+      data_all <- left_join(data_all, data_by_unit, by = "COMID")
+    }
+    
+    #re-join dominant physiographic region
+    data <- data %>%
+      left_join(data_all, by = "COMID")
+    
+  } else if (str_detect(names(data_temp[2]), "ACC_BASIN_AREA")) {
+    
+    data <- data %>%
+      left_join(data_temp, by = "COMID") %>%
+      select(-ends_with(".y"), -ID, -starts_with("..."), -contains("_S1"))
+    
+  } else {
+    
+    data <- data %>%
+      left_join(data_temp, by = "COMID")
+    
+  }
+  
+  #rename duplicated headers (if any) and replace headers containing "/" with "-"
+  rename_dup_headers <- list()
+  for (i in 1:ncol(data)) {
+    header <- names(data)[i]
+    if (str_sub(header, -2) == ".x") {
+      new_header <- str_sub(header, 1, -3)
+    } else if (str_detect(header, "/")) {
+      new_header <- str_replace(header, "/", "-")
+    } else {
+      new_header <- header
+    }
+    rename_dup_headers[[i]] <- new_header
+  }
+  rename_dup_headers <- as.character(rename_dup_headers)
+  names(data) <- rename_dup_headers
+  
+  file_out <- paste0(outdir, "/sb_", id, "_", out_file_label, ".csv")
+  write_csv(data, file_out)
+  return(file_out)
+}
+
+
+prep2_vars_conus <- function(sohl_early, sohl_late, outdir, out_file_label) {
+  
+  #'@description joins all data downloaded from ScienceBase with sites of interest
+  #'
+  #'@param sohl_early sciencebase identifier for the 1940-1990 SOHL land cover data 
+  #'@param sohl_late sciencebase identifier for the 1992-2002 SOHL land cover data
+  #'@param outdir output directory
+  #'@param out_file_label naming convention to label output files from this function
+  #'
+  #'@return data frame with COMID column appended by all feature variables of interest
+  
+  #read in sb data
+  filepath_early <- unlist(sohl_early)[1]
+  filepath_late <- unlist(sohl_late)[1]
+  
+  early <- read_csv(filepath_early, show_col_types = FALSE)
+  late <- read_csv(filepath_late, show_col_types = FALSE) %>%
+    select(COMID, contains("SOHL00"))
+  sohl <- left_join(early, late, by = "COMID")
+  sohl[sohl == -9999] <- NA_real_
+  
+  unit <- c("CAT", "ACC", "TOT")
+  category <- names(sohl)[2:length(names(sohl))] %>%
+    str_sub(12) %>% 
+    unique()
+  
+  data_all <- tibble(COMID = sohl$COMID)
+  comid_out_conus_all <- tibble()
+  for (i in unit) {
+    data_by_unit <- sohl %>%
+      select(COMID, contains(i))
+    data_all_cats <- tibble(COMID = sohl$COMID)
+    for (j in category) {
+      data_by_category <- data_by_unit %>%
+        select(COMID, ends_with(paste0("_", j))) %>%
+        mutate(longterm_avg = rowMeans(select(., -COMID))) %>%
+        select(COMID, longterm_avg)
+      name <- paste0("SOHL", j)
+      names(data_by_category) <- c("COMID", name)
+      data_all_cats <- left_join(data_all_cats, data_by_category, by = "COMID")
+    }
+    data_reclass <- data_all_cats %>%
+      mutate(WATER = SOHL1, 
+             DEVELOPED = SOHL2, 
+             FOREST = rowSums(select(., SOHL3, SOHL4, SOHL5, SOHL8, SOHL9, SOHL10), 
+                                na.rm = TRUE),
+             MINING = SOHL6, 
+             BARREN = SOHL7, 
+             GRASSLAND = SOHL11, 
+             SHRUBLAND = SOHL12, 
+             CROPLAND = SOHL13, 
+             HAYPASTURE = SOHL14, 
+             WETLAND = rowSums(select(., SOHL15, SOHL16),
+                                 na.rm = TRUE), 
+             ICESNOW = SOHL17) %>%
+      select(COMID, WATER, DEVELOPED, FOREST, MINING, BARREN, GRASSLAND, 
+             SHRUBLAND, CROPLAND, HAYPASTURE, WETLAND, ICESNOW) %>%
+      mutate(lc_sum = rowSums(select(., -COMID)))
+                
+    comid_out_conus_unit <- data_reclass %>%
+      filter(lc_sum < 90 | lc_sum > 101 | is.na(lc_sum)) %>%
+      select(COMID)
+    comid_out_conus_all <- bind_rows(comid_out_conus_all, comid_out_conus_unit)
+    
+    data_reclass <- data_reclass %>%
+      mutate(WATER = (WATER/lc_sum)*100, 
+             DEVELOPED = (DEVELOPED/lc_sum)*100, 
+             FOREST = (FOREST/lc_sum)*100,
+             MINING = (MINING/lc_sum)*100,
+             BARREN = (BARREN/lc_sum)*100, 
+             GRASSLAND = (GRASSLAND/lc_sum)*100, 
+             SHRUBLAND = (SHRUBLAND/lc_sum)*100, 
+             CROPLAND = (CROPLAND/lc_sum)*100, 
+             HAYPASTURE = (HAYPASTURE/lc_sum)*100, 
+             WETLAND = (WETLAND/lc_sum)*100, 
+             ICESNOW = (ICESNOW/lc_sum)*100) %>%
+      select(-lc_sum) %>%
+      rename_with(~ paste0(i, "_SOHL_", ., "_avg"), -COMID)
+    names(data_reclass) <- str_replace(names(data_reclass), "HAYPASTURE", "HAY-PASTURE")
+    names(data_reclass) <- str_replace(names(data_reclass), "ICESNOW", "ICE-SNOW")
+    data_all <- left_join(data_all, data_reclass, by = "COMID")
+  }
+  
+  data_all <- data_all %>%
+    subset(!(COMID %in% unique(comid_out_conus_all$COMID)))
+  
+  file_out <- paste0(outdir, "/sb_SOHL_", out_file_label, ".csv")
+  write_csv(data_all, file_out)
+  return(file_out)
+}
+

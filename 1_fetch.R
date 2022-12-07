@@ -263,7 +263,6 @@ p1_targets_list <- list(
                                   "StreamOrde", "Divergence", "StartFlag", 
                                   "TerminalFl", "AreaSqKM", "TotDASqKM", "DivDASqKM", 
                                   "Tidal", "SLOPE", "LakeFract", "SurfArea"), 
-                              ftype_to_keep = c("StreamRiver"), 
                               outdir = "./1_fetch/out/nhd_plus/"), 
              deployment = 'main'
   ),
@@ -304,8 +303,8 @@ p1_targets_list <- list(
   
   ##finalize comid selection and and use variables for predictive models
   tar_target(p1_prep2_feature_vars_conus, 
-             prep2_vars_conus(sohl_early = "58cbeef2e4b0849ce97dcd61",
-                              sohl_late = "5a5406bee4b01e7be2308855",
+             prep2_vars_conus(sohl_early = p1_sb_data_conus_csv[35],
+                              sohl_late = p1_sb_data_conus_csv[36],
                               outdir = "./1_fetch/out/sb/data", 
                               out_file_label = "prep2_conus"), 
              deployment = "main", 

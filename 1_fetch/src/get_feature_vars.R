@@ -17,6 +17,10 @@ finalize_vars_conus <- function(prep1_conus, prep2_conus, drop_attr) {
     data <- left_join(data, data_temp, by = "COMID")
   }
   
+  data$CAT_PHYSIO <- as.factor(data$CAT_PHYSIO)
+  data$ACC_PHYSIO <- as.factor(data$ACC_PHYSIO)
+  data$TOT_PHYSIO <- as.factor(data$TOT_PHYSIO)
+  
   return(data)
 }
 
@@ -162,7 +166,7 @@ get_sb_data_log <- function(sb_var_ids, file_out) {
 }
 
 
-prep_comid_conus <- function(nhd_conus_gdb, attrib_to_keep, ftype_to_keep, outdir) {
+prep_comid_conus <- function(nhd_conus_gdb, attrib_to_keep, outdir) {
   
   #'@description Selects comids of interest for conus-wide predictions
   #'
@@ -177,10 +181,9 @@ prep_comid_conus <- function(nhd_conus_gdb, attrib_to_keep, ftype_to_keep, outdi
   
   nhd_full <- st_read(nhd_conus_gdb, layer = 'NHDFlowline_Network')
   comid_conus <- nhd_full %>%
-    select(all_of(attrib_to_keep)) %>%
-    filter(FTYPE %in% all_of(ftype_to_keep)) %>%
-    filter(Tidal == 0)
-  
+    select(all_of(attrib_to_keep))
+  comid_conus <- st_zm(comid_conus)
+  comid_conus <- st_transform(comid_conus, crs = 4326)
   return(comid_conus)
 }
 
@@ -205,7 +208,7 @@ prep_feature_vars_g2 <- function(sb_var_data, sites_all, sites_screened,
   #'sites data frame (from gages2.1)
   #'
   #'@return data frame with COMID column appended by all feature variables of interest; 
-  #'time-varying features converted to long-term averages and weighted averages where applicable
+  #'time-varying features converted to weighted averages where applicable
   
   # Identify all combinations of sites and their complete years (for weighted avgs)
   complete_years <- years_by_site %>% 
@@ -287,19 +290,6 @@ prep_feature_vars_g2 <- function(sb_var_data, sites_all, sites_screened,
   data <- data %>%
     subset(!(COMID %in% comid_out_conus))
   
-  #convert decadal land use to long-term average land use
-  land_cover_longterm_avg <- land_cover %>%
-    subset(!(COMID %in% comid_out_conus)) %>%
-    group_by(COMID, unit, year, new_class) %>%
-    mutate(lc_adj = (value / lc_sum) * 100) %>%
-    ungroup() %>%
-    select(COMID, unit, new_class, lc_adj) %>%
-    group_by(COMID, unit, new_class) %>%
-    summarise(value = mean(lc_adj), .groups = "drop") %>%
-    mutate(label = paste0(unit, "_SOHL_", new_class, "_longterm_avg")) %>%
-    select(COMID, label, value) %>%
-    pivot_wider(names_from = "label", values_from = "value")
-  
   #convert decadal land use to weighted average land use by year
   land_cover_weighted_avg <- data %>%
     select(COMID, site_comid_match = GAGES_ID) %>%
@@ -327,26 +317,9 @@ prep_feature_vars_g2 <- function(sb_var_data, sites_all, sites_screened,
     ungroup() %>%
     group_by(COMID, unit, new_class) %>%
     summarise(value = mean(lc_adj_by_year), .groups = "drop") %>%
-    mutate(label = paste0(unit, "_SOHL_", new_class, "_weighted_avg")) %>%
+    mutate(label = paste0(unit, "_SOHL_", new_class, "_avg")) %>%
     select(COMID, label, value) %>%
     pivot_wider(names_from = "label", values_from = "value")
-
-  #convert decadal dam information to long-term average dam information
-  dams_longterm_avg <- data %>%
-    select(COMID, contains("NDAMS"), contains("STORAGE"), contains("MAJOR")) %>%
-    distinct() %>%
-    pivot_longer(!COMID, names_to = "name", values_to = "value") %>%
-    mutate(unit = str_sub(name, 1, 3), 
-           feature = str_sub(name, 5, -5),
-           year = str_sub(name, -4)) %>%
-    filter(year <= 2010) %>%
-    group_by(COMID, unit, feature, year) %>%
-    summarise(value = mean(value), .groups = "drop") %>%
-    group_by(COMID, unit, feature) %>%
-    summarise(value = mean(value), .groups = "drop") %>%
-    mutate(label = paste0(unit, "_", feature, "_longterm_avg")) %>%
-    select(COMID, label, value) %>%
-    pivot_wider(names_from = label, values_from = value)
   
   #convert decadal dam information to weighted average dam information by year
   dams_weighted_avg <- data %>%
@@ -381,30 +354,9 @@ prep_feature_vars_g2 <- function(sb_var_data, sites_all, sites_screened,
     select(COMID, unit, feature, year_w_data, dams_by_year) %>%
     group_by(COMID, unit, feature) %>%
     summarise(value = mean(dams_by_year), .groups = "drop") %>%
-    mutate(label = paste0(unit, "_", feature, "_weighted_avg")) %>%
+    mutate(label = paste0(unit, "_", feature, "_avg")) %>%
     select(COMID, label, value) %>%
     pivot_wider(names_from = label, values_from = value)
- 
-  #convert annual monthly weather data to long-term average monthly weather data
-  weather_longterm_avg <- data %>%
-    select(COMID, contains("_PPT_"), contains("_TAV_")) %>%
-    distinct() %>%
-    pivot_longer(!COMID, names_to = "name", values_to = "value") %>%
-    mutate(unit = str_sub(name, 1, 3), 
-           type = str_sub(name, 5, 7),
-           month_name = str_sub(name, 9, 11)) %>%
-    group_by(COMID, unit, type, month_name) %>%
-    summarise(avg_monthly = mean(value, na.rm = TRUE), .groups = "drop") %>%
-    mutate(month_num = case_when(month_name == "JAN" ~ 1, month_name == "FEB" ~ 2, 
-                                 month_name == "MAR" ~ 3, month_name == "APR" ~ 4, 
-                                 month_name == "MAY" ~ 5, month_name == "JUN" ~ 6, 
-                                 month_name == "JUL" ~ 7, month_name == "AUG" ~ 8, 
-                                 month_name == "SEP" ~ 9, month_name == "OCT" ~ 10, 
-                                 month_name == "NOV" ~ 11, month_name == "DEC" ~ 12),
-           label = paste0(unit, "_", type, "_", month_name, "_longterm_avg")) %>%
-    arrange(COMID, type, unit, month_num) %>%
-    select(COMID, label, avg_monthly) %>%
-    pivot_wider(names_from = "label", values_from = "avg_monthly")
   
   #convert annual monthly weather data to weighted average monthly weather data by year
   #long-term avgs needed to backfill for years outside of range of weather data
@@ -458,12 +410,12 @@ prep_feature_vars_g2 <- function(sb_var_data, sites_all, sites_screened,
     summarise(value = mean(weather_by_year), 
               month_num = mean(month_num),
               .groups = "drop") %>%
-    mutate(label = paste0(unit, "_", type, "_", month_name, "_weighted_avg")) %>%
+    mutate(label = paste0(unit, "_", type, "_", month_name, "_avg")) %>%
     arrange(COMID, type, unit, month_num) %>%
     select(COMID, label, value) %>%
     pivot_wider(names_from = label, values_from = value)
   
-  #convert annual wildfire data to long-term average wildfire data
+  #convert annual wildfire data to short-term average wildfire data
   wildfire_shortterm_avg <- data %>%
     select(COMID, contains("_WILDFIRE_")) %>%
     group_by(COMID) %>%
@@ -473,7 +425,7 @@ prep_feature_vars_g2 <- function(sb_var_data, sites_all, sites_screened,
            year = str_sub(name, 14, 17)) %>%
     group_by(COMID, unit) %>%
     summarise(avg_annual = mean(value, na.rm = TRUE), .groups = "drop") %>%
-    mutate(label = paste0(unit, "_AVG_WILDFIRE_shortterm_avg")) %>%
+    mutate(label = paste0(unit, "_AVG_WILDFIRE_avg")) %>%
     arrange(COMID, label) %>%
     select(COMID, label, avg_annual) %>%
     pivot_wider(names_from = "label", values_from = "avg_annual")
@@ -526,11 +478,8 @@ prep_feature_vars_g2 <- function(sb_var_data, sites_all, sites_screened,
            -contains("STORAGE"), -contains("MAJOR"), -contains("_TAV_"), 
            -contains("_PPT_"), -contains("WILDFIRE")) %>%
     left_join(phys_region, by = "COMID") %>%
-    left_join(land_cover_longterm_avg, by = "COMID") %>%
     left_join(land_cover_weighted_avg, by = "COMID") %>%
-    left_join(dams_longterm_avg, by = "COMID") %>%
     left_join(dams_weighted_avg, by = "COMID") %>%
-    left_join(weather_longterm_avg, by = "COMID") %>%
     left_join(weather_weighted_avg, by = "COMID") %>%
     left_join(wildfire_shortterm_avg, by = "COMID")
   
@@ -612,7 +561,7 @@ prep1_vars_conus <- function(sb_var_data, sites, retain_attr, outdir, out_file_l
           select(COMID, contains(j)) %>%
           mutate(longterm_avg = rowMeans(select(., -COMID))) %>%
           select(COMID, longterm_avg)
-        name <- paste0(i, "_", j, "_longterm_avg")
+        name <- paste0(i, "_", j, "_avg")
         names(data_by_type) <- c("COMID", name)
         data_all_units <- left_join(data_all_units, data_by_type, by = "COMID")
       }
@@ -637,7 +586,7 @@ prep1_vars_conus <- function(sb_var_data, sites, retain_attr, outdir, out_file_l
         select(COMID, contains(i)) %>%
         mutate(longterm_avg = rowMeans(select(., -COMID))) %>%
         select(COMID, longterm_avg)
-      name <- paste0(unit, "_", type, "_", i, "_longterm_avg")
+      name <- paste0(unit, "_", type, "_", i, "_avg")
       names(data_by_month) <- c("COMID", name)
       data_all <- left_join(data_all, data_by_month, by = "COMID")
     }
@@ -656,7 +605,7 @@ prep1_vars_conus <- function(sb_var_data, sites, retain_attr, outdir, out_file_l
         select(COMID, contains(i)) %>%
         mutate(shortterm_avg = rowMeans(select(., -COMID))) %>%
         select(COMID, shortterm_avg)
-      name <- paste0(i, "_AVG_WILDFIRE_shortterm_avg")
+      name <- paste0(i, "_AVG_WILDFIRE_avg")
       names(data_by_unit) <- c("COMID", name)
       data_all <- left_join(data_all, data_by_unit, by = "COMID")
     }
@@ -733,11 +682,11 @@ prep2_vars_conus <- function(sohl_early, sohl_late, outdir, out_file_label) {
   #'@return data frame with COMID column appended by all feature variables of interest
   
   #read in sb data
-  early <- read_csv(paste0(outdir, "/sb_", sohl_early, "_raw_conus.csv"), 
-                    show_col_types = FALSE)
-  late <- read_csv(paste0(outdir, "/sb_", sohl_late, "_raw_conus.csv"), 
-                   show_col_types = FALSE)
-  late <- late %>%
+  filepath_early <- unlist(sohl_early)[1]
+  filepath_late <- unlist(sohl_late)[1]
+  
+  early <- read_csv(filepath_early, show_col_types = FALSE)
+  late <- read_csv(filepath_late, show_col_types = FALSE) %>%
     select(COMID, contains("SOHL00"))
   sohl <- left_join(early, late, by = "COMID")
   sohl[sohl == -9999] <- NA_real_
@@ -798,7 +747,7 @@ prep2_vars_conus <- function(sohl_early, sohl_late, outdir, out_file_label) {
              WETLAND = (WETLAND/lc_sum)*100, 
              ICESNOW = (ICESNOW/lc_sum)*100) %>%
       select(-lc_sum) %>%
-      rename_with(~ paste0(i, "_SOHL_", ., "_longterm_avg"), -COMID)
+      rename_with(~ paste0(i, "_SOHL_", ., "_avg"), -COMID)
     names(data_reclass) <- str_replace(names(data_reclass), "HAYPASTURE", "HAY-PASTURE")
     names(data_reclass) <- str_replace(names(data_reclass), "ICESNOW", "ICE-SNOW")
     data_all <- left_join(data_all, data_reclass, by = "COMID")

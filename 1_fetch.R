@@ -1,6 +1,6 @@
 
 source("1_fetch/src/get_nwis_data.R")
-source("1_fetch/src/get_sb_data.R")
+source("1_fetch/src/get_feature_vars.R")
 source("1_fetch/src/moving_window_functions.R")
 
 ##p1- only parameters
@@ -183,12 +183,22 @@ p1_targets_list <- list(
              format = "file"
   ),
   
+  ##get flood threshold from NWIS for eflowstats
+  #this is deployed on main to avoid overloading the NWIS server with download requests
+  tar_target(p1_flood_threshold,
+             get_floodThreshold(p1_screened_site_list, p1_clean_daily_flow,
+                                p1_peak_flow_csv, perc, yearType),
+             map(p1_screened_site_list),
+             deployment = 'main'
+  ),
+  
   #file target for sciencebase variable list csv
   tar_target(p1_sb_var_ids_csv,
              sb_var_ids_path,
              deployment = 'main',
              format = "file"
   ),
+  
   #read in sciencebase variable list csv
   tar_target(p1_sb_var_ids,
              read_csv(file = p1_sb_var_ids_csv, show_col_types = FALSE),
@@ -201,8 +211,8 @@ p1_targets_list <- list(
                          sb_var_ids = p1_sb_var_ids,
                          dldir = "./1_fetch/out/sb/dldir", 
                          workdir = "./1_fetch/out/sb/workdir",
-                         outdir = "./1_fetch/out/sb/data",
-                         out_file_name = "sb_data_g2_"),
+                         outdir = "./1_fetch/out/sb/data", 
+                         out_file_label = "raw_g2"),
              map(p1_sb_var_ids),
              iteration = "list",
              deployment = 'main',
@@ -219,13 +229,14 @@ p1_targets_list <- list(
   
   ##merge and select feature variables from gagesii list
   tar_target(p1_feature_vars_g2, 
-             prep_feature_vars(sb_var_data = p1_sb_data_g2_csv, 
-                               sites_all = p1_sites_g2, 
-                               sites_screened = p1_screened_site_list, 
-                               combine_gages = combine_gages,
-                               years_by_site = p1_clean_daily_flow,
-                               retain_vars = c("ID", "LAT", "LON",
-                                               "npdes", "fwwd", "strg", "devl", "cndp")), 
+             prep_feature_vars_g2(sb_var_data = p1_sb_data_g2_csv, 
+                                  sites_all = p1_sites_g2, 
+                                  sites_screened = p1_screened_site_list, 
+                                  combine_gages = combine_gages,
+                                  years_by_site = p1_clean_daily_flow,
+                                  retain_vars = c("ID", "LAT", "LON",
+                                                  "npdes", "fwwd", "strg", 
+                                                  "devl", "cndp")), 
              deployment = "main"
   ),
   
@@ -236,15 +247,77 @@ p1_targets_list <- list(
              deployment = 'main'
   ),
   
-  ##get flood threshold from NWIS for eflowstats
-  #this is deployed on main to avoid overloading the NWIS server with download requests
-  tar_target(p1_flood_threshold,
-             get_floodThreshold(p1_screened_site_list, p1_clean_daily_flow,
-                                p1_peak_flow_csv, perc, yearType),
-             map(p1_screened_site_list),
+  ##download and unzip nhd geodatabase
+  tar_target(p1_nhd_conus_gdb, 
+             get_nhd_conus_gdb(outdir = "./1_fetch/out/nhd_plus/", 
+                               seven_zip = "/caldera/projects/usgs/water/impd/fhwa/seven_zip/7zz"), 
+             deployment = 'main',
+             format = "file"
+  ),
+  
+  ##filter nhd conus comids by flowline type and non-tidal, retain attributes of interest
+  tar_target(p1_sites_conus_sf, 
+             prep_comid_conus(nhd_conus_gdb = p1_nhd_conus_gdb, 
+                              attrib_to_keep = 
+                                c("COMID", "GNIS_NAME", "LENGTHKM", "FTYPE", 
+                                  "StreamOrde", "Divergence", "StartFlag", 
+                                  "TerminalFl", "AreaSqKM", "TotDASqKM", "DivDASqKM", 
+                                  "Tidal", "SLOPE", "LakeFract", "SurfArea"), 
+                              outdir = "./1_fetch/out/nhd_plus/"), 
              deployment = 'main'
+  ),
+  
+  ##list of COMIDs for CONUS-wide predictions
+  tar_target(p1_sites_conus, 
+             st_drop_geometry(p1_sites_conus_sf), 
+             deployment = 'main'
+  ),
+  
+  ##generate tables of feature variables from conus-wide comid list 
+  tar_target(p1_sb_data_conus_csv, 
+             get_sb_data(sites = p1_sites_conus, 
+                         sb_var_ids = p1_sb_var_ids,
+                         dldir = "./1_fetch/out/sb/dldir", 
+                         workdir = "./1_fetch/out/sb/workdir",
+                         outdir = "./1_fetch/out/sb/data", 
+                         out_file_label = "raw_conus"),
+             map(p1_sb_var_ids),
+             iteration = "list",
+             deployment = 'main',
+             format = "file"
+  ),
+  
+  ##merge and select feature variables from conus-wide comid list
+  tar_target(p1_prep1_feature_vars_conus, 
+             prep1_vars_conus(sb_var_data = p1_sb_data_conus_csv, 
+                              sites = p1_sites_conus, 
+                              retain_attr = c("StreamOrde", "Divergence", 
+                                              "TotDASqKM", "DivDASqKM", "SLOPE", 
+                                              "LakeFract", "SurfArea"), 
+                              outdir = "./1_fetch/out/sb/data", 
+                              out_file_label = "prep1_conus"), 
+             map(p1_sb_data_conus_csv),
+             deployment = "main", 
+             format = "file"
+  ),
+  
+  ##finalize comid selection and and use variables for predictive models
+  tar_target(p1_prep2_feature_vars_conus, 
+             prep2_vars_conus(sohl_early = p1_sb_data_conus_csv[35],
+                              sohl_late = p1_sb_data_conus_csv[36],
+                              outdir = "./1_fetch/out/sb/data", 
+                              out_file_label = "prep2_conus"), 
+             deployment = "main", 
+             format = "file"
+  ),
+  
+  ##finalize selection and formatting of conus-wide feature variables
+  tar_target(p1_feature_vars_conus, 
+             finalize_vars_conus(prep1_conus = p1_prep1_feature_vars_conus,
+                                 prep2_conus = p1_prep2_feature_vars_conus, 
+                                 drop_attr = c("StreamOrde", "Divergence", 
+                                               "TotDASqKM", "DivDASqKM", "SLOPE", 
+                                               "LakeFract", "SurfArea")), 
+             deployment = "main"
   )
-  
-  
-  
 )

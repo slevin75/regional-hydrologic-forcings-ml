@@ -442,22 +442,22 @@ get_filename <- function(index){
 }
 
 
-predict_multiclass <- function(model, reach_attrs){
+predict_multiclass <- function(model, reach_attrs, ncores = 1){
   #' @description returns the filename to use based on the bootstrap index value
   #' 
   #' @param model trained model(s) used to make predictions for each reach in reach_attrs
   #' @param reach_attrs dataframe of reaches (rows) and attributes (columns) for which
   #' predictions will be made. Must have a "ID" column.
+  #' @param ncores number of cores to use to make predictions. Matters for CONUS prediction
   #' 
   #' @returns matrix of predicted class (columns) probabilities (cells) for each reach (rows)
   
   #loop over models within model to make predictions
-  predictions <- array(data = NA, dim = c(length(model), nrow(reach_attrs), ncol(model[[1]]$predictions)), 
-  )
+  predictions <- array(data = NA, dim = c(length(model), nrow(reach_attrs), ncol(model[[1]]$predictions)))
   for (i in 1:length(model)){
     #get the reach attrs used for this model
     attrs <- select(reach_attrs, all_of(names(model[[i]]$variable.importance)))
-    preds <- predict(model[[i]], attrs)$predictions
+    preds <- predict(model[[i]], attrs, num.threads = ncores)$predictions
     
     predictions[i,,] <- preds
   }

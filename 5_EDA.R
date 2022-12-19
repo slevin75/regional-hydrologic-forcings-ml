@@ -1,6 +1,7 @@
 source("5_EDA/src/EDA_metric_plots.R")
 source("5_EDA/src/EDA_feature_plots.R")
 source("5_EDA/src/select_features.R")
+source("5_EDA/src/plot_gages_reaches.R")
 
 p5_targets_list<- list(
   
@@ -90,6 +91,13 @@ p5_targets_list<- list(
                                    cor_method = 'spearman',
                                    drop_var = 'TOT',
                                    categorical_cols = 'PHYSIO'),
+             deployment = 'main'
+  ),
+  
+  #map of gages used
+  tar_target(p5_g2_map_png,
+             make_gages_map(gages = p1_feature_vars_g2_sf, 
+                            out_dir = '5_EDA/out'),
              deployment = 'main'
   )
 )

@@ -323,7 +323,7 @@ make_residual_map <- function(df_pred_obs, sites, metric, pred_gage_ids, region,
   states <- map_data("state")
   limit <- quantile(df$resid, probs = c( 0.1, 0.9))
   p1<-ggplot(states, aes(x=long, y=lat, group=group)) +
-    geom_polygon(fill="gray60", colour="gray80") +
+    geom_polygon(fill="gray60", color="gray80") +
     geom_sf(data = df, inherit.aes = FALSE, 
             aes(color = .data[["resid"]]), 
             size = 0.5)+
@@ -356,7 +356,8 @@ make_residual_map <- function(df_pred_obs, sites, metric, pred_gage_ids, region,
 
 
 make_class_prediction_map <- function(class_probs, reaches, out_dir,
-                                      plot_threshold = 0.05, model_name){
+                                      plot_threshold = 0.05, model_name,
+                                      ncores = 1, pt_size = 0.5){
   #' @description this function creates maps of predicted class probabilities for
   #' each reach
   #' 
@@ -368,24 +369,35 @@ make_class_prediction_map <- function(class_probs, reaches, out_dir,
   #' @param plot_threshold threshold below which sites / reaches are not plotted
   #' because the probability is too low.
   #' @param model_name name to add to the file name that describes this model
+  #' @param ncores number of cores to use
   #' 
   #' @return file paths to maps
   
   #get number of ranks
   num_ranks <- ncol(class_probs) - 1
   
+  cl = parallel::makeCluster(ncores)
+  doParallel::registerDoParallel(cl)
+  
+  #This method works for all cases except when there is only 1 class
+  # whose probability is < prob_threshold. That class will still receive a rank
+  # instead of an NA for plotting. I'm not sure of a quick way around that problem.
+  inds_NA <- which(class_probs[,-which(colnames(class_probs) == "ID")] < plot_threshold, arr.ind = TRUE)
+  class_probs[,-which(colnames(class_probs) == "ID")][inds_NA] <- -1
+  
   #Convert the predicted probabilities into a rank of which class is most likely (1) 
   #to least likely (n = number of classes)
-  rank_mat <- t(apply(X = class_probs[, -which(colnames(class_probs) == "ID")], 
+  rank_mat <- t(parApply(cl = cl, X = class_probs[, -which(colnames(class_probs) == "ID")], 
                       MARGIN = 1, FUN = decreasing_rank)) %>%
     as.data.frame()
+  
   rank_mat$ID <- class_probs$ID
   colnames(rank_mat) <- colnames(class_probs)
   
   #Make new columns for the rank of the class (change the cells to column names)
   LikelyRanks <- matrix(NA, nrow = nrow(rank_mat), ncol = num_ranks)
   for(i in 1:ncol(LikelyRanks)){
-    LikelyRanks[,i] <- apply(X = rank_mat, MARGIN = 1, FUN = assign_max_rank, 
+    LikelyRanks[,i] <- parApply(cl = cl, X = rank_mat, MARGIN = 1, FUN = assign_max_rank, 
                              rank = i, rank_cols = colnames(rank_mat)[1:num_ranks]) 
   }
   LikelyRanks <- as.data.frame(LikelyRanks)
@@ -395,27 +407,15 @@ make_class_prediction_map <- function(class_probs, reaches, out_dir,
   #Add ID
   LikelyRanks$ID <- rank_mat$ID
   
-  #Remove rank labels when the probability is < plotting threshold
-  for(i in 1:nrow(LikelyRanks)){
-    #Get the classes that are less than the plot_threshold
-    ind_NA_classes <- which(class_probs[class_probs$ID == LikelyRanks$ID[i],] < plot_threshold)
-    
-    #Get the column indices in LikelyRanks that contain those classes
-    ind_col_NA <- which(LikelyRanks[i,] %in% ind_NA_classes)
-    
-    LikelyRanks[i,ind_col_NA] <- NA
-  }
-  
   #Join ranks to reaches for plotting
   reaches <- left_join(reaches, LikelyRanks, by = "ID")
   
   #Plot one map for the most likely class, second most likely, etc. to the nth class
   states <- map_data("state")
   
-  #filenames
-  fnames <- vector('character', length = ncol(LikelyRanks) - 1) 
-  
-  for(i in 1:length(fnames)){
+  #plot and return filenames
+  fnames <- foreach(i = 1:num_ranks, .packages = c('ggplot2', 'scico', 'sf'),
+                    .combine = c, .inorder = TRUE) %dopar% {
     col_name <- colnames(LikelyRanks)[i]
     fname <- file.path(out_dir, paste0(model_name, '_', col_name, '_map.png'))
     
@@ -424,21 +424,27 @@ make_class_prediction_map <- function(class_probs, reaches, out_dir,
       plot_sites <- reaches[!is.na(reaches[[col_name]]),]
       
       p1 <- ggplot(states, aes(x = long, y = lat, group = group)) +
-        geom_polygon(fill = "white", colour = "gray80") +
+        geom_polygon(fill = "white", color = "gray80") +
         geom_sf(data = plot_sites, inherit.aes = FALSE, 
                 aes(color = .data[[col_name]]), 
-                size = 0.5) +
+                size = pt_size) +
         scale_color_scico_d(palette = 'batlow') +
         theme(legend.position="bottom",
-              legend.key.size=unit(.75,'cm'))+
+              legend.key.size=unit(2,'cm'),
+              legend.text=element_text(size=16)) +
+        guides(color = guide_legend(override.aes = list(size=10))) +
         xlab('Longitude') + 
         ylab('Latitude')
       
       ggsave(filename = fname, plot = p1, bg = "white")
     }
+    
+    fname
   }
   
-  return(fname)
+  parallel::stopCluster(cl)
+  
+  return(fnames)
 }
 
 assign_max_rank <- function(rank_vec, rank, rank_cols){
@@ -470,6 +476,8 @@ decreasing_rank <- function(values){
   #' @return vector of ranks for those values
   
   rank_vals <- rank(-rank(values, ties.method = 'max'), ties.method = 'min')
+  
+  return(rank_vals)
 }
 
 
@@ -719,7 +727,11 @@ plot_pdp <- function(partial, data, model_name, out_dir,
             
             if(offset){
               #offset each yhat.id such that it starts at 0
-              partial[[i]]$yhat <- offset_partial(partial[[i]]) 
+              partial[[i]]$yhat <- offset_partial(partial[[i]])
+              
+              #used for a figure. get rid of classes 4 and 5 but retain color scheme
+              #partial[[i]][,1][partial[[i]]$yhat.id > 3] <- min(partial[[i]][,1])
+              #partial[[i]][,1][partial[[i]]$yhat > 3] <- 0
               
               #add y=-0.5 for rug
               data$y0 <- -0.5

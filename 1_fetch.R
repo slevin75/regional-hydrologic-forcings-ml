@@ -227,26 +227,6 @@ p1_targets_list <- list(
              format = "file"
   ),
   
-  ##merge and select feature variables from gagesii list
-  tar_target(p1_feature_vars_g2, 
-             prep_feature_vars_g2(sb_var_data = p1_sb_data_g2_csv, 
-                                  sites_all = p1_sites_g2, 
-                                  sites_screened = p1_screened_site_list, 
-                                  combine_gages = combine_gages,
-                                  years_by_site = p1_clean_daily_flow,
-                                  retain_vars = c("ID", "LAT", "LON",
-                                                  "npdes", "fwwd", "strg", 
-                                                  "devl", "cndp")), 
-             deployment = "main"
-  ),
-  
-  #create a spatial object for remaining feature variables
-  tar_target(p1_feature_vars_g2_sf,
-             st_as_sf(x = p1_feature_vars_g2, coords = c('LON', 'LAT'), 
-                      remove = FALSE, dim = 'XY', na.fail = TRUE),
-             deployment = 'main'
-  ),
-  
   ##download and unzip nhd geodatabase
   tar_target(p1_nhd_conus_gdb, 
              get_nhd_conus_gdb(outdir = "./1_fetch/out/nhd_plus/", 
@@ -270,6 +250,27 @@ p1_targets_list <- list(
   ##list of COMIDs for CONUS-wide predictions
   tar_target(p1_sites_conus, 
              st_drop_geometry(p1_sites_conus_sf), 
+             deployment = 'main'
+  ),
+  
+  ##merge and select feature variables from gagesii list
+  tar_target(p1_feature_vars_g2, 
+             prep_feature_vars_g2(sb_var_data = p1_sb_data_g2_csv, 
+                                  sites_all = p1_sites_g2, 
+                                  sites_screened = p1_screened_site_list, 
+                                  combine_gages = combine_gages,
+                                  years_by_site = p1_clean_daily_flow,
+                                  nhd_conus = p1_sites_conus,
+                                  retain_vars = c("ID", "LAT", "LON",
+                                                  "npdes", "fwwd", "strg", 
+                                                  "devl", "cndp")), 
+             deployment = "main"
+  ),
+  
+  #create a spatial object for remaining feature variables
+  tar_target(p1_feature_vars_g2_sf,
+             st_as_sf(x = p1_feature_vars_g2, coords = c('LON', 'LAT'), 
+                      remove = FALSE, dim = 'XY', na.fail = TRUE),
              deployment = 'main'
   ),
   

@@ -189,9 +189,11 @@ prep_comid_conus <- function(nhd_conus_gdb, attrib_to_keep, outdir) {
 
 
 prep_feature_vars_g2 <- function(sb_var_data, sites_all, sites_screened, 
-                                 combine_gages, years_by_site, retain_vars) {
+                                 combine_gages, years_by_site, nhd_conus, 
+                                 retain_vars) {
   
-  #'@description joins all data downloaded from ScienceBase with sites of interest
+  #'@description joins all data downloaded from ScienceBase with sites of interest, 
+  #'removes tidal gages (per nhdplus) from training dataset
   #'
   #'@param sb_var_data target generated from the 'get_sb_data()' function mapped over the 
   #''p1_sb_var_ids' targets; the 'p1_sb_var_ids' target reads in a .csv of ScienceBase
@@ -204,6 +206,8 @@ prep_feature_vars_g2 <- function(sb_var_data, sites_all, sites_screened,
   #'is kept, `assigned_rep` is re-assigned to its associated site in `to_be_combined`)
   #'@param years_by_site data frame describing full years in record for each site
   #'(output from `clean_daily_data()`)
+  #'@param nhd_conus data frame with select nhdPlus attributes, including a tidal flag, 
+  #'for all reaches in CONUS by comid 
   #'@param retain_vars character strings of additional column headers to keep in the 
   #'sites data frame (from gages2.1)
   #'
@@ -236,6 +240,12 @@ prep_feature_vars_g2 <- function(sb_var_data, sites_all, sites_screened,
     select(COMID, all_of(retain_vars)) %>%
     filter(ID %in% screened_site_list) %>%
     mutate(across(where(is.character) & !starts_with('ID'), as.numeric))
+  
+  # Remove tidal gages (per nhdPlus)
+  data <- data %>%
+    left_join(nhd_conus, by = "COMID") %>%
+    filter(Tidal == 0) %>%
+    select(COMID, all_of(retain_vars))
   
   if("ID" %in% retain_vars) {
     data <- rename(data, GAGES_ID = ID)

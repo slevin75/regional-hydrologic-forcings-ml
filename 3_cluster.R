@@ -158,6 +158,32 @@ p3_targets_list<- list(
              map(p3_metric_names_quants_agg_low),
              deployment = 'worker'
   ),
+  #Raw metric values
+  tar_target(p3_FDC_clusters_raw_metrics,
+             seasonal_metric_cluster(metric_mat = p2_FDC_metrics %>%
+                                       select(-contains('mhfdc')),
+                                     metric = p3_metric_names,
+                                     dist_method = 'euclidean'),
+             map(p3_metric_names),
+             deployment = 'worker'
+  ),
+  tar_target(p3_FDC_clusters_quants_raw_metrics,
+             seasonal_metric_cluster(metric_mat = p2_FDC_metrics %>%
+                                       select(-contains('mhfdc')),
+                                     metric = p3_metric_names_quants,
+                                     dist_method = 'euclidean'),
+             map(p3_metric_names_quants),
+             deployment = 'worker'
+  ),
+  tar_target(p3_FDC_clusters_quants_agg_raw_metrics,
+             seasonal_metric_cluster(metric_mat = p2_FDC_metrics %>%
+                                       select(-contains('mhfdc')),
+                                     metric = p3_metric_names_quants_agg,
+                                     dist_method = 'euclidean',
+                                     quantile_agg = TRUE),
+             map(p3_metric_names_quants_agg),
+             deployment = 'worker'
+  ),
   
   #Select only the best clustering method
   tar_target(p3_FDC_best_cluster_method,
@@ -207,6 +233,20 @@ p3_targets_list<- list(
   ),
   tar_target(p3_FDC_best_cluster_method_quants_agg_low_freq,
              select_cluster_method(clusts = p3_FDC_clusters_quants_agg_low_freq, 
+                                   quantile_agg = TRUE),
+             deployment = 'main'
+  ),
+  #Raw metric values
+  tar_target(p3_FDC_best_cluster_method_raw_metrics,
+             select_cluster_method(clusts = p3_FDC_clusters_raw_metrics),
+             deployment = 'main'
+  ),
+  tar_target(p3_FDC_best_cluster_method_quants_raw_metrics,
+             select_cluster_method(clusts = p3_FDC_clusters_quants_raw_metrics),
+             deployment = 'main'
+  ),
+  tar_target(p3_FDC_best_cluster_method_quants_agg_raw_metrics,
+             select_cluster_method(clusts = p3_FDC_clusters_quants_agg_raw_metrics, 
                                    quantile_agg = TRUE),
              deployment = 'main'
   ),
@@ -343,6 +383,44 @@ p3_targets_list<- list(
              map(p3_FDC_clusters_quants_agg_low_freq),
              deployment = 'worker'
   ),
+  #Raw metric values
+  tar_target(p3_FDC_cluster_diagnostics_raw_metrics,
+             compute_cluster_diagnostics(clusts = p3_FDC_clusters_raw_metrics,
+                                         metric_mat = p2_FDC_metrics %>%
+                                           select(-contains('mhfdc')),
+                                         kmin = 2, kmax = 20,
+                                         alpha = 0.05, boot = 50,
+                                         index = 'all', 
+                                         dist_method = 'euclidean',
+                                         clust_method = 'ward.D2'),
+             map(p3_FDC_clusters_raw_metrics),
+             deployment = 'worker'
+  ),
+  tar_target(p3_FDC_cluster_diagnostics_quants_raw_metrics,
+             compute_cluster_diagnostics(clusts = p3_FDC_clusters_quants_raw_metrics,
+                                         metric_mat = p2_FDC_metrics %>%
+                                           select(-contains('mhfdc')),
+                                         kmin = 2, kmax = 20,
+                                         alpha = 0.05, boot = 50,
+                                         index = 'all', 
+                                         dist_method = 'euclidean',
+                                         clust_method = 'ward.D2'),
+             map(p3_FDC_clusters_quants_raw_metrics),
+             deployment = 'worker'
+  ),
+  tar_target(p3_FDC_cluster_diagnostics_quants_agg_raw_metrics,
+             compute_cluster_diagnostics(clusts = p3_FDC_clusters_quants_agg_raw_metrics,
+                                         metric_mat = p2_FDC_metrics %>%
+                                           select(-contains('mhfdc')),
+                                         kmin = 2, kmax = 20,
+                                         alpha = 0.05, boot = 50,
+                                         index = 'all', 
+                                         dist_method = 'euclidean',
+                                         clust_method = 'ward.D2',
+                                         quantile_agg = TRUE),
+             map(p3_FDC_clusters_quants_agg_raw_metrics),
+             deployment = 'worker'
+  ),
   
   #Plot diagnostics for clusters
   tar_target(p3_FDC_cluster_diagnostics_png,
@@ -476,6 +554,44 @@ p3_targets_list<- list(
              deployment = 'worker',
              format = 'file'
   ),
+  #Raw metric values
+  tar_target(p3_FDC_cluster_diagnostics_raw_metrics_png,
+             plot_cluster_diagnostics(clusts = p3_FDC_clusters_raw_metrics,
+                                      metric_mat = p2_FDC_metrics %>%
+                                        select(-contains('mhfdc')),
+                                      nbclust_metrics = p3_FDC_cluster_diagnostics_raw_metrics,
+                                      dist_method = 'euclidean',
+                                      clust_method = 'ward.D2',
+                                      dir_out = '3_cluster/out/raw_metric_plots/diagnostics/'),
+             map(p3_FDC_clusters_raw_metrics, p3_FDC_cluster_diagnostics_raw_metrics),
+             deployment = 'worker',
+             format = 'file'
+  ),
+  tar_target(p3_FDC_cluster_diagnostics_quants_raw_metrics_png,
+             plot_cluster_diagnostics(clusts = p3_FDC_clusters_quants_raw_metrics,
+                                      metric_mat = p2_FDC_metrics %>%
+                                        select(-contains('mhfdc')),
+                                      nbclust_metrics = p3_FDC_cluster_diagnostics_quants_raw_metrics,
+                                      dist_method = 'euclidean',
+                                      clust_method = 'ward.D2',
+                                      dir_out = '3_cluster/out/raw_metric_plots/diagnostics/by_quantiles'),
+             map(p3_FDC_clusters_quants_raw_metrics, p3_FDC_cluster_diagnostics_quants_raw_metrics),
+             deployment = 'worker',
+             format = 'file'
+  ),
+  tar_target(p3_FDC_cluster_diagnostics_quants_agg_raw_metrics_png,
+             plot_cluster_diagnostics(clusts = p3_FDC_clusters_quants_agg_raw_metrics,
+                                      metric_mat = p2_FDC_metrics %>%
+                                        select(-contains('mhfdc')),
+                                      nbclust_metrics = p3_FDC_cluster_diagnostics_quants_agg_raw_metrics,
+                                      dist_method = 'euclidean',
+                                      clust_method = 'ward.D2',
+                                      dir_out = '3_cluster/out/raw_metric_plots/diagnostics/by_agg_quantiles',
+                                      quantile_agg = TRUE),
+             map(p3_FDC_clusters_quants_agg_raw_metrics, p3_FDC_cluster_diagnostics_quants_agg_raw_metrics),
+             deployment = 'worker',
+             format = 'file'
+  ),
   
   #Assign cluster numbers to gages
   tar_target(p3_gages_clusters,
@@ -569,6 +685,29 @@ p3_targets_list<- list(
                                   quantile_agg = TRUE),
              deployment = 'main'
   ),
+  #Raw metric values
+  tar_target(p3_gages_clusters_raw_metrics,
+             add_cluster_to_gages(clusts = p3_FDC_clusters_raw_metrics,
+                                  screened_sites = p1_screened_site_list_season,
+                                  best_clust = p3_FDC_best_cluster_method_raw_metrics,
+                                  min_clusts = 3, max_clusts = 15, by_clusts = 2),
+             deployment = 'main'
+  ),
+  tar_target(p3_gages_clusters_quants_raw_metrics,
+             add_cluster_to_gages(clusts = p3_FDC_clusters_quants_raw_metrics,
+                                  screened_sites = p1_screened_site_list_season,
+                                  best_clust = p3_FDC_best_cluster_method_quants_raw_metrics,
+                                  min_clusts = 3, max_clusts = 15, by_clusts = 2),
+             deployment = 'main'
+  ),
+  tar_target(p3_gages_clusters_quants_agg_raw_metrics,
+             add_cluster_to_gages(clusts = p3_FDC_clusters_quants_agg_raw_metrics,
+                                  screened_sites = p1_screened_site_list_season,
+                                  best_clust = p3_FDC_best_cluster_method_quants_agg_raw_metrics,
+                                  min_clusts = 3, max_clusts = 15, by_clusts = 2,
+                                  quantile_agg = TRUE),
+             deployment = 'main'
+  ),
   
   #Assign cluster column names to a target for later branch iteration
   tar_target(p3_cluster_cols,
@@ -620,6 +759,19 @@ p3_targets_list<- list(
              colnames(p3_gages_clusters_quants_agg_low_freq)[-1],
              deployment = 'main'
   ),
+  #Raw metric values
+  tar_target(p3_cluster_cols_raw_metrics,
+             colnames(p3_gages_clusters_raw_metrics)[-1],
+             deployment = 'main'
+  ),
+  tar_target(p3_cluster_cols_quants_raw_metrics,
+             colnames(p3_gages_clusters_quants_raw_metrics)[-1],
+             deployment = 'main'
+  ),
+  tar_target(p3_cluster_cols_quants_agg_raw_metrics,
+             colnames(p3_gages_clusters_quants_agg_raw_metrics)[-1],
+             deployment = 'main'
+  ),
   
   #Plot maps of gages with clusters
   tar_target(p3_cluster_map_png,
@@ -640,7 +792,7 @@ p3_targets_list<- list(
              plot_cluster_map(gages = p1_feature_vars_g2_sf,
                               cluster_table = p3_gages_clusters_quants_agg,
                               dir_out = '3_cluster/out/seasonal_plots/maps/by_agg_quantiles',
-                              facet=FALSE),
+                              facet = FALSE),
              deployment = 'main',
              format = 'file'
   ),
@@ -656,7 +808,7 @@ p3_targets_list<- list(
              plot_cluster_map(gages = p1_feature_vars_g2_sf,
                               cluster_table = p3_gages_clusters_quants_agg_selected,
                               dir_out = '3_cluster/out/seasonal_plots/maps/by_agg_quantiles',
-                              facet=FALSE),
+                              facet = FALSE),
              deployment = 'main',
              format = 'file'
   ),
@@ -672,7 +824,7 @@ p3_targets_list<- list(
              plot_cluster_map(gages = p1_feature_vars_g2_sf,
                               cluster_table = p3_gages_clusters_quants_all_agg,
                               dir_out = '3_cluster/out/seasonal_plots/maps/by_all_agg_quantiles',
-                              facet=FALSE),
+                              facet = FALSE),
              deployment = 'main',
              format = 'file'
   ),
@@ -741,7 +893,7 @@ p3_targets_list<- list(
              plot_cluster_map(gages = p1_feature_vars_g2_sf,
                               cluster_table = p3_gages_clusters_quants_agg_low,
                               dir_out = '3_cluster/out/seasonal_plots_LowFlow/maps/by_agg_quantiles',
-                              facet=FALSE),
+                              facet = FALSE),
              deployment = 'main',
              format = 'file'
   ),
@@ -757,7 +909,7 @@ p3_targets_list<- list(
              plot_cluster_map(gages = p1_feature_vars_g2_sf,
                               cluster_table = p3_gages_clusters_quants_agg_low_novhfdc3,
                               dir_out = '3_cluster/out/seasonal_plots_LowFlow_noHighVolume/maps/by_agg_quantiles',
-                              facet=FALSE),
+                              facet = FALSE),
              deployment = 'main',
              format = 'file'
   ),
@@ -773,7 +925,7 @@ p3_targets_list<- list(
              plot_cluster_map(gages = p1_feature_vars_g2_sf,
                               cluster_table = p3_gages_clusters_quants_agg_low_freq,
                               dir_out = '3_cluster/out/seasonal_plots_LowFlow_freq/maps/by_agg_quantiles',
-                              facet=FALSE),
+                              facet = FALSE),
              deployment = 'main',
              format = 'file'
   ),
@@ -781,6 +933,37 @@ p3_targets_list<- list(
              plot_cluster_map(gages = p1_feature_vars_g2_sf,
                               cluster_table = p3_gages_clusters_quants_agg_low_freq,
                               dir_out = '3_cluster/out/seasonal_plots_LowFlow_freq/maps/by_agg_quantiles',
+                              facet = TRUE),
+             deployment = 'main',
+             format = 'file'
+  ),
+  #Raw metric values
+  tar_target(p3_cluster_map_raw_metrics_png,
+             plot_cluster_map(gages = p1_feature_vars_g2_sf,
+                              cluster_table = p3_gages_clusters_raw_metrics,
+                              dir_out = '3_cluster/out/raw_metric_plots/maps/'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p3_cluster_map_quants_raw_metrics_png,
+             plot_cluster_map(gages = p1_feature_vars_g2_sf,
+                              cluster_table = p3_gages_clusters_quants_raw_metrics,
+                              dir_out = '3_cluster/out/raw_metric_plots/maps/by_quantiles'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p3_cluster_map_quants_agg_raw_metrics_png,
+             plot_cluster_map(gages = p1_feature_vars_g2_sf,
+                              cluster_table = p3_gages_clusters_quants_agg_raw_metrics,
+                              dir_out = '3_cluster/out/raw_metric_plots/maps/by_agg_quantiles',
+                              facet = FALSE),
+             deployment = 'main',
+             format = 'file'
+  ),
+  tar_target(p3_cluster_map_quants_agg_raw_metrics_facet_png,
+             plot_cluster_map(gages = p1_feature_vars_g2_sf,
+                              cluster_table = p3_gages_clusters_quants_agg_raw_metrics,
+                              dir_out = '3_cluster/out/raw_metric_plots/maps/by_agg_quantiles',
                               facet = TRUE),
              deployment = 'main',
              format = 'file'
@@ -960,7 +1143,8 @@ p3_targets_list<- list(
                                           high = '0.75,0.8,0.85,0.9,0.95_k5'), 
                                 dv_data_dir = "./1_fetch/out",
                                  dir_out = '3_cluster/out', 
-                                estimated_data = TRUE)),
+                                estimated_data = TRUE)
+  ),
   
   tar_target(p3_period_of_record_plots_no_estimated,
              plot_data_coverage(screened_site_list = p1_screened_site_list, 
@@ -970,7 +1154,8 @@ p3_targets_list<- list(
                                          high = '0.75,0.8,0.85,0.9,0.95_k5'), 
                                 dv_data_dir = "./1_fetch/out",
                                 dir_out = '3_cluster/out', 
-                                estimated_data = FALSE)),
+                                estimated_data = FALSE)
+  ),
   tar_target(p3_plot_estimated_data_quantiles ,
              estimated_data_quantiles(screened_site_list = p1_screened_site_list, 
                                       cluster_table <- p3_gages_clusters_quants_agg_selected %>%
@@ -978,12 +1163,54 @@ p3_targets_list<- list(
                                         rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
                                                high = '0.75,0.8,0.85,0.9,0.95_k5'), 
                                       dv_data_dir = "./1_fetch/out",
-                                      dir_out = '3_cluster/out')),
+                                      dir_out = '3_cluster/out')
+  ),
   tar_target(p3_plot_complete_years,
              plot_complete_years(clean_daily_flow = p1_clean_daily_flow,
                                  cluster_table <- p3_gages_clusters_quants_agg_selected %>%
                                    select(ID, contains('_k5')) %>%
                                    rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
                                           high = '0.75,0.8,0.85,0.9,0.95_k5'), 
-                                 dir_out = '3_cluster/out'))
+                                 dir_out = '3_cluster/out')
+  ),
+  #Raw metric values
+  tar_target(p3_seasonal_barplot_clusters_raw_metrics_png,
+             plot_seasonal_barplot(metric_mat = p2_FDC_metrics_season,
+                                   metric = p3_metric_names,
+                                   season_months = season_months,
+                                   by_cluster = TRUE,
+                                   panel_plot = TRUE,
+                                   cluster_table = p3_gages_clusters_raw_metrics,
+                                   dir_out = '3_cluster/out/raw_metric_plots/barplots/'),
+             map(p3_metric_names),
+             deployment = 'worker',
+             format = 'file'
+  ),
+  tar_target(p3_seasonal_barplot_clusters_quants_raw_metrics_png,
+             plot_seasonal_barplot(metric_mat = p2_FDC_metrics_season,
+                                   metric = p3_metric_names_quants,
+                                   season_months = season_months,
+                                   by_cluster = TRUE,
+                                   panel_plot = TRUE,
+                                   cluster_table = p3_gages_clusters_quants_raw_metrics,
+                                   dir_out = '3_cluster/out/raw_metric_plots/barplots/by_quantiles',
+                                   by_quantile = TRUE),
+             map(p3_metric_names_quants),
+             deployment = 'worker',
+             format = 'file'
+  ),
+  tar_target(p3_seasonal_barplot_clusters_quants_agg_raw_metrics_png,
+             plot_seasonal_barplot(metric_mat = p2_FDC_metrics_season,
+                                   metric = p3_metric_names_quants_agg,
+                                   season_months = season_months,
+                                   by_cluster = TRUE,
+                                   panel_plot = TRUE,
+                                   cluster_table = p3_gages_clusters_quants_agg_raw_metrics,
+                                   dir_out = '3_cluster/out/raw_metric_plots/barplots/by_agg_quantiles',
+                                   quantile_agg = TRUE,
+                                   by_quantile = TRUE),
+             map(p3_metric_names_quants_agg),
+             deployment = 'worker',
+             format = 'file'
+  )
 )

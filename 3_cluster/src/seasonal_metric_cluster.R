@@ -12,6 +12,12 @@ seasonal_metric_cluster <- function(metric_mat, metric,
   #'  
   #' @return hclust clusters object
   
+  #Check if the metric_mat is seasonal metrics or raw metrics
+  #Seasonal metrics all have _s in the column names
+  raw_metrics <- ifelse(length(grep(colnames(metric_mat)[2], 
+                                    pattern = '_s', fixed = TRUE)) == 0, 
+                        TRUE, FALSE)
+  
   #Select all of the seasonal columns for this metric
   if(quantile_agg){
     #get all of the quantiles into a vector
@@ -20,12 +26,25 @@ seasonal_metric_cluster <- function(metric_mat, metric,
     col_inds <- get_column_inds(metric, metric_mat)
     metric_mat <- metric_mat[, c(1,col_inds)]
   }else{
-    metric_mat <- metric_mat[, c(1,grep(x = colnames(metric_mat), 
-                                        pattern = paste0(metric,'_'),
-                                        fixed = TRUE))]
+    if(raw_metrics){
+      metric_mat <- metric_mat[, c(1,grep(x = colnames(metric_mat), 
+                                          pattern = paste0(metric,'$')
+                                          ))]
+    }else{
+      metric_mat <- metric_mat[, c(1,grep(x = colnames(metric_mat), 
+                                          pattern = paste0(metric,'_'),
+                                          fixed = TRUE))]
+      
+      #Scaling of metrics is not necessary because the metrics are on [0,1]
+    }
   }
   
-  #Scaling of metrics should not be necessary because the metrics are on [0,1]
+  if(raw_metrics){
+    #Scale the metrics using Z transform
+    for(i in 2:ncol(metric_mat)){
+      metric_mat[,i] <- scale(x = metric_mat[,i], center = TRUE, scale = TRUE)
+    }
+  }
   
   #Compute the distance matrix between all sites
   dists <- dist(metric_mat[,-1], method = dist_method)
@@ -106,15 +125,34 @@ compute_cluster_diagnostics <- function(clusts, metric_mat,
   
   clusts <- clusts[[clust_method]]
   
+  #Check if the metric_mat is seasonal metrics or raw metrics
+  #Seasonal metrics all have _s in the column names
+  raw_metrics <- ifelse(length(grep(colnames(metric_mat)[2], 
+                                    pattern = '_s', fixed = TRUE)) == 0, 
+                        TRUE, FALSE)
+  
   #Select all of the seasonal columns for this metric
   if(quantile_agg){
     #get the column indices from metric_mat with these metric patterns
     col_inds <- get_column_inds(clusts$metric, metric_mat)
     metric_mat <- metric_mat[, col_inds]
   }else{
-    metric_mat <- metric_mat[, grep(x = colnames(metric_mat), 
-                                    pattern = paste0(clusts$metric,'_'),
-                                    fixed = TRUE)]
+    if(raw_metrics){
+      metric_mat <- metric_mat[, grep(x = colnames(metric_mat), 
+                                          pattern = paste0(metric,'$')
+                                          )]
+    }else{
+      metric_mat <- metric_mat[, grep(x = colnames(metric_mat), 
+                                          pattern = paste0(metric,'_'),
+                                          fixed = TRUE)]
+    }
+  }
+  
+  if(raw_metrics){
+    #Scale the metrics using Z transform
+    for(i in 1:ncol(metric_mat)){
+      metric_mat[,i] <- scale(x = metric_mat[,i], center = TRUE, scale = TRUE)
+    }
   }
   
   #Compute NbClust cluster diagnostics
@@ -154,6 +192,12 @@ plot_cluster_diagnostics <- function(clusts, metric_mat, nbclust_metrics,
   #'  
   #' @return filepaths to the plots
   
+  #Check if the metric_mat is seasonal metrics or raw metrics
+  #Seasonal metrics all have _s in the column names
+  raw_metrics <- ifelse(length(grep(colnames(metric_mat)[2], 
+                                    pattern = '_s', fixed = TRUE)) == 0, 
+                        TRUE, FALSE)
+  
   clusts <- list(clusts[[clust_method]])
   
   fileout <- vector('character', length = length(clusts))
@@ -167,9 +211,22 @@ plot_cluster_diagnostics <- function(clusts, metric_mat, nbclust_metrics,
       #change metric to a concatenated string for plot names
       clusts[[cl]]$metric <- str_c(clusts[[cl]]$metric, collapse = '-')
     }else{
-      metric_mat <- metric_mat[, c(1,grep(x = colnames(metric_mat), 
-                                          pattern = paste0(clusts[[cl]]$metric,'_'),
-                                          fixed = TRUE))]
+      if(raw_metrics){
+        metric_mat <- metric_mat[, c(1,grep(x = colnames(metric_mat), 
+                                            pattern = paste0(clusts[[cl]]$metric,'$')
+                                            ))]
+      }else{
+        metric_mat <- metric_mat[, c(1,grep(x = colnames(metric_mat), 
+                                            pattern = paste0(clusts[[cl]]$metric,'_'),
+                                            fixed = TRUE))]
+      }
+    }
+    
+    if(raw_metrics){
+      #Scale the metrics using Z transform
+      for(i in 2:ncol(metric_mat)){
+        metric_mat[,i] <- scale(x = metric_mat[,i], center = TRUE, scale = TRUE)
+      }
     }
     
     fileout[cl] <- file.path(dir_out, 
@@ -463,7 +520,6 @@ plot_cluster_map <- function(gages, cluster_table, dir_out,
   #' 
   #' @param gages dataframe of the gages (rows)
   #' @param cluster_table output of add_cluster_to_gages
-  #' @param screened_sites the sites used in the cluster analysis
   #' @param dir_out directory to save plot png files
   #' @param facet logical for whether or not to make a facet wrap over the clusters
   #'  

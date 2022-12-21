@@ -22,11 +22,11 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
   #' @param out_format format for the output table of metrics. The default matches
   #' the EflowStats format. Use 'pivot' for a simpler table.
   #' @param threshold_type one of either 'high' or 'low' indicating if the threshold
-  #' should consider all flows higher or lower than the threshold.false, events are defined such that
-  #' there are no overlapping events between quantile groups.  If false, the same set of dates may
-  #' be defined as an event for more than one quantile group.
+  #' should consider all flows higher or lower than the threshold.
   #' @param allow_event_overlap logical indicating whether events should be allowed to span accross 
-  #' more than one quantile range.
+  #' more than one quantile range. false, events are defined such that
+  #' there are no overlapping events between quantile groups. If false, the same set of dates may
+  #' be defined as an event for more than one quantile group.
   #' 
   #' @return table of FDC metrics for each gage
   
@@ -124,8 +124,7 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
       #calculate metrics
       dhfdc_s[inds_flow_i] <- calc_dhfdc_metrics(data_processed, NE_flows[i],
                                                              stat_type, seasonal)
-      fhfdc_s[inds_flow_i] <- calc_fhfdc_metrics(data, threshold_lower, threshold_upper,
-                                                             stat_type, seasonal)
+      fhfdc_s[inds_flow_i] <- calc_fhfdc_metrics(data_processed, stat_type, seasonal)
       vhfdc <- calc_vhfdc_metrics(data_processed, NE_flows[i], stat_type, seasonal,
                                   type2 = threshold_type)
       vhfdc1_s[inds_flow_i] <- vhfdc[[1]]
@@ -149,7 +148,7 @@ calc_FDCmetrics <- function(site_num, clean_daily_flow, yearType,
       
       #calculate metrics
       dhfdc[i] <- calc_dhfdc_metrics(data_processed, NE_flows[i], stat_type, seasonal)
-      fhfdc[i] <- calc_fhfdc_metrics(data,threshold_lower,threshold_upper, stat_type, seasonal)
+      fhfdc[i] <- calc_fhfdc_metrics(data, stat_type, seasonal, threshold_lower, threshold_upper)
       vhfdc <- calc_vhfdc_metrics(data_processed, NE_flows[i], stat_type, seasonal,
                                   type2 = threshold_type)
       vhfdc1[i] <- vhfdc[[1]][1]
@@ -302,22 +301,24 @@ add_season_cols <- function(data, season_months){
 }
 
 prep_seasonal_data <- function(data, threshold_lower, threshold_upper,  type = 'high'){
-  #' @description prepares the data by finding events that meet the NE_flow threshold,
+  #' @description prepares the data by finding events that are within the flow thresholds,
   #' and adds a column of event numbers to data.
   #' 
   #' @param data tbl containing columns for "groups" and "discharge"
   #' @param threshold_lower lower quantile threshold to use when defining an event
-  #' @param threshold_upper uppwer quantile threshold to use when defining an event
+  #' @param threshold_upper upper quantile threshold to use when defining an event
   #' @param type threshold type to use. Can be "low" for flows less than the threshold
   #' or "high" for flows greater than the threshold.
   #' 
   #' @return data with a column added for the event number
   
   #Find events within each group of continuous years
-  data$event <- dplyr::do(dplyr::group_by(data, groups), 
-                          {find_events_mod(.$discharge, 
-                                       threshold_lower, threshold_upper, 
-                                       type = type)})$event
+  data$event <- dplyr::summarize(dplyr::group_by(data, groups), 
+                          find_events_mod(discharge, 
+                                           threshold_lower, 
+                                           threshold_upper, 
+                                           type = type),
+                          .groups = 'keep')$event
   
   #Trim events of unknown duration/volume
   data <- trim_events(data)
@@ -334,7 +335,8 @@ prep_seasonal_data <- function(data, threshold_lower, threshold_upper,  type = '
 prep_data <- function(data, threshold_lower, threshold_upper, type = 'high'){
   #' @description prepares the data by finding events that meet the NE_flow threshold,
   #' and adds a column of event numbers to data. Threshold is represented as a range with
-  #' an upper and lower bound. 
+  #' an upper and lower bound.
+  #'  
   #' @param data tbl containing columns for "groups" and "discharge"
   #' @param threshold_lower lower quantile threshold to use when defining an event
   #' @param threshold_upper upper quantile threshold to use when defining an event
@@ -344,10 +346,12 @@ prep_data <- function(data, threshold_lower, threshold_upper, type = 'high'){
   #' @return data with a column added for the event number
   
   #Find events within each group of continuous years
-  data <-dplyr::do(dplyr::group_by(data, groups), 
-                   {find_events_mod(.$discharge, 
-                                    threshold_lower, threshold_upper, 
-                                    type = type)})
+  data <-dplyr::summarize(dplyr::group_by(data, groups), 
+                   find_events_mod(discharge, 
+                                    threshold_lower, 
+                                    threshold_upper, 
+                                    type = type),
+                   .groups = 'keep')
   
   #Trim events of unknown duration/volume
   data <- trim_events(data)
@@ -598,13 +602,17 @@ calc_dhfdc_metrics <- function(data, NE_flow, stat_type = 'POR', seasonal = FALS
 }
 
 
-calc_fhfdc_metrics <- function(data, threshold_lower,threshold_upper, stat_type = 'POR', seasonal = FALSE){
+calc_fhfdc_metrics <- function(data, stat_type = 'POR', seasonal = FALSE,
+                               threshold_lower = NULL, threshold_upper = NULL){
   #' @description Get the number of events above each of the NE_flows (fh1 style metrics)
   #' 
   #' @param data output of prep_data or prep_seasonal data
-  #' @param NE_flow numeric flow value
   #' @param stat_type 'ATS' for annual timeseries or 'POR' for period of record
   #' @param seasonal logical indicating if the metrics should be computed by season or not
+  #' @param threshold_lower lower quantile threshold to use when defining an event. Only needed
+  #' when seasonal = TRUE
+  #' @param threshold_upper upper quantile threshold to use when defining an event. Only needed
+  #' when seasonal = TRUE
   #' 
   #' @return high flow frequency metrics for NE_flow.
   
@@ -612,19 +620,8 @@ calc_fhfdc_metrics <- function(data, threshold_lower,threshold_upper, stat_type 
     #vector to store the fractions for each season
     fhfdc <- vector('numeric', length = 4)
     
-    seasonal_counts <- dplyr::do(dplyr::group_by(data, year_val, season), 
-                                 {find_events_mod(.$discharge, 
-                                              threshold_lower,threshold_upper, type = "high")
-                                 }) %>%
-      dplyr::arrange(year_val, season)
-    
-    #changing NAs to 0s so that seasons with no events are counted as 0 
-    #instead of NA
-    seasonal_counts$event[is.na(seasonal_counts$event)] <- 0
-    
-    #This function double counts events when they overlap in season.
-    seasonal_counts <- dplyr::summarize(dplyr::group_by(seasonal_counts, year_val, season), 
-                                        numEvents = max(event), .groups = 'keep')
+    seasonal_counts <- dplyr::summarize(dplyr::group_by(data, year_val, season), 
+                                        numEvents = event_count(event), .groups = 'keep')
     
     #Compute seasonal fractions using ATS or POR approach:
     #Computes annual fraction per season, then averages over all years
@@ -635,19 +632,19 @@ calc_fhfdc_metrics <- function(data, threshold_lower,threshold_upper, stat_type 
     }else{
       #Computes seasonal average duration over all years, then fraction per season.
       seasonal_counts <- dplyr::summarize(group_by(seasonal_counts, season),
-                                         avg=mean(numEvents, na.rm=TRUE)) %>%
+                                         avg = mean(numEvents, na.rm=TRUE)) %>%
         arrange(season) %>%
         pull(avg)
       
       fhfdc[1:4] <- get_seasonal_frac(seasonal_counts, FALSE)
     }
   }else{
-    yearly_counts <- dplyr::do(dplyr::group_by(data, year_val), 
-                               {find_events_mod(.$discharge, 
-                                            threshold_lower, 
-                                            threshold_upper,
-                                            type = "high")
-                               })
+    yearly_counts <- dplyr::summarize(dplyr::group_by(data, year_val), 
+                               find_events_mod(discharge, 
+                                                threshold_lower, 
+                                                threshold_upper,
+                                                type = "high"),
+                               .groups = 'keep')
     #changing NAs to 0s so that years with no events are counted as 0s 
     #instead of being omitted
     yearly_counts$event[is.na(yearly_counts$event)] <- 0
@@ -812,8 +809,14 @@ calc_season_average <- function(seasonal_var, metric_colname){
 find_events_mod <-function (x, threshold_lower, threshold_upper, type = "high") {
   #' @description this function is modified from the find_events function in Eflowstats.
   #' modified to pass an upper and lower bound to the threshold definition.
+  #' 
+  #' @param x vector of discharge
   #' @param threshold_lower is the lower bound of the threshold range 
-  #' @param theshold_upper is upper bound of threshold range.  
+  #' @param theshold_upper is upper bound of threshold range.
+  #' @param type one of either 'high' or 'low' indicating if the threshold
+  #' should consider all flows higher or lower than the threshold.
+  #' 
+  #' @return data frame of flow (x) and numbered events
   
   
   x <- data.frame(flow = x)
@@ -832,8 +835,8 @@ find_events_mod <-function (x, threshold_lower, threshold_upper, type = "high") 
     #keep only events where the maximum is less than or equal to the upper threshold
     keep_events<- x %>%
       group_by(event) %>%
-      drop_na(event)%>%
-      summarise(maxflow= max(flow)) %>%
+      drop_na(event) %>%
+      summarise(maxflow = max(flow)) %>%
       filter(maxflow <= threshold_upper)
     #convert back into T/F
     x$event<- ifelse((x$event %in% keep_events$event), T, F)
@@ -854,8 +857,8 @@ find_events_mod <-function (x, threshold_lower, threshold_upper, type = "high") 
     #keep only events where the minimum is greater than or equal to the lower threshold and less than upper threshold
     keep_events<- x %>%
       group_by(event) %>%
-      drop_na(event)%>%
-      summarise(minflow= min(flow)) %>%
+      drop_na(event) %>%
+      summarise(minflow = min(flow)) %>%
       filter(minflow >= threshold_lower)
     #convert back into T/F
     x$event<- ifelse((x$event %in% keep_events$event), T, F)
@@ -870,5 +873,22 @@ find_events_mod <-function (x, threshold_lower, threshold_upper, type = "high") 
   eventVector <- rep(runLengths$eventNum, runLengths$lengths)
   x$event <- eventVector
   flowEvents <- x[c("flow", "event")]
+  
   return(flowEvents)
 } #end function
+
+event_count <- function(events){
+  #' @description counts the number of events in the supplied event vector. Event 0 is not counted
+  #' 
+  #' @param events vector of numeric events
+  #' 
+  #' @return numeric scalar of the total number of events
+  
+  if(any(events == 0)){
+    num_events <- length(unique(events)) - 1
+  }else{
+    num_events <- length(unique(events))
+  }
+  
+  return(num_events)
+}

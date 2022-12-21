@@ -42,6 +42,20 @@ p5_targets_list<- list(
              map(p2_all_metrics_names_low),
              format="file"
   ),
+  #Clusters based on raw metric values
+  tar_target(p5_EDA_plots_metrics_raw_metrics,
+             make_EDA_metric_plots(metric = p2_all_metrics_names,
+                                   k = 5, 
+                                   cluster_table = p3_gages_clusters_quants_agg_raw_metrics,
+                                   high_q_grep = '0.9', 
+                                   low_q_grep = '0.5', 
+                                   high_q_start = 0.75, 
+                                   metrics_table = p2_FDC_metrics,
+                                   gages = p1_feature_vars_g2_sf,
+                                   out_dir = "5_EDA/out/metrics_plots_RawClusts"),
+             map(p2_all_metrics_names),
+             format="file"
+  ),
   
   #Down select features from full database
   tar_target(p5_screen_attr_g2,

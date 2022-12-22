@@ -3,6 +3,7 @@ library(tarchetypes)
 library(readxl)
 options(clustermq.scheduler = "multiprocess")
 library(clustermq)
+getOption("clustermq.data.warning", 1000) #MB
 options(tidyverse.quiet = TRUE)
 library(tidyverse)
 

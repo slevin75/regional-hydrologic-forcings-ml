@@ -1203,7 +1203,7 @@ p6_targets_list <- list(
                                                       select(-COMID, -contains('PHYSIO')),
                                                     by = c('ID' = 'GAGES_ID')) %>%
                                 na.omit(),
-                              y_columns = c(2:4, 9:11,
+                              y_columns = c(2:4, 9:11),
                               GAGEID_column = 1,
                               #"-2" from removing COMID and the shared GAGES_ID column
                               x_columns = 16:(ncol(p5_attr_g2 %>% select(-contains('PHYSIO'))) + ncol(p3_gages_clusters_quants_agg_raw_metrics) - 2),

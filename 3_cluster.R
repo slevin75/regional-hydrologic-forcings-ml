@@ -1143,7 +1143,8 @@ p3_targets_list <- list(
                                           high = '0.75,0.8,0.85,0.9,0.95_k5'), 
                                 dv_data_dir = "./1_fetch/out",
                                  dir_out = '3_cluster/out', 
-                                estimated_data = TRUE)
+                                estimated_data = TRUE),
+             deployment = 'main'
   ),
   
   tar_target(p3_period_of_record_plots_no_estimated,
@@ -1154,7 +1155,8 @@ p3_targets_list <- list(
                                          high = '0.75,0.8,0.85,0.9,0.95_k5'), 
                                 dv_data_dir = "./1_fetch/out",
                                 dir_out = '3_cluster/out', 
-                                estimated_data = FALSE)
+                                estimated_data = FALSE),
+             deployment = 'main'
   ),
   tar_target(p3_plot_estimated_data_quantiles ,
              estimated_data_quantiles(screened_site_list = p1_screened_site_list, 

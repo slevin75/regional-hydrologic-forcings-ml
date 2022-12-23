@@ -1,7 +1,7 @@
 source("3_cluster/src/seasonal_metric_cluster.R")
 source("3_cluster/src/gage_year_coverage_by_cluster.R")
 
-p3_targets_list<- list(
+p3_targets_list <- list(
   
   ##Cluster analysis to make model regions from FDC metrics
   tar_target(p3_metric_names,
@@ -1137,7 +1137,7 @@ p3_targets_list<- list(
   ),
   tar_target(p3_period_of_record_plots_estimated,
              plot_data_coverage(screened_site_list = p1_screened_site_list, 
-                                 cluster_table <- p3_gages_clusters_quants_agg_selected %>%
+                                 cluster_table = p3_gages_clusters_quants_agg_selected %>%
                                    select(ID, contains('_k5')) %>%
                                    rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
                                           high = '0.75,0.8,0.85,0.9,0.95_k5'), 
@@ -1148,7 +1148,7 @@ p3_targets_list<- list(
   
   tar_target(p3_period_of_record_plots_no_estimated,
              plot_data_coverage(screened_site_list = p1_screened_site_list, 
-                                cluster_table <- p3_gages_clusters_quants_agg_selected %>%
+                                cluster_table = p3_gages_clusters_quants_agg_selected %>%
                                   select(ID, contains('_k5')) %>%
                                   rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
                                          high = '0.75,0.8,0.85,0.9,0.95_k5'), 
@@ -1158,7 +1158,7 @@ p3_targets_list<- list(
   ),
   tar_target(p3_plot_estimated_data_quantiles ,
              estimated_data_quantiles(screened_site_list = p1_screened_site_list, 
-                                      cluster_table <- p3_gages_clusters_quants_agg_selected %>%
+                                      cluster_table = p3_gages_clusters_quants_agg_selected %>%
                                         select(ID, contains('_k5')) %>%
                                         rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
                                                high = '0.75,0.8,0.85,0.9,0.95_k5'), 
@@ -1167,7 +1167,7 @@ p3_targets_list<- list(
   ),
   tar_target(p3_plot_complete_years,
              plot_complete_years(clean_daily_flow = p1_clean_daily_flow,
-                                 cluster_table <- p3_gages_clusters_quants_agg_selected %>%
+                                 cluster_table = p3_gages_clusters_quants_agg_selected %>%
                                    select(ID, contains('_k5')) %>%
                                    rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
                                           high = '0.75,0.8,0.85,0.9,0.95_k5'), 

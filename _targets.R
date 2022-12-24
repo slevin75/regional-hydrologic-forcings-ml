@@ -119,6 +119,7 @@ dir.create('6_predict/out/multiclass/High/NoPhysio/shap/midhigh', showWarnings =
 dir.create('6_predict/out/multiclass/High/NoPhysio/dependence', showWarnings = FALSE)
 dir.create('6_predict/out/multiclass/High/NoPhysio/dependence/high', showWarnings = FALSE)
 dir.create('6_predict/out/multiclass/High/NoPhysio/dependence/midhigh', showWarnings = FALSE)
+dir.create('6_predict/out/multiclass/High_Raw', showWarnings = FALSE)
 dir.create('6_predict/out/multiclass/High_Raw/NoPhysio', showWarnings = FALSE)
 dir.create('6_predict/out/multiclass/High_Raw/NoPhysio/shap', showWarnings = FALSE)
 dir.create('6_predict/out/multiclass/High_Raw/NoPhysio/shap/high', showWarnings = FALSE)

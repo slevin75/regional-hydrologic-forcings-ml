@@ -10,14 +10,14 @@ min_yrs_in_window<- 15  ##minimum number of years of data required within a wind
 min_windows <- 10  ##Must have this many windows available in order to plot 
 ###percentage of drainage area overlap between nested basins above which they will be grouped together
 
-nested_threshold<-.5
+nested_threshold <- .5
 ##distance to search upstream for nested basins, in km.  note-the nhdplusTools function fails if this 
 ##value is 10000 or greater.
 nav_distance_km <- 4500
 
 
 
-p4_targets_list<- list(
+p4_targets_list <- list(
   
   ########moving window nonstationarity stuff
   ##table with all the FDC metrics computed on a moving window. The parameter min_yrs_in_window

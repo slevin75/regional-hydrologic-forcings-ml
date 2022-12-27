@@ -102,6 +102,10 @@ p2_targets_list<- list(
                   grep(colnames(p2_FDC_metrics_low), pattern = 'q0.01'))
              ]
   ),
+  tar_target(p2_FDC_metrics_names,
+             colnames(p2_FDC_metrics)[-1]
+  ),
+  
   ##Compute FDC-based metrics using non-overlapping event definitions
   tar_target(p2_FDC_metrics_nonoverlapping,
              calc_FDCmetrics(site_num = p1_screened_site_list, 

@@ -3,14 +3,14 @@ source("5_EDA/src/EDA_feature_plots.R")
 source("5_EDA/src/select_features.R")
 source("5_EDA/src/plot_gages_reaches.R")
 
-p5_targets_list<- list(
+p5_targets_list <- list(
   
   ###EDA plots
   # Feature variables
   tar_target(p5_EDA_plots_feature_vars,
              make_EDA_feature_plots(feature_vars = p1_feature_vars_g2,
                                     out_dir = "5_EDA/out/feature_plots"),
-             format="file"
+             format = "file"
   ),
   ##maps and violin plots of all metrics by cluster.  k is the number of clusters to use in 
   ##the cluster table
@@ -44,7 +44,7 @@ p5_targets_list<- list(
   ),
   #Clusters based on raw metric values
   tar_target(p5_EDA_plots_metrics_raw_metrics,
-             make_EDA_metric_plots(metric = p2_all_metrics_names,
+             make_EDA_metric_plots(metric = p2_FDC_metrics_names,
                                    k = 5, 
                                    cluster_table = p3_gages_clusters_quants_agg_raw_metrics,
                                    high_q_grep = '0.9', 
@@ -53,7 +53,7 @@ p5_targets_list<- list(
                                    metrics_table = p2_FDC_metrics,
                                    gages = p1_feature_vars_g2_sf,
                                    out_dir = "5_EDA/out/metrics_plots_RawClusts"),
-             map(p2_all_metrics_names),
+             map(p2_FDC_metrics_names),
              format="file"
   ),
   

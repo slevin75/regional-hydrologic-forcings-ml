@@ -16,9 +16,9 @@ Boruta_cores <- 60
 cv_folds <- 5
 
 #XAI parameters
-SHAP_cores <- 60
+SHAP_cores <- 35
 SHAP_nsim <- 20
-
+PDP_cores <- 35
 
 
 p6_targets_list <- list(
@@ -1750,13 +1750,13 @@ p6_targets_list <- list(
                          data = p5_attr_g2,
                          predict_fxn = predict_pdp_multiclass,
                          ice = FALSE,
-                         ncores = SHAP_cores,
+                         ncores = PDP_cores,
                          avg_pred = TRUE)
   ),
   tar_target(p6_pdp_multiclass_midhigh_png,
              plot_pdp(partial = p6_pdp_multiclass_midhigh,
                       data = p5_attr_g2,
-                      ncores = SHAP_cores,
+                      ncores = 1,
                       ice = FALSE,
                       model_name = 'RF_multiclass_midhigh',
                       out_dir = '6_predict/out/multiclass/High/dependence/midhigh'),
@@ -1765,7 +1765,7 @@ p6_targets_list <- list(
   tar_target(p6_pdp_multiclass_midhigh_offset_png,
              plot_pdp(partial = p6_pdp_multiclass_midhigh,
                       data = p5_attr_g2,
-                      ncores = SHAP_cores,
+                      ncores = 1,
                       ice = FALSE,
                       offset = TRUE,
                       model_name = 'RF_multiclass_midhigh',
@@ -1779,13 +1779,13 @@ p6_targets_list <- list(
                          data = p5_attr_g2,
                          predict_fxn = predict_pdp_multiclass,
                          ice = FALSE,
-                         ncores = SHAP_cores,
+                         ncores = PDP_cores,
                          avg_pred = TRUE)
   ),
   tar_target(p6_pdp_multiclass_high_png,
              plot_pdp(partial = p6_pdp_multiclass_high,
                       data = p5_attr_g2,
-                      ncores = SHAP_cores,
+                      ncores = 1,
                       ice = FALSE,
                       model_name = 'RF_multiclass_high',
                       out_dir = '6_predict/out/multiclass/High/dependence/high'),
@@ -1794,7 +1794,7 @@ p6_targets_list <- list(
   tar_target(p6_pdp_multiclass_high_offset_png,
              plot_pdp(partial = p6_pdp_multiclass_high,
                       data = p5_attr_g2,
-                      ncores = SHAP_cores,
+                      ncores = 1,
                       ice = FALSE,
                       offset = TRUE,
                       model_name = 'RF_multiclass_high',
@@ -1809,7 +1809,7 @@ p6_targets_list <- list(
                          data = p5_attr_g2,
                          predict_fxn = predict_pdp_multiclass,
                          ice = FALSE,
-                         ncores = SHAP_cores,
+                         ncores = PDP_cores,
                          avg_pred = TRUE)
   ),
   tar_target(p6_pdp_multiclass_midhigh_noPhysio_png,
@@ -1839,7 +1839,7 @@ p6_targets_list <- list(
                          data = p5_attr_g2,
                          predict_fxn = predict_pdp_multiclass,
                          ice = FALSE,
-                         ncores = SHAP_cores,
+                         ncores = PDP_cores,
                          avg_pred = TRUE)
   ),
   tar_target(p6_pdp_multiclass_high_noPhysio_png,
@@ -1870,7 +1870,7 @@ p6_targets_list <- list(
                          data = p5_attr_g2,
                          predict_fxn = predict_pdp_multiclass,
                          ice = FALSE,
-                         ncores = SHAP_cores,
+                         ncores = PDP_cores,
                          avg_pred = TRUE)
   ),
   tar_target(p6_pdp_multiclass_midhigh_noPhysio_raw_metrics_png,
@@ -1900,7 +1900,7 @@ p6_targets_list <- list(
                          data = p5_attr_g2,
                          predict_fxn = predict_pdp_multiclass,
                          ice = FALSE,
-                         ncores = SHAP_cores,
+                         ncores = PDP_cores,
                          avg_pred = TRUE)
   ),
   tar_target(p6_pdp_multiclass_high_noPhysio_raw_metrics_png,

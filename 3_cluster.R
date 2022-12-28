@@ -1135,46 +1135,6 @@ p3_targets_list <- list(
              deployment = 'worker',
              format = 'file'
   ),
-  tar_target(p3_period_of_record_plots_estimated,
-             plot_data_coverage(screened_site_list = p1_screened_site_list, 
-                                 cluster_table = p3_gages_clusters_quants_agg_selected %>%
-                                   select(ID, contains('_k5')) %>%
-                                   rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
-                                          high = '0.75,0.8,0.85,0.9,0.95_k5'), 
-                                dv_data_dir = "./1_fetch/out",
-                                 dir_out = '3_cluster/out', 
-                                estimated_data = TRUE),
-             deployment = 'main'
-  ),
-  
-  tar_target(p3_period_of_record_plots_no_estimated,
-             plot_data_coverage(screened_site_list = p1_screened_site_list, 
-                                cluster_table = p3_gages_clusters_quants_agg_selected %>%
-                                  select(ID, contains('_k5')) %>%
-                                  rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
-                                         high = '0.75,0.8,0.85,0.9,0.95_k5'), 
-                                dv_data_dir = "./1_fetch/out",
-                                dir_out = '3_cluster/out', 
-                                estimated_data = FALSE),
-             deployment = 'main'
-  ),
-  tar_target(p3_plot_estimated_data_quantiles ,
-             estimated_data_quantiles(screened_site_list = p1_screened_site_list, 
-                                      cluster_table = p3_gages_clusters_quants_agg_selected %>%
-                                        select(ID, contains('_k5')) %>%
-                                        rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
-                                               high = '0.75,0.8,0.85,0.9,0.95_k5'), 
-                                      dv_data_dir = "./1_fetch/out",
-                                      dir_out = '3_cluster/out')
-  ),
-  tar_target(p3_plot_complete_years,
-             plot_complete_years(clean_daily_flow = p1_clean_daily_flow,
-                                 cluster_table = p3_gages_clusters_quants_agg_selected %>%
-                                   select(ID, contains('_k5')) %>%
-                                   rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
-                                          high = '0.75,0.8,0.85,0.9,0.95_k5'), 
-                                 dir_out = '3_cluster/out')
-  ),
   #Raw metric values
   tar_target(p3_seasonal_barplot_clusters_raw_metrics_png,
              plot_seasonal_barplot(metric_mat = p2_FDC_metrics_season,
@@ -1214,5 +1174,46 @@ p3_targets_list <- list(
              map(p3_metric_names_quants_agg),
              deployment = 'worker',
              format = 'file'
+  ),
+  
+  #period of record plots
+  tar_target(p3_period_of_record_plots_estimated,
+             plot_data_coverage(screened_site_list = p1_screened_site_list, 
+                                 cluster_table = p3_gages_clusters_quants_agg_selected %>%
+                                   select(ID, contains('_k5')) %>%
+                                   rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
+                                          high = '0.75,0.8,0.85,0.9,0.95_k5'), 
+                                dv_data_dir = "./1_fetch/out",
+                                 dir_out = '3_cluster/out', 
+                                estimated_data = TRUE),
+             deployment = 'main'
+  ),
+  tar_target(p3_period_of_record_plots_no_estimated,
+             plot_data_coverage(screened_site_list = p1_screened_site_list, 
+                                cluster_table = p3_gages_clusters_quants_agg_selected %>%
+                                  select(ID, contains('_k5')) %>%
+                                  rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
+                                         high = '0.75,0.8,0.85,0.9,0.95_k5'), 
+                                dv_data_dir = "./1_fetch/out",
+                                dir_out = '3_cluster/out', 
+                                estimated_data = FALSE),
+             deployment = 'main'
+  ),
+  tar_target(p3_plot_estimated_data_quantiles ,
+             estimated_data_quantiles(screened_site_list = p1_screened_site_list, 
+                                      cluster_table = p3_gages_clusters_quants_agg_selected %>%
+                                        select(ID, contains('_k5')) %>%
+                                        rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
+                                               high = '0.75,0.8,0.85,0.9,0.95_k5'), 
+                                      dv_data_dir = "./1_fetch/out",
+                                      dir_out = '3_cluster/out')
+  ),
+  tar_target(p3_plot_complete_years,
+             plot_complete_years(clean_daily_flow = p1_clean_daily_flow,
+                                 cluster_table = p3_gages_clusters_quants_agg_selected %>%
+                                   select(ID, contains('_k5')) %>%
+                                   rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
+                                          high = '0.75,0.8,0.85,0.9,0.95_k5'), 
+                                 dir_out = '3_cluster/out')
   )
 )

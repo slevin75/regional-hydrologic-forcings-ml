@@ -1351,13 +1351,13 @@ p6_targets_list <- list(
                                   mutate(ID = COMID),
                                 ncores = Boruta_cores)),
   #Raw metric values
-  tar_target(p6_region_class_pred_midhigh_noPhysio_raw_metrics_CONUS_NHD,
-             predict_multiclass(model = filter(p6_cluster_model_high_noPhysio_raw_metrics$RF_models, 
-                                               HM == "0.5,0.55,0.6,0.65,0.7_k5") %>% 
-                                  pull(model),
-                                reach_attrs = p1_feature_vars_conus %>%
-                                  mutate(ID = COMID),
-                                ncores = Boruta_cores)),
+#  tar_target(p6_region_class_pred_midhigh_noPhysio_raw_metrics_CONUS_NHD,
+#             predict_multiclass(model = filter(p6_cluster_model_high_noPhysio_raw_metrics$RF_models, 
+#                                               HM == "0.5,0.55,0.6,0.65,0.7_k5") %>% 
+#                                  pull(model),
+#                                reach_attrs = p1_feature_vars_conus %>%
+#                                  mutate(ID = COMID),
+#                                ncores = Boruta_cores)),
   tar_target(p6_region_class_pred_high_noPhysio_raw_metrics_CONUS_NHD,
              predict_multiclass(model = filter(p6_cluster_model_high_noPhysio_raw_metrics$RF_models, 
                                                HM == "0.75,0.8,0.85,0.9,0.95_k5") %>% 
@@ -1454,16 +1454,16 @@ p6_targets_list <- list(
                                        pt_size = 0.1),
              format = "file"),
   #Raw metric values
-  tar_target(p6_region_class_pred_midhigh_noPhysio_raw_metrics_CONUS_NHD_png,
-             make_class_prediction_map(class_probs = p6_region_class_pred_midhigh_noPhysio_raw_metrics_CONUS_NHD,
-                                       reaches = p1_sites_conus_sf %>%
-                                         mutate(ID = COMID),
-                                       out_dir = "6_predict/out/multiclass/High_Raw/NoPhysio",
-                                       plot_threshold = 0.05,
-                                       model_name = 'Midhigh_NoPhysio_Raw_NHD_k5',
-                                       ncores = 5,
-                                       pt_size = 0.2),
-             format = "file"),
+#  tar_target(p6_region_class_pred_midhigh_noPhysio_raw_metrics_CONUS_NHD_png,
+#             make_class_prediction_map(class_probs = p6_region_class_pred_midhigh_noPhysio_raw_metrics_CONUS_NHD,
+#                                       reaches = p1_sites_conus_sf %>%
+#                                         mutate(ID = COMID),
+#                                       out_dir = "6_predict/out/multiclass/High_Raw/NoPhysio",
+#                                       plot_threshold = 0.05,
+#                                       model_name = 'Midhigh_NoPhysio_Raw_NHD_k5',
+#                                       ncores = 5,
+#                                       pt_size = 0.2),
+#             format = "file"),
   tar_target(p6_region_class_pred_high_noPhysio_raw_metrics_CONUS_NHD_png,
              make_class_prediction_map(class_probs = p6_region_class_pred_high_noPhysio_raw_metrics_CONUS_NHD,
                                        reaches = p1_sites_conus_sf %>%
@@ -1474,16 +1474,16 @@ p6_targets_list <- list(
                                        ncores = 5,
                                        pt_size = 0.2),
              format = "file"),
-  tar_target(p6_region_class_pred_midhigh_noPhysio_raw_metrics_CONUS_NHD_fine_png,
-             make_class_prediction_map(class_probs = p6_region_class_pred_midhigh_noPhysio_raw_metrics_CONUS_NHD,
-                                       reaches = p1_sites_conus_sf %>%
-                                         mutate(ID = COMID),
-                                       out_dir = "6_predict/out/multiclass/High_Raw/NoPhysio",
-                                       plot_threshold = 0.05,
-                                       model_name = 'Midhigh_NoPhysio_Raw_NHD_fine_k5',
-                                       ncores = 5,
-                                       pt_size = 0.1),
-             format = "file"),
+#  tar_target(p6_region_class_pred_midhigh_noPhysio_raw_metrics_CONUS_NHD_fine_png,
+#             make_class_prediction_map(class_probs = p6_region_class_pred_midhigh_noPhysio_raw_metrics_CONUS_NHD,
+#                                       reaches = p1_sites_conus_sf %>%
+#                                         mutate(ID = COMID),
+#                                       out_dir = "6_predict/out/multiclass/High_Raw/NoPhysio",
+#                                       plot_threshold = 0.05,
+#                                       model_name = 'Midhigh_NoPhysio_Raw_NHD_fine_k5',
+#                                       ncores = 5,
+#                                       pt_size = 0.1),
+#             format = "file"),
   tar_target(p6_region_class_pred_high_noPhysio_raw_metrics_CONUS_NHD_fine_png,
              make_class_prediction_map(class_probs = p6_region_class_pred_high_noPhysio_raw_metrics_CONUS_NHD,
                                        reaches = p1_sites_conus_sf %>%

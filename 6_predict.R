@@ -2,6 +2,7 @@ source("6_predict/src/train_models.R")
 source("6_predict/src/plot_diagnostics.R")
 source("6_predict/src/train_multiclass_models.R")
 source("6_predict/src/XAI.R")
+source("6_predict/src/collect_model_attrs.R")
 
 #p6 params only
 
@@ -1921,6 +1922,35 @@ p6_targets_list <- list(
                       offset = TRUE,
                       model_name = 'RF_multiclass_high_NoPhysio_Raw',
                       out_dir = '6_predict/out/multiclass/High_Raw/NoPhysio/dependence/high'),
+             format = "file"
+  ),
+  
+  
+  #Generate final datasets containing the minimum set of attributes used for models
+  tar_target(p6_min_model_attrs_high_noPhysio_CONUS_NHD,
+             collect_model_attrs(model = c(filter(p6_cluster_model_high_noPhysio$RF_models, 
+                                                  HM == "0.5,0.55,0.6,0.65,0.7_k5") %>% 
+                                             pull(model),
+                                           filter(p6_cluster_model_high_noPhysio_raw_metrics$RF_models,
+                                                  HM == "0.5,0.55,0.6,0.65,0.7_k5") %>% 
+                                             pull(model)),
+                                 data = p1_feature_vars_conus,
+                                 col_id = 'COMID',
+                                 outdir = '6_predict/out/multiclass/High/NoPhysio',
+                                 filename = 'CONUS_NHD_attrs.csv'),
+             format = "file"
+  ),
+  tar_target(p6_min_model_attrs_high_noPhysio_g2,
+             collect_model_attrs(model = c(filter(p6_cluster_model_high_noPhysio$RF_models, 
+                                                  HM == "0.5,0.55,0.6,0.65,0.7_k5") %>% 
+                                             pull(model),
+                                           filter(p6_cluster_model_high_noPhysio_raw_metrics$RF_models,
+                                                  HM == "0.5,0.55,0.6,0.65,0.7_k5") %>% 
+                                             pull(model)),
+                                 data = p5_attr_g2,
+                                 col_id = c('COMID', 'GAGES_ID'),
+                                 outdir = '6_predict/out/multiclass/High/NoPhysio',
+                                 filename = 'gages_attrs.csv'),
              format = "file"
   )
 )

@@ -1,9 +1,8 @@
 library(targets)
 library(tarchetypes)
 library(readxl)
-options(clustermq.scheduler = "multiprocess")
+options(clustermq.scheduler = "multiprocess", clustermq.worker.timeout = 10000, clustermq.ssh.timeout = 10000, clustermq.data.warning = 1000)
 library(clustermq)
-getOption("clustermq.data.warning", 1000) #MB
 options(tidyverse.quiet = TRUE)
 library(tidyverse)
 

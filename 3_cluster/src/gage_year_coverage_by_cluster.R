@@ -26,7 +26,7 @@ plot_data_coverage <- function(screened_site_list, cluster_table, dv_data_dir, d
     
     fname<- file.path(dv_data_dir,screened_site_list[i])
     station.ID <- substr(screened_site_list[i], start = 1, stop = 8)
-    df<-read_csv(fname, col_types = cols() ) %>%
+    df<-read_csv(fname, col_types = cols()) %>%
       addWaterYear()
     
     if("discharge" %in% names(df)==TRUE ){
@@ -34,35 +34,34 @@ plot_data_coverage <- function(screened_site_list, cluster_table, dv_data_dir, d
         filter(!is.na(discharge)) %>%
         rename(ID = site_no)
     if (estimated_data == FALSE ) {
-      prov_data <- grep(pattern= 'P | e', x=df_screened$discharge_cd)
+      prov_data <- grep(pattern= 'P | e', x = df_screened$discharge_cd)
     } else {
-      prov_data <- grep(pattern= 'P', x=df_screened$discharge_cd)
+      prov_data <- grep(pattern= 'P', x = df_screened$discharge_cd)
     }
      
     
-      if(length(prov_data) > 0){  df_screened <-   df_screened[-prov_data, ]}
+      if(length(prov_data) > 0){df_screened <- df_screened[-prov_data, ]}
       tally_obs<- df_screened %>%
         group_by(waterYear) %>%
         count() %>%
         mutate(ID = station.ID)
-      df_tally_allgages<-rbind(df_tally_allgages, tally_obs) 
+      df_tally_allgages <- rbind(df_tally_allgages, tally_obs) 
     }
     
   }  #end for
   
   
-  df_tally_allgages<- df_tally_allgages %>%
-    left_join(.,cluster_table, by= "ID")
+  df_tally_allgages <- df_tally_allgages %>%
+    left_join(., cluster_table, by= "ID")
   plot_cols <- names(df_tally_allgages[,-c(1:3)])
   
   
-  plot_paths<- purrr::map(plot_cols, make_por_plot, df_tally_allgages, dir_out, estimated_data) 
+  plot_paths <- purrr::map(plot_cols, make_por_plot, df_tally_allgages, dir_out, estimated_data) 
   return(plot_paths)  
-  
 }  
 
 
-make_por_plot<- function(plot_col, tally_allgages, dir_out,estimated_data ){
+make_por_plot<- function(plot_col, tally_allgages, dir_out, estimated_data ){
   #' @description helper function for plot_data_coverage creates the plots for a 
   #' single cluster and returns it to plot_data_coverage
   
@@ -72,19 +71,19 @@ make_por_plot<- function(plot_col, tally_allgages, dir_out,estimated_data ){
     select(ID, waterYear, n,cluster) %>%
     mutate(cluster_ID = paste0(cluster, "_", ID))
   
-  cluster_name<- paste(plot_col, "cluster group")
+  cluster_name <- paste(plot_col, "cluster group")
   
-  p1<-ggplot(df, aes(x= waterYear, y = ID, fill = n)) + geom_tile() +
-    scale_fill_viridis_c(option = "plasma")+
+  p1 <- ggplot(df, aes(x= waterYear, y = ID, fill = n)) + geom_tile() +
+    scale_fill_viridis_c(option = "plasma") +
     theme(axis.text.y = element_blank(),
-          axis.ticks.y = element_blank())+
-    scale_x_continuous(breaks = seq(1900, 2020, 20))+
-    facet_grid(cluster~., scales="free", space="free")+
+          axis.ticks.y = element_blank()) +
+    scale_x_continuous(breaks = seq(1900, 2020, 20)) +
+    facet_grid(cluster~., scales="free", space="free") +
     ggtitle(paste("data coverage for " , cluster_name))
-  if (estimated_data == FALSE) {
-    fileout<- file.path(dir_out, paste0(plot_col, "quants_data_coverage-no_estimated_data.png"))
-  } else {
-    fileout<- file.path(dir_out, paste0(plot_col, "quants_data_coverage- with_estimated_data.png"))
+  if (estimated_data == FALSE){
+    fileout <- file.path(dir_out, paste0(plot_col, "quants_data_coverage-no_estimated_data.png"))
+  }else{
+    fileout <- file.path(dir_out, paste0(plot_col, "quants_data_coverage- with_estimated_data.png"))
   }
  
   ggsave(filename = fileout,
@@ -93,7 +92,6 @@ make_por_plot<- function(plot_col, tally_allgages, dir_out,estimated_data ){
   
   
   return(fileout)
-  
 }
 
 

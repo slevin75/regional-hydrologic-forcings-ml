@@ -725,3 +725,188 @@ get_colmeans_panel_plt <- function(metric_names, metric_mat, by_quantile,
   return(metric_mat_c)
 }
 
+plot_map_barplot <- function(gages, cluster_table, metric_mat, metric_names, 
+                             metric_quants_agg, seasonal, season_months, 
+                             num_clusters, dir_out) {
+  
+  #' @description creates .png image containing map of cluster regions and their
+  #' respective barplots (across season, if applicable) for the metrics
+  #' 
+  #' @param gages dataframe of the gages (rows)
+  #' @param cluster_table output of add_cluster_to_gages
+  #' @param metric_mat p2_FDC_metrics_season or p2_FDC_metrics. rows are gauges, columns are metrics
+  #' @param metric_names name of aggregated metrics by quantile range
+  #' @param metric_quants_agg "high" is quantiles 0.75-0.95; "moderate" is quantiles 0.5-0.7
+  #' @param seasonal TRUE if seasonal clusters and barplots, FALSE if raw (full-year)
+  #' @param season_months numeric vector of 12 months in water year order
+  #' @param num_clusters number of cluster regions
+  #' @param dir_out directory to save plot png files
+  #'  
+  #' @return filepaths to the plots
+  
+  # Extract cluster information and assign to gages
+  if (metric_quants_agg == "high") {
+    clusters <- cluster_table %>%
+      select(ID, contains("0.75,0.8,0.85,0.9,0.95_"))
+  } else {
+    clusters <- cluster_table %>%
+      select(ID, contains("0.5,0.55,0.6,0.65,0.7_"))
+  }
+  clusters <- select(clusters, ID, ends_with(paste0("_k", num_clusters)))
+  gages <- select(gages, 1:4) %>%
+    rename(ID = GAGES_ID) %>%
+    left_join(clusters, by = "ID") %>%
+    rename(cluster = 5) %>%
+    mutate(label = "Region")
+  gages <- st_as_sf(gages, coords = c('LON', 'LAT'), 
+                    remove = FALSE, dim = 'XY', na.fail = TRUE)
+  
+  #Create maps
+  states <- map_data("state")
+  if (seasonal == TRUE) {
+    map_plot <- ggplot(states, aes(x = long, y = lat, group = group)) +
+      geom_polygon(fill = "white", color = "gray") +
+      geom_sf(data = gages, inherit.aes = FALSE, 
+              aes(color = factor(cluster)), 
+              size = 0.75) + 
+      facet_grid(label ~ cluster, switch = "y") +
+      labs(x = "", y = "") +
+      scale_color_scico_d(palette = "batlow") +
+      theme_bw() + theme(legend.position = "none", 
+                         axis.text = element_blank(), 
+                         axis.ticks = element_blank())
+  } else {
+    map_plot <- ggplot(states, aes(x = long, y = lat, group = group)) +
+      geom_polygon(fill = "white", color = "gray") +
+      geom_sf(data = gages, inherit.aes = FALSE, 
+              aes(color = factor(cluster)), 
+              size = 0.75) + 
+      facet_grid(label ~ cluster, switch = "y") +
+      labs(x = "", y = "") +
+      scale_color_scico_d(palette = "berlin") +
+      theme_bw() + theme(legend.position = "none", 
+                         axis.text = element_blank(), 
+                         axis.ticks = element_blank())
+  }
+  
+  #Create barplots
+  if (metric_quants_agg == "high") {
+    if (seasonal == TRUE) {
+      metric_values <- metric_mat %>%
+        select(site_num, contains("_q0.75_"), contains("_q0.8_"), contains("_q0.85_"), 
+               contains("_q0.9_"), contains("_q0.95_")) %>%
+        rename(ID = site_num)
+    } else {
+      metric_values <- metric_mat %>%
+        select(site_num, ends_with("_q0.75"), ends_with("_q0.8"), ends_with("_q0.85"), 
+               ends_with("_q0.9"), ends_with("_q0.95")) %>%
+        rename(ID = site_num)
+    }
+  } else {
+    if (seasonal == TRUE) {
+      metric_values <- metric_mat %>%
+        select(site_num, contains("_q0.5_"), contains("_q0.55_"), contains("_q0.6_"), 
+               contains("_q0.65_"), contains("_q0.7_")) %>%
+        rename(ID = site_num)
+    } else {
+      metric_values <- metric_mat %>%
+        select(site_num, ends_with("_q0.5"), ends_with("_q0.55"), ends_with("_q0.6"), 
+               ends_with("_q0.65"), ends_with("_q0.7")) %>%
+        rename(ID = site_num)
+    }
+  }
+  metric_means <- metric_values %>%
+    left_join(clusters, by = "ID") %>%
+    rename(cluster = ncol(.)) %>%
+    select(-ID) %>%
+    group_by(cluster) %>%
+    summarise_all( ~ mean(.)) %>%
+    mutate(stat = "mean")
+  metric_lowbound <- metric_values %>%
+    left_join(clusters, by = "ID") %>%
+    rename(cluster = ncol(.)) %>%
+    select(-ID) %>%
+    group_by(cluster) %>%
+    summarise_all( ~ quantile(., probs = 0.05)) %>%
+    mutate(stat = "low_bound")
+  metric_highbound <- metric_values %>%
+    left_join(clusters, by = "ID") %>%
+    rename(cluster = ncol(.)) %>%
+    select(-ID) %>%
+    group_by(cluster) %>%
+    summarise_all( ~ quantile(., probs = 0.95)) %>%
+    mutate(stat = "high_bound")
+  if (seasonal == TRUE) {
+    metric_summary <- bind_rows(metric_means, metric_lowbound, metric_highbound) %>%
+      pivot_longer(cols = -c(cluster, stat), 
+                   names_to = "long_name", values_to = "metric_value") %>%
+      mutate(metric_name = 
+               case_when(str_detect(long_name, "dhfdc") ~ "Duration", 
+                         str_detect(long_name, "fhfdc") ~ "Frequency", 
+                         str_detect(long_name, "vhfdc1") ~ "Total Volume", 
+                         str_detect(long_name, "vhfdc2") ~ "Max. Flow")) %>%
+      pivot_wider(names_from = "stat", values_from = "metric_value") %>%
+      mutate(season = case_when(str_detect(long_name, "_s1") ~ "OND", 
+                                str_detect(long_name, "_s2") ~ "JFM",
+                                str_detect(long_name, "_s3") ~ "AMJ",
+                                str_detect(long_name, "_s4") ~ "JAS")) %>%
+      group_by(cluster, metric_name, season) %>%
+      summarise(average = mean(mean), 
+                lower = mean(low_bound), 
+                upper = mean(high_bound), 
+                .groups = "drop")
+    metric_summary$metric_name <- factor(metric_summary$metric_name, 
+                                         levels = c("Duration", "Frequency", 
+                                                    "Total Volume", "Max. Flow"))
+    metric_summary$season <- factor(metric_summary$season, 
+                                    levels = c("OND", "JFM", "AMJ", "JAS"))
+    barplot <- ggplot(data = metric_summary) +
+      geom_col(aes(x = season, y = average)) +
+      geom_errorbar(aes(x = season, ymin = lower, ymax = upper), width = 0.4) +
+      facet_grid(metric_name ~ cluster, switch = "y") +
+      scale_y_continuous(limits = c(0, 1)) +
+      labs(x = "Seasons by Month", y = "Seasonal Fraction") +
+      theme_bw() + theme(axis.text.y = element_blank(), 
+                         axis.ticks.y = element_blank())
+  } else {
+    metric_summary <- bind_rows(metric_means, metric_lowbound, metric_highbound) %>%
+      select(-contains("mhfdc")) %>%
+      pivot_longer(cols = -c(cluster, stat), 
+                   names_to = "long_name", values_to = "metric_value") %>%
+      mutate(metric_name = 
+               case_when(str_detect(long_name, "dhfdc") ~ "Duration", 
+                         str_detect(long_name, "fhfdc") ~ "Frequency", 
+                         str_detect(long_name, "vhfdc1") ~ "Total Volume", 
+                         str_detect(long_name, "vhfdc2") ~ "Max. Flow")) %>%
+      pivot_wider(names_from = "stat", values_from = "metric_value") %>%
+      group_by(cluster, metric_name) %>%
+      summarise(average = mean(mean), 
+                lower = mean(low_bound), 
+                upper = mean(high_bound), 
+                .groups = "drop")
+    metric_summary$metric_name <- factor(metric_summary$metric_name, 
+                                         levels = c("Duration", "Frequency", 
+                                                    "Total Volume", "Max. Flow"))
+    barplot <- ggplot(data = metric_summary) +
+      geom_col(aes(y = average)) +
+      geom_errorbar(aes(ymin = lower, ymax = upper), width = 0.4) +
+      facet_grid(metric_name ~ cluster, scales = "fixed", switch = "y") +
+      labs(x = "", y = "") +
+      theme_bw() + theme(axis.text.y = element_blank(), 
+                         axis.ticks.y = element_blank())
+  }
+  
+  #Combine map and barplots and save
+  combined_plot <- plot_grid(map_plot, NULL, barplot, 
+                             ncol = 1, rel_heights = c(1, -0.3, 2))
+  if (seasonal == TRUE) {
+    fileout <- paste0(dir_out, "/cluster_map_barplot_seasonal.png")
+    ggsave(fileout, combined_plot, 
+           width = 6.5, height = 6.5, units = "in", dpi = 300)
+  } else {
+    fileout <- paste0(dir_out, "/cluster_map_barplot_fullyear.png")
+    ggsave(fileout, combined_plot, 
+           width = 6.5, height = 6.5, units = "in", dpi = 300)
+  }
+  return(fileout)
+}

@@ -881,18 +881,19 @@ plot_pdp_panel <- function(partial, data, model_name, out_dir, ice = FALSE,
   p <- ggplot(data = data_facet, 
               mapping = aes(x = variable, y = yhat, color = yhat.id)) + 
     geom_line(size = 1) + 
+    #geom_point(mapping = aes(x = variable, y = -0.3), show.legend = FALSE, inherit.aes = FALSE) +
     ylim(plt_ylim) +
     ylab(plt_ylab) +
     xlab('Attribute Value') +
     theme_bw() +
-    theme(strip.text = element_text(size = 6), axis.text = element_text(size = 6))+
+    theme(strip.text = element_text(size = 10), axis.text = element_text(size = 6))+
     scale_color_scico_d(palette = 'batlow') +
     labs(color = "Seasonal\nRegion") +
     facet_wrap(~factor(data_facet$name, levels=c('Apr. Precip. (mm)', 'June Precip. (mm)', 'Aug. Precip. (mm)', 
                                         'Feb. Runoff (mm)', 'Feb. Temp. (deg. C)', 'Last Freeze Day (doy)')), 
                        scales = 'free_x')
   
-  ggsave(filename = fileout, plot = p, device = 'png')
+  ggsave(filename = fileout, plot = p, device = 'png', width = 6, height = 4, units = 'in', dpi = 300)
   
   return(fileout)
 }

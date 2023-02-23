@@ -1492,8 +1492,26 @@ tar_target(p6_region_class_pred_high_noPhysio_raw_metrics_CONUS_NHD_panel_for_pa
                                      model_name = 'High_NoPhysio_Raw_NHD_k5',
                                      ncores = 5,
                                      pt_size = 0.2,
-                                     fname= "6_predict/out/multiclass/High_Raw/NoPhysio/LikelyRank1_2.png"),
+                                     fname= "6_predict/out/multiclass/High_Raw/NoPhysio/FullYear_rank1-2.png",
+                                     title_str = c("Full year: most likely region", "Full year: second most likely region"),
+                                     color_pal = "berlin"),
            format = "file"),
+
+tar_target(p6_region_class_pred_high_noPhysio_CONUS_NHD_panel_for_paper_png,
+           make_class_prediction_map_panel_for_paper(class_probs = p6_region_class_pred_high_noPhysio_CONUS_NHD,
+                                     reaches = p1_sites_conus_sf %>%
+                                       mutate(ID = COMID) %>%
+                                       filter(Tidal == 0, FTYPE %in% retain_ftypes),
+                                     plot_threshold = 0.05,
+                                     model_name = 'High_NoPhysio_NHD_k5',
+                                     ncores = 5,
+                                     pt_size = 0.2,
+                                     fname= "6_predict/out/multiclass/High/NoPhysio/Seasonal_NHD_rank1-2.png",
+                                     title_str = c("Seasonal: most likely region", "Seasonal: second most likely region"),
+                                     color_pal = "batlow"),
+           format = "file"),
+
+
 
 #  tar_target(p6_region_class_pred_midhigh_noPhysio_raw_metrics_CONUS_NHD_fine_png,
 #             make_class_prediction_map(class_probs = p6_region_class_pred_midhigh_noPhysio_raw_metrics_CONUS_NHD,

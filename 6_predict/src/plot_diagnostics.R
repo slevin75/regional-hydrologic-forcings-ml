@@ -814,9 +814,10 @@ offset_partial <- function(partial_data){
 
 
 
-make_class_prediction_map_panel_for_paper <- function(class_probs, reaches, out_dir,
+make_class_prediction_map_panel_for_paper <- function(class_probs, reaches, 
                                                       plot_threshold = 0.05, model_name,
-                                                      ncores = 1, pt_size = 0.5, fname){
+                                                      ncores = 1, pt_size = 0.5, fname,
+                                                      title_str, color_pal){
   #' @description this function is a modified form of the make_class_prediction_map
   #' to make figure 2 for the regions paper. 
   #' 
@@ -874,7 +875,7 @@ make_class_prediction_map_panel_for_paper <- function(class_probs, reaches, out_
   states <- map_data("state")
   parallel::stopCluster(cl)
   p<- list()
-  title_str <- c("Most likely region", "Second most likely region")
+
   
   for (i in 1:2){
 
@@ -887,21 +888,21 @@ make_class_prediction_map_panel_for_paper <- function(class_probs, reaches, out_
         geom_sf(data = plot_sites, inherit.aes = FALSE, 
                 aes(color = .data[[col_name]]), 
                 size = pt_size) +
-        scale_color_scico_d(palette = 'berlin') +
+        scale_color_scico_d(palette = color_pal) +
         theme(legend.position="bottom",
-              legend.key.size=unit(2,'cm'),
-              legend.text=element_text(size=16),
-              legend.margin = margin(t=-200)) +
-        guides(color = guide_legend(override.aes = list(size=10))) +
+              legend.key.size=unit(1,'cm'),
+              legend.key= element_blank(),
+              legend.text=element_text(size=10)) +
+        guides(color = guide_legend(override.aes = list(size=5))) +
         xlab('Longitude') + 
         ylab('Latitude')+
-        labs(color = "Likely rank")+
+        labs(color = "Region")+
         ggtitle(title_str[i])
     } #endif
   } #end for i
   
   
-  ggarrange(p[[1]], p[[2]], common.legend = TRUE, legend = "bottom")
+  ggarrange(p[[1]], p[[2]], ncol = 1,common.legend = TRUE, legend = "bottom")
 
   ggsave(filename = fname, bg = "white")
 

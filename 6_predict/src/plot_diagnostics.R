@@ -448,95 +448,138 @@ make_class_prediction_map <- function(class_probs, reaches, out_dir,
 }
 
 
-make_transition_region_map <- function(class_probs, reaches,
-                                       region_threshold,
+make_transition_region_map <- function(class_probs, reaches, threshold,
                                        out_dir, model_name, pt_size = 0.5) {
-  #' @description this function creates a map showing the transition regions 
+  #' @description this function creates a panel plot of maps showing transition regions 
   #' (reaches not distinctly predicted in single cluster)
   #' 
   #' @param class_probs dataframe of predicted class probabilities for each reach.
-  #' must have an "ID" column and columns for the class probabilities labeled with
-  #' the name of the class. No other columns. 
-  #' @param reaches sf object containing the reaches to plot. Must have a "COMID" column
+  #' must have an "ID" column and columns (ordered 1 through 5) for the class 
+  #' probabilities labeled with the name of the class. No other columns. 
+  #' @param reaches sf object containing the reaches to plot. Must have a "ID" column
+  #' corresponding to the same "ID" values in class_probs
   #' @param out_dir where output figures are saved
-  #' @param region_threshold minimum probability for region to be considered transitional
+  #' @param threshold minimum probability for region to be considered transitional
   #' @param model_name name to add to the file name that describes this model
-  #' @param ncores number of cores to use
   #' @param pt_size size of features to be mapped
   #' 
   #' @return file paths to maps
   
   #identify region rankings based on probability
-  #identify region rankings based on probability
   region_probs <- select(class_probs, -ID) %>%
     rename(prob_1 = 1, prob_2 = 2, prob_3 = 3, prob_4 = 4, prob_5 = 5)
-  region_ranks <- t(apply(-region_probs, 1, rank, ties.method = "random")) %>% 
+  region_ranks <- t(apply(region_probs, 1, decreasing_rank)) %>%
     as_tibble() %>%
-    rename(rank_1 = 1, rank_2 = 2, rank_3 = 3, rank_4 = 4, rank_5 = 5)
-  region_info <- bind_cols(class_probs$ID, region_probs, region_ranks) %>%
-    rename("ID" = 1)
-  region_transitions <- region_info %>%
-    mutate(transition = case_when(
-      rank_1 == 1 & rank_2 == 2 & 
-        prob_1 > region_threshold & prob_2 > region_threshold ~ "Regions 1 & 2",
-      rank_1 == 2 & rank_2 == 1 & 
-        prob_1 > region_threshold & prob_2 > region_threshold ~ "Regions 1 & 2",
-      rank_1 == 1 & rank_3 == 2 & 
-        prob_1 > region_threshold & prob_3 > region_threshold ~ "Regions 1 & 3",
-      rank_1 == 2 & rank_3 == 1 & 
-        prob_1 > region_threshold & prob_3 > region_threshold ~ "Regions 1 & 3",
-      rank_1 == 1 & rank_4 == 2 & 
-        prob_1 > region_threshold & prob_4 > region_threshold ~ "Regions 1 & 4",
-      rank_1 == 2 & rank_4 == 1 & 
-        prob_1 > region_threshold & prob_4 > region_threshold ~ "Regions 1 & 4",
-      rank_1 == 1 & rank_5 == 2 & 
-        prob_1 > region_threshold & prob_5 > region_threshold ~ "Regions 1 & 5",
-      rank_1 == 2 & rank_5 == 1 &
-        prob_1 > region_threshold & prob_5 > region_threshold ~ "Regions 1 & 5",
-      rank_2 == 1 & rank_3 == 2 & 
-        prob_2 > region_threshold & prob_3 > region_threshold ~ "Regions 2 & 3",
-      rank_2 == 2 & rank_3 == 1 & 
-        prob_2 > region_threshold & prob_3 > region_threshold ~ "Regions 2 & 3", 
-      rank_2 == 1 & rank_4 == 2 & 
-        prob_2 > region_threshold & prob_4 > region_threshold ~ "Regions 2 & 4",
-      rank_2 == 2 & rank_4 == 1 & 
-        prob_2 > region_threshold & prob_4 > region_threshold ~ "Regions 2 & 4", 
-      rank_2 == 1 & rank_5 == 2 & 
-        prob_2 > region_threshold & prob_5 > region_threshold ~ "Regions 2 & 5",
-      rank_2 == 2 & rank_5 == 1 & 
-        prob_2 > region_threshold & prob_5 > region_threshold ~ "Regions 2 & 5", 
-      rank_3 == 1 & rank_4 == 2 & 
-        prob_3 > region_threshold & prob_4 > region_threshold ~ "Regions 3 & 4",
-      rank_3 == 2 & rank_4 == 1 & 
-        prob_3 > region_threshold & prob_4 > region_threshold ~ "Regions 3 & 4",
-      rank_3 == 1 & rank_5 == 2 & 
-        prob_3 > region_threshold & prob_5 > region_threshold ~ "Regions 3 & 5",
-      rank_3 == 2 & rank_5 == 1 & 
-        prob_3 > region_threshold & prob_5 > region_threshold ~ "Regions 3 & 5",
-      rank_4 == 1 & rank_5 == 2 & 
-        prob_4 > region_threshold & prob_5 > region_threshold ~ "Regions 4 & 5",
-      rank_4 == 2 & rank_5 == 1 & 
-        prob_4 > region_threshold & prob_5 > region_threshold ~ "Regions 4 & 5"))
+    rename(rank_1 = prob_1, rank_2 = prob_2, rank_3 = prob_3, 
+           rank_4 = prob_4, rank_5 = prob_5)
+  region_transitions <- 
+    bind_cols(class_probs$ID, region_probs, region_ranks) %>%
+    rename("ID" = 1) %>%
+    suppressMessages() %>%
+    mutate(two_mixed = 
+             case_when(rank_1 == 1 & rank_2 == 2 & 
+                         prob_1 > threshold & prob_2 > threshold ~ 
+                         "Region 1&2: Rain-Snow Transition",
+                       rank_1 == 2 & rank_2 == 1 & 
+                         prob_1 > threshold & prob_2 > threshold ~ 
+                         "Region 1&2: Rain-Snow Transition",
+                       rank_1 == 1 & rank_3 == 2 & 
+                         prob_1 > threshold & prob_3 > threshold ~ 
+                         "Region 1&3",
+                       rank_1 == 2 & rank_3 == 1 & 
+                         prob_1 > threshold & prob_3 > threshold ~ 
+                         "Region 1&3",
+                       rank_1 == 1 & rank_4 == 2 & 
+                         prob_1 > threshold & prob_4 > threshold ~ 
+                         "Region 1&4: Snowpack Transition",
+                       rank_1 == 2 & rank_4 == 1 & 
+                         prob_1 > threshold & prob_4 > threshold ~ 
+                         "Region 1&4: Snowpack Transition",
+                       rank_1 == 1 & rank_5 == 2 & 
+                         prob_1 > threshold & prob_5 > threshold ~ 
+                         "Region 1&5: Rain-Snow Transition",
+                       rank_1 == 2 & rank_5 == 1 & 
+                         prob_1 > threshold & prob_5 > threshold ~ 
+                         "Region 1&5: Rain-Snow Transition",
+                       rank_2 == 1 & rank_3 == 2 & 
+                         prob_2 > threshold & prob_3 > threshold ~ 
+                         "Region 2&3: Aridity Transition",
+                       rank_2 == 2 & rank_3 == 1 & 
+                         prob_2 > threshold & prob_3 > threshold ~ 
+                         "Region 2&3: Aridity Transition",
+                       rank_2 == 1 & rank_4 == 2 & 
+                         prob_2 > threshold & prob_4 > threshold ~ 
+                         "Region 2&4: Rain-Snow Transition",
+                       rank_2 == 2 & rank_4 == 1 & 
+                         prob_2 > threshold & prob_4 > threshold ~ 
+                         "Region 2&4: Rain-Snow Transition",
+                       rank_2 == 1 & rank_5 == 2 & 
+                         prob_2 > threshold & prob_5 > threshold ~ 
+                         "Region 2&5: Different Rainfall Processes",
+                       rank_2 == 2 & rank_5 == 1 & 
+                         prob_2 > threshold & prob_5 > threshold ~ 
+                         "Region 2&5: Different Rainfall Processes",
+                       rank_3 == 1 & rank_4 == 2 & 
+                         prob_3 > threshold & prob_4 > threshold ~ 
+                         "Region 3&4",
+                       rank_3 == 2 & rank_4 == 1 & 
+                         prob_3 > threshold & prob_4 > threshold ~ 
+                         "Region 3&4",
+                       rank_3 == 1 & rank_5 == 2 & 
+                         prob_3 > threshold & prob_5 > threshold ~ 
+                         "Region 3&5: Different Rainfall Processes",
+                       rank_3 == 2 & rank_5 == 1 & 
+                         prob_3 > threshold & prob_5 > threshold ~ 
+                         "Region 3&5: Different Rainfall Processes",
+                       rank_4 == 1 & rank_5 == 2 & 
+                         prob_4 > threshold & prob_5 > threshold ~ 
+                         "Region 4&5: Rain-Snow Transition",
+                       rank_4 == 2 & rank_5 == 1 & 
+                         prob_4 > threshold & prob_5 > threshold ~ 
+                         "Region 4&5: Rain-Snow Transition")) %>%
+    mutate(multi_mixed =
+             if_else(prob_1 > 0.05 & prob_2 > 0.05 & prob_3 > 0.05 & 
+                       prob_4 > 0.05 & prob_5 > 0.05,
+                     "Multi-Mixed Region", NA_character_)) %>%
+    mutate(plot_group = 
+             case_when(!is.na(two_mixed) & !is.na(multi_mixed) ~ "Multi-mixed", 
+                       !is.na(two_mixed) & is.na(multi_mixed) ~ "Transitional"))
   
   #Join ranks to reaches for plotting
-  reaches <- left_join(reaches, region_transitions, by = "ID")
+  reach_transitions <- left_join(reaches, region_transitions, by = "ID")
   
   #Plot map with facets for each transition between regions
   states <- map_data("state")
-  reaches_to_plot <- reaches %>%
-    select(COMID, transition, Shape) %>%
-    drop_na()
+  reaches_to_plot <- reach_transitions %>%
+    select(COMID, two_mixed, multi_mixed, plot_group, Shape) %>%
+    filter(!is.na(two_mixed))
+  reaches_to_plot$two_mixed <- 
+    factor(reaches_to_plot$two_mixed, 
+           levels = c("Region 1&2: Rain-Snow Transition", 
+                      "Region 2&4: Rain-Snow Transition", 
+                      "Region 1&5: Rain-Snow Transition", 
+                      "Region 4&5: Rain-Snow Transition", 
+                      "Region 2&5: Different Rainfall Processes", 
+                      "Region 3&5: Different Rainfall Processes", 
+                      "Region 1&4: Snowpack Transition", 
+                      "Region 2&3: Aridity Transition", 
+                      "Region 1&3",
+                      "Region 3&4"))
+  reaches_to_plot$plot_group <- 
+    factor(reaches_to_plot$plot_group, 
+           levels = c("Transitional", "Multi-mixed"))
   transition_map <- ggplot(states, aes(x = long, y = lat, group = group)) +
     geom_polygon(fill = "white", color = "gray80") +
-    geom_sf(data = reaches_to_plot, inherit.aes = FALSE,
-            color = "black", size = pt_size) +
-    facet_wrap(. ~ transition, ncol = 2) +
-    theme_bw() +
-    xlab('Longitude') + 
-    ylab('Latitude')
-  fname = paste0(out_dir, model_name, "_threshold_", region_threshold, ".png")
+    geom_sf(data = reaches_to_plot, mapping = aes(color = plot_group), 
+            inherit.aes = FALSE, size = pt_size) +
+    facet_wrap(. ~ two_mixed, ncol = 2) +
+    scale_color_manual(values = c("#1b9e77", "#7570b3")) +
+    labs(x = "Longitude", y = "Latitude", color = "") +
+    theme(legend.position = "bottom") +
+    guides(color = guide_legend(override.aes = list(size=2)))
+  fname = paste0(out_dir, model_name, "_threshold_", threshold, ".png")
   ggsave(filename = fname, bg = "white",
-         height = 8, width = 6, units = "in", dpi = 300)
+         height = 4.5, width = 6, units = "in", dpi = 300)
   
   return(fname)
 }

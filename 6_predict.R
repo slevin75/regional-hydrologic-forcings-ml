@@ -1467,7 +1467,7 @@ p6_targets_list <- list(
                                         reaches = p1_sites_conus_sf %>%
                                           mutate(ID = COMID) %>%
                                           filter(Tidal == 0, FTYPE %in% retain_ftypes), 
-                                        region_threshold = 0.2,
+                                        threshold = 0.05,
                                         out_dir = "6_predict/out/multiclass/High/NoPhysio/",
                                         model_name = 'Transitions_High_NoPhysio_NHD_fine_k5',
                                         pt_size = 0.1), 

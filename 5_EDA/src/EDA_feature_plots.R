@@ -33,18 +33,35 @@ make_EDA_feature_plots <- function(feature_vars, out_dir) {
     
     data_to_map <- data_to_plot %>%
       st_as_sf(coords = c("LON", "LAT"), crs = 4326)
-    map <- ggplot(data_to_map) +
-      geom_sf(aes(color = pct_exceed), size = 0.3) + 
-      scale_color_viridis_c(option="plasma", name = "percentile", 
-                            labels = scales::percent_format(accuracy = 1)) + 
-      labs(title = col_name) +
-      theme_bw() + 
-      theme(plot.margin = unit(c(0, 0.5, 0, 0.5), "cm"),
-            plot.title = element_text(hjust = 1),
-            axis.text = element_text(size = 6),
-            legend.title = element_text(size = 10, vjust = 0.75), 
-            legend.key.width = unit(1, "cm"),
-            legend.position = "bottom")
+    
+    if (is.factor(data_to_plot[[5]])==TRUE) { 
+      map <- ggplot(data_to_map) +
+        geom_sf(aes_string(color = names(data_to_plot)[5]), size = 0.3) + 
+        scale_color_manual(values = as.vector(alphabet2(24)))+
+        labs(title = col_name) +
+        theme_bw() + 
+        theme(plot.margin = unit(c(0, 0.5, 0, 0.5), "cm"),
+              plot.title = element_text(hjust = 1),
+              axis.text = element_text(size = 6),
+              legend.title = element_text(size = 9, vjust = 0.75), 
+              legend.key.width = unit(.5, "cm"),
+              legend.position = "bottom")
+      
+    } else {
+      
+      map <- ggplot(data_to_map) +
+        geom_sf(aes(color = pct_exceed), size = 0.3) + 
+        scale_color_viridis_c(option="plasma", name = "percentile", 
+                              labels = scales::percent_format(accuracy = 1)) + 
+        labs(title = col_name) +
+        theme_bw() + 
+        theme(plot.margin = unit(c(0, 0.5, 0, 0.5), "cm"),
+              plot.title = element_text(hjust = 1),
+              axis.text = element_text(size = 6),
+              legend.title = element_text(size = 10, vjust = 0.75), 
+              legend.key.width = unit(1, "cm"),
+              legend.position = "bottom")
+    } #end if
     
     combo <- plot_grid(violin, map, rel_widths = c(0.25, 1), rel_heights = c(0.8, 1)) %>%
       suppressWarnings()

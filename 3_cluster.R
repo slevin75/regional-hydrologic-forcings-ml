@@ -1223,5 +1223,31 @@ p3_targets_list <- list(
                                    rename(midhigh = '0.5,0.55,0.6,0.65,0.7_k5',
                                           high = '0.75,0.8,0.85,0.9,0.95_k5'), 
                                  dir_out = '3_cluster/out')
+  ), 
+  #refined figure 3 for manuscript with cluster maps and bar plots
+  tar_target(p3_seasonal_cluster_map_barplot_quants_agg_selected_png,
+             plot_map_barplot(gages = p1_feature_vars_g2,
+                              cluster_table = p3_gages_clusters_quants_agg_selected,
+                              metric_mat = p2_FDC_metrics_season,
+                              metric_quants_agg = "high",
+                              seasonal = TRUE,
+                              season_months = season_months,
+                              num_clusters = 5,
+                              dir_out = '3_cluster/out/manuscript_plots'),
+             deployment = 'main',
+             format = 'file'
+  ),
+  #full year metrics (not seasonal; for supplement)
+  tar_target(p3_fullyear_cluster_map_barplot_quants_agg_selected_png,
+             plot_map_barplot(gages = p1_feature_vars_g2,
+                              cluster_table = p3_gages_clusters_quants_agg_raw_metrics,
+                              metric_mat = p2_FDC_metrics_season,
+                              metric_quants_agg = "high",
+                              seasonal = FALSE,
+                              season_months = season_months,
+                              num_clusters = 5,
+                              dir_out = '3_cluster/out/manuscript_plots'),
+             deployment = 'main',
+             format = 'file'
   )
 )

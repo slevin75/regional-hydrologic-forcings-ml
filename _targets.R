@@ -13,7 +13,8 @@ tar_option_set(packages = c("fasstr", "EflowStats", "dataRetrieval",
                             "dendextend", "scico", "tidyverse", "nhdplusTools",
                             "sbtools", "maps", "mapproj", "ranger", "Boruta",
                             "tidymodels", "doParallel", "vip", "gstat", "rlist", 
-                            "measures", "fastshap", "shapviz", "pdp", "ggpubr"),
+                            "measures", "fastshap", "shapviz", "pdp", "ggpubr","pals"),
+
                imports = c("fasstr", "EflowStats", "dataRetrieval", 
                            "cluster","factoextra", "NbClust", "dendextend",
                            "tidyverse", "ranger", "Boruta", "tidymodels",
@@ -31,6 +32,7 @@ dir.create('1_fetch/out/sb/workdir', showWarnings = FALSE)
 dir.create('1_fetch/out/sb/dldir', showWarnings = FALSE)
 dir.create('1_fetch/out/sb/data', showWarnings = FALSE)
 dir.create('3_cluster/out', showWarnings = FALSE)
+dir.create('3_cluster/out/manuscript_plots', showWarnings = FALSE)
 dir.create('3_cluster/out/seasonal_plots', showWarnings = FALSE)
 dir.create('3_cluster/out/seasonal_plots/barplots', showWarnings = FALSE)
 dir.create('3_cluster/out/seasonal_plots/barplots/by_quantiles', showWarnings = FALSE)

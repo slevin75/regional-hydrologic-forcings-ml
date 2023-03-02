@@ -1904,6 +1904,21 @@ tar_target(p6_region_class_pred_high_noPhysio_CONUS_NHD_panel_for_paper_png,
                       out_dir = '6_predict/out/multiclass/High/NoPhysio/dependence/high'),
              format = "file"
   ),
+  #panel plot for paper
+  tar_target(p6_pdp_multiclass_high_noPhysio_offset_6panel_png,
+             plot_pdp_panel(partial = p6_pdp_multiclass_high_noPhysio[names(p6_pdp_multiclass_high_noPhysio) %in%
+                                                                  c('CAT_PPT_APR_avg', 'CAT_PPT_JUN_avg', 'ACC_PPT_AUG_avg',
+                                                                    'ACC_WB5100_FEB', 'ACC_TAV_FEB_avg', 'ACC_LSTFZ6190')],
+                      data = p5_attr_g2 %>%
+                        select(COMID, GAGES_ID, CAT_PPT_APR_avg, CAT_PPT_JUN_avg, ACC_PPT_AUG_avg,
+                               ACC_WB5100_FEB, ACC_TAV_FEB_avg, ACC_LSTFZ6190),
+                      ice = FALSE,
+                      offset = TRUE,
+                      ymax_offset = 0.3,
+                      model_name = 'RF_multiclass_high_NoPhysio',
+                      out_dir = '6_predict/out/multiclass/High/NoPhysio/dependence/high'),
+             format = "file"
+  ),
   #Raw metric values
   tar_target(p6_pdp_multiclass_midhigh_noPhysio_raw_metrics,
              compute_pdp(model = filter(p6_cluster_model_high_noPhysio_raw_metrics$RF_models, 

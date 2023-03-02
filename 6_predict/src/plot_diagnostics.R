@@ -813,7 +813,6 @@ offset_partial <- function(partial_data){
 }
 
 
-
 make_class_prediction_map_panel_for_paper <- function(class_probs, reaches, 
                                                       plot_threshold = 0.05, model_name,
                                                       ncores = 1, pt_size = 0.5, fname,
@@ -909,4 +908,89 @@ make_class_prediction_map_panel_for_paper <- function(class_probs, reaches,
  # parallel::stopCluster(cl)
   
   return(fname)
+}
+
+plot_pdp_panel <- function(partial, data, model_name, out_dir, ice = FALSE, 
+                           offset = FALSE, ymax_offset = 0.3){
+  #'
+  #' @description Creates a panel of PDP plots, one panel per feature in partial.
+  #'
+  #' @param partial result from compute_pdp
+  #' @param data the dataframe used to make model predictions
+  #' @param model_name character string describing the model. Will be added
+  #' to the end of the filename before the file extension.
+  #' @param out_dir output directory
+  #' @param ice logical. if TRUE, plots ICE values.
+  #' @param offset logical. if TRUE, offset first pdp element to 0.
+  #' @param ymax_offset the max ylim value for offset plots.
+  #'
+  #' @return Returns the path to the png file of the panel plot
+  
+  #Convert class IDs to character to plot correctly
+  for(i in 1:length(partial)){
+    partial[[i]]$yhat.id <- as.character(partial[[i]]$yhat.id) 
+    if(offset){
+      #offset each yhat.id such that it starts at 0
+      partial[[i]]$yhat <- offset_partial(partial[[i]])
+      
+      #add y=-0.5 for rug
+      data$y0 <- -ymax_offset
+      
+      plt_ylab <- 'Centered Region Probability'
+      
+      plt_ylim <- c(-ymax_offset, ymax_offset)
+      
+      fileout <- file.path(out_dir, paste0(ifelse(ice, 'ICE_offset_', 'PDP_offset_'), 
+                                           'panel_', model_name, '.png'))
+    }else{
+      #add y=0 for rug
+      data$y0 <- 0
+      
+      plt_ylab <- 'Average Class Probability'
+      plt_ylim <- c(0, 1)
+      
+      fileout <- file.path(out_dir, paste0(ifelse(ice, 'ICE_offset_', 'PDP_offset_'), 
+                                           'panel_', model_name, '.png'))
+    }
+  }
+  
+  #Create a facet-able object
+  data_facet <- partial[[1]]
+  data_facet$name <- colnames(data_facet)[1]
+  colnames(data_facet)[1] <- 'variable'
+  for(i in 2:length(partial)){
+    fi <- partial[[i]]
+    fi$name <- colnames(fi)[1]
+    colnames(fi)[1] <- 'variable'
+    data_facet <- rbind(data_facet, fi)
+  }
+  
+  #change names
+  data_facet$name <- case_when(data_facet$name == 'ACC_LSTFZ6190' ~ 'Last Freeze Day (doy)',
+                          data_facet$name == 'ACC_PPT_AUG_avg' ~ 'Aug. Precip. (mm)',
+                          data_facet$name == 'ACC_TAV_FEB_avg' ~ 'Feb. Temp. (deg. C)',
+                          data_facet$name == 'ACC_WB5100_FEB' ~ 'Feb. Runoff (mm)',
+                          data_facet$name == 'CAT_PPT_APR_avg' ~ 'Apr. Precip. (mm)',
+                          data_facet$name == 'CAT_PPT_JUN_avg' ~ 'June Precip. (mm)',
+                          TRUE ~ as.character(data_facet$name))
+  
+  #plots for the panel
+  p <- ggplot(data = data_facet, 
+              mapping = aes(x = variable, y = yhat, color = yhat.id)) + 
+    geom_line(size = 1) + 
+    #geom_point(mapping = aes(x = variable, y = -0.3), show.legend = FALSE, inherit.aes = FALSE) +
+    ylim(plt_ylim) +
+    ylab(plt_ylab) +
+    xlab('Attribute Value') +
+    theme_bw() +
+    theme(strip.text = element_text(size = 10), axis.text = element_text(size = 6))+
+    scale_color_scico_d(palette = 'batlow') +
+    labs(color = "Seasonal\nRegion") +
+    facet_wrap(~factor(data_facet$name, levels=c('Apr. Precip. (mm)', 'June Precip. (mm)', 'Aug. Precip. (mm)', 
+                                        'Feb. Runoff (mm)', 'Feb. Temp. (deg. C)', 'Last Freeze Day (doy)')), 
+                       scales = 'free_x')
+  
+  ggsave(filename = fileout, plot = p, device = 'png', width = 6, height = 4, units = 'in', dpi = 300)
+  
+  return(fileout)
 }

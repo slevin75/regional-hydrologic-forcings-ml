@@ -536,7 +536,8 @@ plot_cluster_map <- function(gages, cluster_table, dir_out,
   #'  
   #' @return filepaths to the plots
   
-  gages <- select(gages, 1:4, geometry) %>%
+  gages <- gages %>%
+    select(COMID, GAGES_ID, LAT, LON, geometry)%>%
     rename(ID = GAGES_ID) %>%
     left_join(cluster_table, by = "ID")
   ncol_gages <- 5
@@ -747,7 +748,8 @@ make_panel_cluster_plot_for_paper<- function(gages, cluster_table,
   cluster_table <- cluster_table %>%
     select(clust_table_cols)
   
-  gages <- select(gages, 1:4, geometry) %>%
+  gages <- gages %>%
+    select(COMID, GAGES_ID, LAT, LON, geometry) %>%
     rename(ID = GAGES_ID) %>%
     left_join(cluster_table, by = "ID")
   ncol_gages <- 5

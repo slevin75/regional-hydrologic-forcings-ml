@@ -428,7 +428,7 @@ make_class_prediction_map <- function(class_probs, reaches, out_dir,
         geom_sf(data = plot_sites, inherit.aes = FALSE, 
                 aes(color = .data[[col_name]]), 
                 size = pt_size) +
-        scale_color_scico_d(palette = 'batlow') +
+        scale_color_scico_d(palette = 'berlin') +
         theme(legend.position="bottom",
               legend.key.size=unit(2,'cm'),
               legend.text=element_text(size=16)) +
@@ -812,6 +812,103 @@ offset_partial <- function(partial_data){
   return(partial_data$yhat)
 }
 
+
+make_class_prediction_map_panel_for_paper <- function(class_probs, reaches, 
+                                                      plot_threshold = 0.05, model_name,
+                                                      ncores = 1, pt_size = 0.5, fname,
+                                                      title_str, color_pal){
+  #' @description this function is a modified form of the make_class_prediction_map
+  #' to make figure 2 for the regions paper. 
+  #' 
+  #' @param class_probs dataframe of predicted class probabilities for each reach.
+  #' must have an "ID" column and columns for the class probabilities labeled with
+  #' the name of the class. No other columns.
+  #' @param reaches sf object containing the reaches to plot. Must have a "COMID" column
+  #' @param out_dir where output figures are saved
+  #' @param plot_threshold threshold below which sites / reaches are not plotted
+  #' because the probability is too low.
+  #' @param model_name name to add to the file name that describes this model
+  #' @param ncores number of cores to use
+  #' 
+  #' @return file paths to map
+  
+  #get number of ranks
+  num_ranks <- ncol(class_probs) - 1
+  
+  cl = parallel::makeCluster(ncores)
+  doParallel::registerDoParallel(cl)
+  
+  #This method works for all cases except when there is only 1 class
+  # whose probability is < prob_threshold. That class will still receive a rank
+  # instead of an NA for plotting. I'm not sure of a quick way around that problem.
+  inds_NA <- which(class_probs[,-which(colnames(class_probs) == "ID")] < plot_threshold, arr.ind = TRUE)
+  class_probs[,-which(colnames(class_probs) == "ID")][inds_NA] <- -1
+  
+  #Convert the predicted probabilities into a rank of which class is most likely (1) 
+  #to least likely (n = number of classes)
+  rank_mat <- t(parApply(cl = cl, X = class_probs[, -which(colnames(class_probs) == "ID")], 
+                         MARGIN = 1, FUN = decreasing_rank)) %>%
+    as.data.frame()
+
+  rank_mat$ID <- class_probs$ID
+  colnames(rank_mat) <- colnames(class_probs)
+
+  
+  #Make new columns for the rank of the class (change the cells to column names)
+  LikelyRanks <- matrix(NA, nrow = nrow(rank_mat), ncol = num_ranks)
+  for(i in 1:ncol(LikelyRanks)){
+    LikelyRanks[,i] <- parApply(cl = cl, X = rank_mat, MARGIN = 1, FUN = assign_max_rank, 
+                                rank = i, rank_cols = colnames(rank_mat)[1:num_ranks]) 
+  }
+  LikelyRanks <- as.data.frame(LikelyRanks)
+  colnames(LikelyRanks) <- paste0('LikelyRank', seq(1,ncol(LikelyRanks),1))
+  #Change to characters
+  LikelyRanks <- as.data.frame(apply(X = LikelyRanks, MARGIN = 2, FUN = as.character, simplify = FALSE))
+  #Add ID
+  LikelyRanks$ID <- rank_mat$ID
+  
+  #Join ranks to reaches for plotting
+  reaches <- left_join(reaches, LikelyRanks, by = "ID")
+  
+  #Plot one map for the most likely class, second most likely, etc. to the nth class
+  states <- map_data("state")
+  parallel::stopCluster(cl)
+  p<- list()
+
+  
+  for (i in 1:2){
+
+    col_name <- colnames(LikelyRanks)[i]
+    if(!all(is.na(reaches[[col_name]]))){
+      plot_sites <- reaches[!is.na(reaches[[col_name]]),]
+      
+      p[[i]] <- ggplot(states, aes(x = long, y = lat, group = group)) +
+        geom_polygon(fill = "white", color = "gray80") +
+        geom_sf(data = plot_sites, inherit.aes = FALSE, 
+                aes(color = .data[[col_name]]), 
+                size = pt_size) +
+        scale_color_scico_d(palette = color_pal) +
+        theme(legend.position="bottom",
+              legend.key.size=unit(1,'cm'),
+              legend.key= element_blank(),
+              legend.text=element_text(size=10)) +
+        guides(color = guide_legend(override.aes = list(size=5))) +
+        xlab('Longitude') + 
+        ylab('Latitude')+
+        labs(color = "Region")+
+        ggtitle(title_str[i])
+    } #endif
+  } #end for i
+  
+  
+  ggarrange(p[[1]], p[[2]], ncol = 1,common.legend = TRUE, legend = "bottom")
+
+  ggsave(filename = fname, bg = "white")
+
+ # parallel::stopCluster(cl)
+  
+  return(fname)
+}
 
 plot_pdp_panel <- function(partial, data, model_name, out_dir, ice = FALSE, 
                            offset = FALSE, ymax_offset = 0.3){

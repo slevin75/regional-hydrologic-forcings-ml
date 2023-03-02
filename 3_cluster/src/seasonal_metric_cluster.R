@@ -536,7 +536,8 @@ plot_cluster_map <- function(gages, cluster_table, dir_out,
   #'  
   #' @return filepaths to the plots
   
-  gages <- select(gages, 1:4, geometry) %>%
+  gages <- gages %>%
+    select(COMID, GAGES_ID, LAT, LON, geometry)%>%
     rename(ID = GAGES_ID) %>%
     left_join(cluster_table, by = "ID")
   ncol_gages <- 5
@@ -724,6 +725,100 @@ get_colmeans_panel_plt <- function(metric_names, metric_mat, by_quantile,
   
   return(metric_mat_c)
 }
+
+
+make_panel_cluster_plot_for_paper<- function(gages, cluster_table, 
+                                             fileout){
+  
+  #' @description  This is a modification of the plot cluster map specifically
+  #' for the panel figure of cluster regions in the cluster paper.  I have 
+  #' hard coded in things like the columns we are using because I don't think
+  #' we will need to use this function after the paper is finished.
+  #' @param gages dataframe of the gages(rows)
+  #' @param cluster_table output of add)cluster_to_gages
+  #' @param fileout saved file name
+  #' 
+  #' @return filepath to the panel plot
+  #' 
+  
+  ##only making this plot using the following quantiles.
+  clust_table_cols <- c("ID","0.55_k5", "0.75_k5", "0.95_k5")
+  cluster_table <- cluster_table %>%
+    select(clust_table_cols)
+  
+  gages <- gages %>%
+    select(COMID, GAGES_ID, LAT, LON, geometry) %>%
+    rename(ID = GAGES_ID) %>%
+    left_join(cluster_table, by = "ID")
+  ncol_gages <- 5
+  
+  #U.S. States
+  states <- map_data("state") 
+  ##changing the cluster numbers so that the map colors are consistent with the following
+  ##pattern: upper new england/upper midwest = dark blue, appalachia/gulf coast = lt. blue
+  ##  fl/tx and midwest = green, rockies = peach, calif = pink.  
+  
+  ##adding a "q" to colnames in gages because having the number start the column name was 
+  ##messing things up.
+  gages <- gages %>%
+    rename("q0.55_k5" = "0.55_k5", "q0.75_k5" = "0.75_k5", "q0.95_k5" = "0.95_k5")
+  
+  gages <- gages %>%
+    mutate( q0.55_k5 = case_when(q0.55_k5 == 3 ~ 5,
+                                 q0.55_k5 == 4 ~ 3,
+                                 q0.55_k5 == 5 ~ 4,
+                                 q0.55_k5 == 1 ~ 1,
+                                 q0.55_k5 == 2 ~ 2),
+            q0.75_k5 = case_when(q0.75_k5 == 1 ~ 1,
+                                 q0.75_k5 == 2 ~ 2,
+                                 q0.75_k5 == 3 ~ 3,
+                                 q0.75_k5 == 4 ~ 5,
+                                 q0.75_k5 == 5 ~ 4),
+            q0.95_k5 = case_when(q0.95_k5 == 1 ~ 1,
+                                 q0.95_k5 == 2 ~ 4,
+                                 q0.95_k5 == 3 ~ 2,
+                                 q0.95_k5 == 4 ~ 3,
+                                 q0.95_k5 == 5 ~ 5))
+  
+  p<- list()
+  for(i in 1:(ncol(cluster_table)-1)){
+    # fileout[i] <- ifelse(facet,
+    #                      file.path(dir_out, paste0(colnames(cluster_table)[i+1], '_facet_map.png')),
+    #                     file.path(dir_out, paste0(colnames(cluster_table)[i+1], '_map.png')))
+    
+    
+    #number of clusters from the column name
+    k <- as.numeric(str_split(string = str_split(string = colnames(cluster_table)[i+1], 
+                                                 pattern = '_')[[1]] %>% last(), 
+                              pattern = 'k')[[1]] %>% last())
+    
+    #png(filename = fileout[i], width = 8, height = 5, units = 'in', res = 200)
+    #plot gage locations, colored by their cluster
+    p[[i]] <- ggplot(states, aes(x=long, y=lat, group=group)) +
+      geom_polygon(fill="white", color="gray") +
+      geom_sf(data = gages, inherit.aes = FALSE, 
+              aes(color = factor(.data[[colnames(gages)[ncol_gages+i]]])), 
+              size = 0.25) + 
+      ggtitle(paste0('Quantile ', 
+                     str_split(colnames(cluster_table)[i+1], pattern = '_', 
+                               simplify = T)[1])) +
+      xlab('Longitude') + 
+      ylab('Latitude') +
+      labs(color='Cluster') +
+      scale_color_scico_d(palette = 'batlow')+
+      guides(colour = guide_legend(override.aes = list(size=1.5)))+
+      theme(legend.position = "bottom",
+            legend.margin=margin(t=-200))
+  }
+  
+  ggarrange(p[[1]],p[[2]], p[[3]], nrow = 1, common.legend = TRUE, legend = "bottom")
+  
+  ggsave(fileout, bg="white")
+  
+  return(fileout)
+  
+}
+
 
 plot_map_barplot <- function(gages, cluster_table, metric_mat, metric_names, 
                              metric_quants_agg, seasonal, season_months, 

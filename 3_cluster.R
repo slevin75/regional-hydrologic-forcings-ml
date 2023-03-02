@@ -788,6 +788,14 @@ p3_targets_list <- list(
              deployment = 'main',
              format = 'file'
   ),
+  
+  ##panel plot for regions paper
+  tar_target(p3_panel_maps_for_paper_png,
+             make_panel_cluster_plot_for_paper(gages = p1_feature_vars_g2_sf,
+                                               cluster_table = p3_gages_clusters_quants,
+                                               fileout = fileout <-'3_cluster/out/seasonal_plots/maps/by_quantiles/panel_map_for_paper.png'
+)),
+  
   tar_target(p3_cluster_map_quants_agg_png,
              plot_cluster_map(gages = p1_feature_vars_g2_sf,
                               cluster_table = p3_gages_clusters_quants_agg,

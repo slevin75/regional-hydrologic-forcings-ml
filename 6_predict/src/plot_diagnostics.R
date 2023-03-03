@@ -618,10 +618,9 @@ make_region_count_map <- function(class_probs, reaches, threshold,
     geom_polygon(fill = "white", color = "gray80") +
     geom_sf(data = reach_prob_count, mapping = aes(color = num_prob_thresh), 
             inherit.aes = FALSE, size = pt_size) +
-    scale_color_viridis() +
+    scale_color_viridis_c() +
     labs(x = "Longitude", y = "Latitude", 
-         color = paste0("Number of seasonal regions with probability ", 
-                        "greater than ", threshold)) +
+         color = paste0("Num. seasonal regions with probability > ", threshold)) +
     theme(legend.position = "bottom") +
     guides(color = guide_legend(override.aes = list(size = 1)))
   fname = paste0(out_dir, model_name, "_threshold_", threshold, ".png")

@@ -572,11 +572,58 @@ make_transition_region_map <- function(class_probs, reaches, threshold,
     geom_polygon(fill = "white", color = "gray80") +
     geom_sf(data = reaches_to_plot, mapping = aes(color = plot_group), 
             inherit.aes = FALSE, size = pt_size) +
-    facet_wrap(. ~ two_mixed, ncol = 2) +
+    facet_wrap(. ~ two_mixed, ncol = 4) +
     scale_color_manual(values = c("#1b9e77", "#7570b3")) +
     labs(x = "Longitude", y = "Latitude", color = "") +
     theme(legend.position = "bottom") +
-    guides(color = guide_legend(override.aes = list(size=2)))
+    guides(color = guide_legend(override.aes = list(size = 1)))
+  fname = paste0(out_dir, model_name, "_threshold_", threshold, ".png")
+  ggsave(filename = fname, bg = "white",
+         height = 7.5, width = 10, units = "in", dpi = 300)
+  
+  return(fname)
+}
+
+
+make_region_count_map <- function(class_probs, reaches, threshold,
+                                  out_dir, model_name, pt_size = 0.5) {
+  #' @description this function creates a map showing the reaches colored by 
+  #' the number of clusters (regions) predicted above a certain probability
+  #' 
+  #' @param class_probs dataframe of predicted class probabilities for each reach.
+  #' must have an "ID" column and columns (ordered 1 through 5) for the class 
+  #' probabilities labeled with the name of the class. No other columns. 
+  #' @param reaches sf object containing the reaches to plot. Must have a "ID" column
+  #' corresponding to the same "ID" values in class_probs
+  #' @param out_dir where output figures are saved
+  #' @param threshold minimum probability for region to be counted "probable"
+  #' @param model_name name to add to the file name that describes this model
+  #' @param pt_size size of features to be mapped
+  #' 
+  #' @return file paths to maps
+  
+  #identify region rankings based on probability
+  region_prob_count <- select(class_probs, -ID) %>%
+    rename(prob_1 = 1, prob_2 = 2, prob_3 = 3, prob_4 = 4, prob_5 = 5) %>%
+    mutate(num_prob_thresh = rowSums(. > threshold))
+  region_prob_count <- 
+    bind_cols(tibble(ID = class_probs$ID), region_prob_count)
+  
+  #Join ranks to reaches for plotting
+  reach_prob_count <- left_join(reaches, region_prob_count, by = "ID")
+  
+  #Plot map with colors counting the number of "probable" regions
+  states <- map_data("state")
+  region_count_map <- ggplot(states, aes(x = long, y = lat, group = group)) +
+    geom_polygon(fill = "white", color = "gray80") +
+    geom_sf(data = reach_prob_count, mapping = aes(color = num_prob_thresh), 
+            inherit.aes = FALSE, size = pt_size) +
+    scale_color_viridis() +
+    labs(x = "Longitude", y = "Latitude", 
+         color = paste0("Number of seasonal regions with probability ", 
+                        "greater than ", threshold)) +
+    theme(legend.position = "bottom") +
+    guides(color = guide_legend(override.aes = list(size = 1)))
   fname = paste0(out_dir, model_name, "_threshold_", threshold, ".png")
   ggsave(filename = fname, bg = "white",
          height = 4.5, width = 6, units = "in", dpi = 300)

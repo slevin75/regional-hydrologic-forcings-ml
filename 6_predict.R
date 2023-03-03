@@ -1473,6 +1473,17 @@ p6_targets_list <- list(
                                         pt_size = 0.1), 
              format = "file"), 
 
+  #CONUS NHD "probable" reaches (reaches colored by number of clusters above probability threshold)
+  tar_target(p6_region_count_high_noPhysio_CONUS_NHD_png, 
+             make_region_count_map(class_probs = p6_region_class_pred_high_noPhysio_CONUS_NHD, 
+                                   reaches = p1_sites_conus_sf %>%
+                                     mutate(ID = COMID) %>%
+                                     filter(Tidal == 0, FTYPE %in% retain_ftypes), 
+                                   threshold = 0.05,
+                                   out_dir = "6_predict/out/multiclass/High/NoPhysio/",
+                                   model_name = 'Region_Count_High_NoPhysio_NHD_fine_k5',
+                                   pt_size = 0.1),
+             format = "file"),
 
   #Raw metric values
 #  tar_target(p6_region_class_pred_midhigh_noPhysio_raw_metrics_CONUS_NHD_png,

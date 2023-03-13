@@ -862,7 +862,7 @@ plot_map_barplot <- function(gages, cluster_table, metric_mat, metric_names,
       geom_polygon(fill = "white", color = "gray") +
       geom_sf(data = gages, inherit.aes = FALSE, 
               aes(color = factor(cluster)), 
-              size = 0.2) + 
+              size = 0.1) + 
       facet_grid(label ~ cluster, switch = "y") +
       labs(x = "", y = "") +
       scale_color_scico_d(palette = "batlow") +
@@ -875,7 +875,7 @@ plot_map_barplot <- function(gages, cluster_table, metric_mat, metric_names,
       geom_polygon(fill = "white", color = "gray") +
       geom_sf(data = gages, inherit.aes = FALSE, 
               aes(color = factor(cluster)), 
-              size = 0.5) + 
+              size = 0.1) + 
       facet_grid(label ~ cluster, switch = "y") +
       labs(x = "", y = "") +
       scale_color_scico_d(palette = "berlin") +

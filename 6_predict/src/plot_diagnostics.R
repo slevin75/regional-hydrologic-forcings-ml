@@ -357,7 +357,8 @@ make_residual_map <- function(df_pred_obs, sites, metric, pred_gage_ids, region,
 
 make_class_prediction_map <- function(class_probs, reaches, out_dir,
                                       plot_threshold = 0.05, model_name,
-                                      ncores = 1, pt_size = 0.5){
+                                      ncores = 1, pt_size = 0.5,
+                                      color_pal = 'batlow'){
   #' @description this function creates maps of predicted class probabilities for
   #' each reach
   #' 
@@ -427,12 +428,12 @@ make_class_prediction_map <- function(class_probs, reaches, out_dir,
         geom_polygon(fill = "white", color = "gray80") +
         geom_sf(data = plot_sites, inherit.aes = FALSE, 
                 aes(color = .data[[col_name]]), 
-                size = pt_size) +
-        scale_color_scico_d(palette = 'berlin') +
+                size = pt_size, linewidth = pt_size) +
+        scale_color_scico_d(palette = color_pal) +
         theme(legend.position="bottom",
               legend.key.size=unit(2,'cm'),
               legend.text=element_text(size=16)) +
-        guides(color = guide_legend(override.aes = list(size=10))) +
+        guides(color = guide_legend(override.aes = list(size=10, linewidth=5))) +
         xlab('Longitude') + 
         ylab('Latitude')
       
@@ -571,12 +572,12 @@ make_transition_region_map <- function(class_probs, reaches, threshold,
   transition_map <- ggplot(states, aes(x = long, y = lat, group = group)) +
     geom_polygon(fill = "white", color = "gray80") +
     geom_sf(data = reaches_to_plot, mapping = aes(color = plot_group), 
-            inherit.aes = FALSE, size = pt_size) +
+            inherit.aes = FALSE, size = pt_size, linewidth = pt_size) +
     facet_wrap(. ~ two_mixed, ncol = 4) +
     scale_color_manual(values = c("#1b9e77", "#7570b3")) +
     labs(x = "Longitude", y = "Latitude", color = "") +
     theme(legend.position = "bottom") +
-    guides(color = guide_legend(override.aes = list(size = 1)))
+    guides(color = guide_legend(override.aes = list(size = 1, linewidth = 1)))
   fname = paste0(out_dir, model_name, "_threshold_", threshold, ".png")
   ggsave(filename = fname, bg = "white",
          height = 7.5, width = 10, units = "in", dpi = 300)
@@ -617,12 +618,12 @@ make_region_count_map <- function(class_probs, reaches, threshold,
   region_count_map <- ggplot(states, aes(x = long, y = lat, group = group)) +
     geom_polygon(fill = "white", color = "gray80") +
     geom_sf(data = reach_prob_count, mapping = aes(color = num_prob_thresh), 
-            inherit.aes = FALSE, size = pt_size) +
+            inherit.aes = FALSE, size = pt_size, linewidth = pt_size) +
     scale_color_viridis_c() +
     labs(x = "Longitude", y = "Latitude", 
          color = paste0("Num. seasonal regions with probability > ", threshold)) +
     theme(legend.position = "bottom") +
-    guides(color = guide_legend(override.aes = list(size = 1)))
+    guides(color = guide_legend(override.aes = list(size = 1, linewidth = 1)))
   fname = paste0(out_dir, model_name, "_threshold_", threshold, ".png")
   ggsave(filename = fname, bg = "white",
          height = 4.5, width = 6, units = "in", dpi = 300)
@@ -1070,13 +1071,13 @@ make_class_prediction_map_panel_for_paper <- function(class_probs, reaches,
         geom_polygon(fill = "white", color = "gray80") +
         geom_sf(data = plot_sites, inherit.aes = FALSE, 
                 aes(color = .data[[col_name]]), 
-                size = pt_size) +
+                size = pt_size, linewidth = pt_size) +
         scale_color_scico_d(palette = color_pal) +
         theme(legend.position="bottom",
               legend.key.size=unit(1,'cm'),
               legend.key= element_blank(),
               legend.text=element_text(size=10)) +
-        guides(color = guide_legend(override.aes = list(size=5))) +
+        guides(color = guide_legend(override.aes = list(size=5, linewidth=5))) +
         xlab('Longitude') + 
         ylab('Latitude')+
         labs(color = "Region")+

@@ -325,6 +325,6 @@ p1_targets_list <- list(
   ##screening out NA and -9998, -9999 values
   tar_target(p1_feature_vars_conus_screen,
              p1_feature_vars_conus %>%
-               na.exclude() %>%
+               drop_na() %>%
                filter_if(is.numeric, all_vars(. > -990)))
 )

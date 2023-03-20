@@ -320,5 +320,11 @@ p1_targets_list <- list(
                                                "TotDASqKM", "DivDASqKM", "SLOPE", 
                                                "LakeFract", "SurfArea")), 
              deployment = "main"
-  )
+  ),
+  
+  ##screening out NA and -9998, -9999 values
+  tar_target(p1_feature_vars_conus_screen,
+             p1_feature_vars_conus %>%
+               drop_na() %>%
+               filter_if(is.numeric, all_vars(. > -990)))
 )

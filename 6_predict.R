@@ -2066,5 +2066,34 @@ tar_target(p6_region_class_pred_high_noPhysio_CONUS_NHD_panel_for_paper_fine_png
                                  outdir = '6_predict/out/multiclass/High/NoPhysio',
                                  filename = 'gages_attrs.csv'),
              format = "file"
-  )
+  ),
+
+
+
+###assign most likely cluster for conus reaches for high and mid high quantiles
+tar_target(p6_cluster_table_CONUS_high,
+           get_likely_rank(class_probs =p6_region_class_pred_high_noPhysio_CONUS_NHD,
+                           reaches = p1_sites_conus_sf %>%
+                             mutate(ID = COMID) %>%
+                             filter(Tidal == 0, FTYPE %in% retain_ftypes) %>%
+                             select(ID))),
+
+tar_target(p6_cluster_table_CONUS_midhigh,
+           get_likely_rank(class_probs =p6_region_class_pred_midhigh_noPhysio_CONUS_NHD,
+                           reaches = p1_sites_conus_sf %>%
+                             mutate(ID = COMID) %>%
+                             filter(Tidal == 0, FTYPE %in% retain_ftypes) %>%
+                             select(ID))),
+tar_target(p6_feature_comparison_plots_high,
+           feature_comparison_plots(cluster_table_gagesii=p3_gages_clusters_quants_agg %>%
+                                                          select(ID, "0.75,0.8,0.85,0.9,0.95_k5") %>%
+                                                          rename("cluster" = 2) %>%
+                                                          select(ID, cluster),
+                                    gagesii_features=p1_feature_vars_g2,
+                                    cluster_table_CONUS = p6_cluster_table_CONUS_high %>%
+                                                          select(ID, LikelyRank1) %>%
+                                                          rename(cluster=LikelyRank1 )%>%
+                                                          mutate(cluster = as.numeric(cluster)),
+                                    conus_features= p1_feature_vars_conus_screen,
+                                    outdir ='6_predict/out/EDA_comparison/high'))
 )

@@ -128,6 +128,8 @@ dir.create('6_predict/out/multiclass/High_Raw/NoPhysio/shap/midhigh', showWarnin
 dir.create('6_predict/out/multiclass/High_Raw/NoPhysio/dependence', showWarnings = FALSE)
 dir.create('6_predict/out/multiclass/High_Raw/NoPhysio/dependence/high', showWarnings = FALSE)
 dir.create('6_predict/out/multiclass/High_Raw/NoPhysio/dependence/midhigh', showWarnings = FALSE)
+dir.create('6_predict/out/EDA_comparison', showWarnings = FALSE)
+dir.create('6_predict/out/EDA_comparison/high', showWarnings = FALSE)
 
 ##Load user defined functions
 source("1_fetch.R")

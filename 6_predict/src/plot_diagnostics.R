@@ -1229,39 +1229,45 @@ get_likely_rank <- function(class_probs, reaches){
 
 feature_comparison_plots <- function(cluster_table_gagesii, gagesii_features,
                                            cluster_table_CONUS, conus_features,  
-                                           outdir){
+                                           model, outdir){
   #'@description this function compares the distribution of feature values in the gagesii data
   #' with the feature values in the NHD stream reaches by prediction region
   #' @param cluster_table_gagesii is a table with ID and cluster of the gages
   #' @param gageii_features is a data frame with GAGES_ID and columns for each of the features
   #' @param cluster_table_CONUS is a data frame with ID and cluster
   #' @param conus_features is a data frame with COMID and a column for each feature
+  #' @param model is list of rf objects which have a variable.importance field
   #' @param outdir is the subdirectory to save the files
   
   
-  ##get the feature column names in both the gagesii and conus - should mostly be the same
-  #but there may be some that are not
-  common_names <- intersect(names( gagesii_features), names(conus_features))
+  # get the names of features used in the models
+  model_features<-model %>%
+    purrr::map("variable.importance") %>%
+    unlist() 
+
   
-  #these variables need to be log transformed to get a meaningful plot.  There may
-  #be others as well.  
-  transform_vars <- c("ACC_BASIN_AREA",  "ACC_STREAM_LENGTH",
-                      "CAT_BASIN_AREA", "CAT_STREAM_LENGTH" , "TOT_BASIN_AREA",
-                      "TOT_STREAM_LENGTH" )
+  model_features <- unique(names(model_features))
+
+  
+  #these variables need to be log transformed to get a meaningful plot. 
+  transform_vars <- c("ACC_STREAM_SLOPE" , "ACC_OM",  "ACC_CONTACT", "ACC_SATOF",
+                      "ACC_SOHL_CROPLAND_avg",  "ACC_SOHL_HAY-PASTURE_avg", "ACC_SOHL_WETLAND_avg",
+                      "CAT_WB5100_NOV", "ACC_WB5100_SEP",   "CAT_WB5100_SEP" , "ACC_WB5100_DEC" ,
+                      "ACC_WB5100_FEB" )
   
   
   ###loop through common_names, make plots and save
-  for(i in 2: length(common_names)){
-    feature<- common_names[i]
+  for(i in 1: length(model_features)){
+    feature<- model_features[i]
     print(feature)
     
-    df_gage <- gagesii_features%>%
+    df_gage <- gagesii_features %>%
       select(GAGES_ID,all_of(feature)) %>%
-      rename(ID = GAGES_ID)%>%
+      rename(ID = GAGES_ID) %>%
       rename(feature_var  := !!feature) %>%
-      left_join(.,cluster_table_gagesii )%>%
+      left_join(.,cluster_table_gagesii) %>%
       select(ID, feature_var,cluster) %>%
-    mutate(distribution = "gages") 
+      mutate(distribution = "gages") 
     
     df_conus <- conus_features %>%
       select(COMID,all_of(feature)) %>%
@@ -1276,17 +1282,20 @@ feature_comparison_plots <- function(cluster_table_gagesii, gagesii_features,
       ggplot(df_plot, aes(distribution, feature_var)) +
         geom_violin()+   ylab(feature)+
         facet_wrap(~cluster) +
-        scale_y_log10()
+        scale_y_continuous(trans= "log1p")
     }  else {
       ggplot(df_plot, aes(distribution, feature_var)) +
         geom_violin()+   ylab(feature)+
         facet_wrap(~cluster) 
-    } #end if
-    
+    } 
+  
     fileout <- paste0(outdir,"/",feature, ".png")
     ggsave(filename = fileout,  device = 'png', width = 6, height = 4, units = 'in', dpi = 300)
-  } #end for i
+  }
+  
+  return(paste0(outdir, "/", model_features, ".png"))
   
 }
+
 
 

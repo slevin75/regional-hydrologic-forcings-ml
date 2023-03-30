@@ -6,6 +6,7 @@ library(clustermq)
 options(tidyverse.quiet = TRUE)
 library(tidyverse)
 
+
 ##Load libraries for use in computing targets
 tar_option_set(packages = c("fasstr", "EflowStats", "dataRetrieval",
                             "lubridate", "cluster", "factoextra", "NbClust",
@@ -13,7 +14,7 @@ tar_option_set(packages = c("fasstr", "EflowStats", "dataRetrieval",
                             "dendextend", "scico", "tidyverse", "nhdplusTools",
                             "sbtools", "maps", "mapproj", "ranger", "Boruta",
                             "tidymodels", "doParallel", "vip", "gstat", "rlist", 
-                            "measures", "fastshap", "shapviz", "pdp", "ggpubr","pals"),
+                            "measures", "fastshap", "shapviz", "pdp", "ggpubr", "pals"),
 
                imports = c("fasstr", "EflowStats", "dataRetrieval", 
                            "cluster","factoextra", "NbClust", "dendextend",
@@ -130,7 +131,7 @@ dir.create('6_predict/out/multiclass/High_Raw/NoPhysio/dependence/high', showWar
 dir.create('6_predict/out/multiclass/High_Raw/NoPhysio/dependence/midhigh', showWarnings = FALSE)
 dir.create('6_predict/out/EDA_comparison', showWarnings = FALSE)
 dir.create('6_predict/out/EDA_comparison/high', showWarnings = FALSE)
-
+dir.create('6_predict/out/EDA_comparison/midhigh', showWarnings = FALSE)
 ##Load user defined functions
 source("1_fetch.R")
 source("2_flow_metrics.R")

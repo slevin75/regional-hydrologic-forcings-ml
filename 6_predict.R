@@ -2084,6 +2084,8 @@ tar_target(p6_cluster_table_CONUS_midhigh,
                              mutate(ID = COMID) %>%
                              filter(Tidal == 0, FTYPE %in% retain_ftypes) %>%
                              select(ID))),
+
+
 tar_target(p6_feature_comparison_plots_high,
            feature_comparison_plots(cluster_table_gagesii=p3_gages_clusters_quants_agg %>%
                                                           select(ID, "0.75,0.8,0.85,0.9,0.95_k5") %>%
@@ -2095,5 +2097,24 @@ tar_target(p6_feature_comparison_plots_high,
                                                           rename(cluster=LikelyRank1 )%>%
                                                           mutate(cluster = as.numeric(cluster)),
                                     conus_features= p1_feature_vars_conus_screen,
-                                    outdir ='6_predict/out/EDA_comparison/high'))
+                                    model = filter(p6_cluster_model_high_noPhysio$RF_models, 
+                                                   HM ==  "0.75,0.8,0.85,0.9,0.95_k5") %>% 
+                                      pull(model),
+                                    outdir ='6_predict/out/EDA_comparison/high')),
+
+tar_target(p6_feature_comparison_plots_midhigh,
+           feature_comparison_plots(cluster_table_gagesii=p3_gages_clusters_quants_agg %>%
+                                      select(ID,  "0.5,0.55,0.6,0.65,0.7_k5") %>%
+                                      rename("cluster" = 2) %>%
+                                      select(ID, cluster),
+                                    gagesii_features=p1_feature_vars_g2,
+                                    cluster_table_CONUS = p6_cluster_table_CONUS_midhigh %>%
+                                      select(ID, LikelyRank1) %>%
+                                      rename(cluster=LikelyRank1 )%>%
+                                      mutate(cluster = as.numeric(cluster)),
+                                    conus_features= p1_feature_vars_conus_screen,
+                                    model = filter(p6_cluster_model_high_noPhysio$RF_models, 
+                                                   HM ==  "0.5,0.55,0.6,0.65,0.7_k5") %>% 
+                                      pull(model),
+                                    outdir ='6_predict/out/EDA_comparison/midhigh'))
 )

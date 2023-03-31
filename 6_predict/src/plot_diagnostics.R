@@ -1179,3 +1179,111 @@ plot_pdp_panel <- function(partial, data, model_name, out_dir, ice = FALSE,
   
   return(fileout)
 }
+
+
+get_likely_rank <- function(class_probs, reaches){
+  #'@description  this function assigns the most likely predicted cluster to
+  #'the NHD reaches. This code was mostly borrowed from the 
+  #'make_class_prediction_map function
+  #' @param class_probs dataframe of predicted class probabilities for each reach.
+  #' must have an "ID" column and columns for the class probabilities labeled with
+  #' the name of the class. No other columns.
+  #' @param reaches sf object containing the reaches to plot. Must have a "COMID" column 
+  #' @param ncores number of cores to use
+  #' @return data frame with the reaches and the 1st - fifth most likely predicted cluster.
+  
+  
+  #get number of ranks
+  num_ranks <- ncol(class_probs) - 1
+  
+  
+  #Convert the predicted probabilities into a rank of which class is most likely (1) 
+  #to least likely (n = number of classes)
+  rank_mat <- t(apply( X = class_probs[, -which(colnames(class_probs) == "ID")], 
+                       MARGIN = 1, FUN = decreasing_rank)) %>%
+    as.data.frame()
+  
+  rank_mat$ID <- class_probs$ID
+  colnames(rank_mat) <- colnames(class_probs)
+  
+  
+  #Make new columns for the rank of the class (change the cells to column names)
+  LikelyRanks <- matrix(NA, nrow = nrow(rank_mat), ncol = num_ranks)
+  for(i in 1:ncol(LikelyRanks)){
+    LikelyRanks[,i] <- apply(X = rank_mat, MARGIN = 1, FUN = assign_max_rank, 
+                             rank = i, rank_cols = colnames(rank_mat)[1:num_ranks]) 
+  }
+  LikelyRanks <- as.data.frame(LikelyRanks)
+  colnames(LikelyRanks) <- paste0('LikelyRank', seq(1,ncol(LikelyRanks),1))
+  #Change to characters
+  LikelyRanks <- as.data.frame(apply(X = LikelyRanks, MARGIN = 2, FUN = as.character, simplify = FALSE))
+  #Add ID
+  LikelyRanks$ID <- rank_mat$ID
+  
+  #Join ranks to reaches for plotting
+  reaches <- left_join(reaches, LikelyRanks, by = "ID") 
+  
+  return(reaches)
+ 
+}
+
+feature_comparison_plots <- function(gagesii_features, conus_features,  
+                                     model, outdir){
+  #'@description this function compares the distribution of feature values in the gagesii data
+  #' with the feature values in the NHD stream reaches by prediction region
+  #' @param gageii_features is a data frame with GAGES_ID and columns for each of the features
+  #' @param conus_features is a data frame with COMID and a column for each feature
+  #' @param model is list of rf objects which have a variable.importance field
+  #' @param outdir is the subdirectory to save the files
+
+  # get the names of features used in the models
+  model_features<-model %>%
+    purrr::map("variable.importance") %>%
+    unlist() 
+
+  model_features <- unique(names(model_features))
+
+  
+  #these variables need to be log transformed to get a meaningful plot. 
+  transform_vars <- c("ACC_STREAM_SLOPE" , "ACC_OM",  "ACC_CONTACT", "ACC_SATOF",
+                      "ACC_SOHL_CROPLAND_avg",  "ACC_SOHL_HAY-PASTURE_avg", "ACC_SOHL_WETLAND_avg",
+                      "CAT_WB5100_NOV", "ACC_WB5100_SEP",   "CAT_WB5100_SEP" , "ACC_WB5100_DEC" ,
+                      "ACC_WB5100_FEB" )
+  
+  
+  ###loop through common_names, make plots and save
+  for(i in 1: length(model_features)){
+    feature<- model_features[i]
+    df_gage <- gagesii_features %>%
+      select(GAGES_ID,all_of(feature)) %>%
+      rename(ID = GAGES_ID) %>%
+      rename(feature_var  := !!feature) %>%
+      mutate(distribution = "gagesii") 
+    
+    df_conus <- conus_features %>%
+      select(COMID,all_of(feature)) %>%
+      rename(ID  = COMID) %>%
+      rename(feature_var  := !!feature) %>%
+      mutate(distribution = "NHD") %>%
+      select(ID, feature_var, distribution)
+    
+    df_plot <- rbind(df_gage, df_conus)
+    if (feature %in% transform_vars){
+      ggplot(df_plot, aes(distribution, feature_var)) +
+        geom_violin()+   ylab(feature)+
+        scale_y_continuous(trans= "log1p")
+    }  else {
+      ggplot(df_plot, aes(distribution, feature_var)) +
+        geom_violin()+   ylab(feature) 
+    } 
+  
+    fileout <- paste0(outdir,"/",feature, ".png")
+    ggsave(filename = fileout,  device = 'png', width = 6, height = 4, units = 'in', dpi = 300)
+  }
+  
+  return(paste0(outdir, "/", model_features, ".png"))
+  
+}
+
+
+

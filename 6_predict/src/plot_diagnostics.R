@@ -1227,25 +1227,20 @@ get_likely_rank <- function(class_probs, reaches){
  
 }
 
-feature_comparison_plots <- function(cluster_table_gagesii, gagesii_features,
-                                           cluster_table_CONUS, conus_features,  
-                                           model, outdir){
+feature_comparison_plots <- function(gagesii_features, conus_features,  
+                                     model, outdir){
   #'@description this function compares the distribution of feature values in the gagesii data
   #' with the feature values in the NHD stream reaches by prediction region
-  #' @param cluster_table_gagesii is a table with ID and cluster of the gages
   #' @param gageii_features is a data frame with GAGES_ID and columns for each of the features
-  #' @param cluster_table_CONUS is a data frame with ID and cluster
   #' @param conus_features is a data frame with COMID and a column for each feature
   #' @param model is list of rf objects which have a variable.importance field
   #' @param outdir is the subdirectory to save the files
-  
-  
+
   # get the names of features used in the models
   model_features<-model %>%
     purrr::map("variable.importance") %>%
     unlist() 
 
-  
   model_features <- unique(names(model_features))
 
   
@@ -1259,34 +1254,27 @@ feature_comparison_plots <- function(cluster_table_gagesii, gagesii_features,
   ###loop through common_names, make plots and save
   for(i in 1: length(model_features)){
     feature<- model_features[i]
-    print(feature)
-    
     df_gage <- gagesii_features %>%
       select(GAGES_ID,all_of(feature)) %>%
       rename(ID = GAGES_ID) %>%
       rename(feature_var  := !!feature) %>%
-      left_join(.,cluster_table_gagesii) %>%
-      select(ID, feature_var,cluster) %>%
-      mutate(distribution = "gages") 
+      mutate(distribution = "gagesii") 
     
     df_conus <- conus_features %>%
       select(COMID,all_of(feature)) %>%
       rename(ID  = COMID) %>%
       rename(feature_var  := !!feature) %>%
-      inner_join(.,cluster_table_CONUS) %>%
       mutate(distribution = "NHD") %>%
-      select(ID, feature_var, cluster, distribution)
+      select(ID, feature_var, distribution)
     
     df_plot <- rbind(df_gage, df_conus)
     if (feature %in% transform_vars){
       ggplot(df_plot, aes(distribution, feature_var)) +
         geom_violin()+   ylab(feature)+
-        facet_wrap(~cluster) +
         scale_y_continuous(trans= "log1p")
     }  else {
       ggplot(df_plot, aes(distribution, feature_var)) +
-        geom_violin()+   ylab(feature)+
-        facet_wrap(~cluster) 
+        geom_violin()+   ylab(feature) 
     } 
   
     fileout <- paste0(outdir,"/",feature, ".png")

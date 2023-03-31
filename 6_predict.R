@@ -2071,14 +2071,14 @@ tar_target(p6_region_class_pred_high_noPhysio_CONUS_NHD_panel_for_paper_fine_png
 
 
 ###assign most likely cluster for conus reaches for high and mid high quantiles
-tar_target(p6_cluster_table_CONUS_high,
+tar_target(p6_cluster_table_CONUS_high_noPhysio,
            get_likely_rank(class_probs =p6_region_class_pred_high_noPhysio_CONUS_NHD,
                            reaches = p1_sites_conus_sf %>%
                              mutate(ID = COMID) %>%
                              filter(Tidal == 0, FTYPE %in% retain_ftypes) %>%
                              select(ID))),
 
-tar_target(p6_cluster_table_CONUS_midhigh,
+tar_target(p6_cluster_table_CONUS_midhigh_noPhysio,
            get_likely_rank(class_probs =p6_region_class_pred_midhigh_noPhysio_CONUS_NHD,
                            reaches = p1_sites_conus_sf %>%
                              mutate(ID = COMID) %>%
@@ -2087,34 +2087,18 @@ tar_target(p6_cluster_table_CONUS_midhigh,
 
 
 tar_target(p6_feature_comparison_plots_high,
-           feature_comparison_plots(cluster_table_gagesii=p3_gages_clusters_quants_agg %>%
-                                                          select(ID, "0.75,0.8,0.85,0.9,0.95_k5") %>%
-                                                          rename("cluster" = 2) %>%
-                                                          select(ID, cluster),
-                                    gagesii_features=p1_feature_vars_g2,
-                                    cluster_table_CONUS = p6_cluster_table_CONUS_high %>%
-                                                          select(ID, LikelyRank1) %>%
-                                                          rename(cluster=LikelyRank1 )%>%
-                                                          mutate(cluster = as.numeric(cluster)),
+           feature_comparison_plots(gagesii_features=p1_feature_vars_g2,
                                     conus_features= p1_feature_vars_conus_screen,
                                     model = filter(p6_cluster_model_high_noPhysio$RF_models, 
                                                    HM ==  "0.75,0.8,0.85,0.9,0.95_k5") %>% 
                                       pull(model),
-                                    outdir ='6_predict/out/EDA_comparison/high')),
+                                    outdir ='6_predict/out/multiclass/High/NoPhysio/EDA_comparison/high')),
 
 tar_target(p6_feature_comparison_plots_midhigh,
-           feature_comparison_plots(cluster_table_gagesii=p3_gages_clusters_quants_agg %>%
-                                      select(ID,  "0.5,0.55,0.6,0.65,0.7_k5") %>%
-                                      rename("cluster" = 2) %>%
-                                      select(ID, cluster),
-                                    gagesii_features=p1_feature_vars_g2,
-                                    cluster_table_CONUS = p6_cluster_table_CONUS_midhigh %>%
-                                      select(ID, LikelyRank1) %>%
-                                      rename(cluster=LikelyRank1 )%>%
-                                      mutate(cluster = as.numeric(cluster)),
+           feature_comparison_plots(gagesii_features=p1_feature_vars_g2,
                                     conus_features= p1_feature_vars_conus_screen,
                                     model = filter(p6_cluster_model_high_noPhysio$RF_models, 
                                                    HM ==  "0.5,0.55,0.6,0.65,0.7_k5") %>% 
                                       pull(model),
-                                    outdir ='6_predict/out/EDA_comparison/midhigh'))
+                                    outdir ='6_predict/out/multiclass/High/NoPhysio/EDA_comparison/midhigh'))
 )

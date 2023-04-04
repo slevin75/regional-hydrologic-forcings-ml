@@ -2043,10 +2043,10 @@ tar_target(p6_region_class_pred_high_noPhysio_CONUS_NHD_panel_for_paper_fine_png
   #Generate final datasets containing the minimum set of attributes used for models
   tar_target(p6_min_model_attrs_high_noPhysio_CONUS_NHD,
              collect_model_attrs(model = c(filter(p6_cluster_model_high_noPhysio$RF_models, 
-                                                  HM == "0.5,0.55,0.6,0.65,0.7_k5") %>% 
+                                                  HM == "0.75,0.8,0.85,0.9,0.95_k5") %>% 
                                              pull(model),
                                            filter(p6_cluster_model_high_noPhysio_raw_metrics$RF_models,
-                                                  HM == "0.5,0.55,0.6,0.65,0.7_k5") %>% 
+                                                  HM == "0.75,0.8,0.85,0.9,0.95_k5") %>% 
                                              pull(model)),
                                  data = p1_feature_vars_conus,
                                  col_id = 'COMID',
@@ -2056,10 +2056,10 @@ tar_target(p6_region_class_pred_high_noPhysio_CONUS_NHD_panel_for_paper_fine_png
   ),
   tar_target(p6_min_model_attrs_high_noPhysio_g2,
              collect_model_attrs(model = c(filter(p6_cluster_model_high_noPhysio$RF_models, 
-                                                  HM == "0.5,0.55,0.6,0.65,0.7_k5") %>% 
+                                                  HM == "0.75,0.8,0.85,0.9,0.95_k5") %>% 
                                              pull(model),
                                            filter(p6_cluster_model_high_noPhysio_raw_metrics$RF_models,
-                                                  HM == "0.5,0.55,0.6,0.65,0.7_k5") %>% 
+                                                  HM == "0.75,0.8,0.85,0.9,0.95_k5") %>% 
                                              pull(model)),
                                  data = p5_attr_g2,
                                  col_id = c('COMID', 'GAGES_ID'),

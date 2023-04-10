@@ -15,6 +15,3 @@ This pipeline is built to run in parallel. Use the `tar_make_clustermq` function
 
 ## Notes 
 - The GAGES2.1 database is currently (as of 2-28-22) being stored in a private repo until it is released to the public.
-
-## Disclaimer
-This information is preliminary or provisional and is subject to revision. It is being provided to meet the need for timely best science. The information has not received final approval by the U.S. Geological Survey (USGS) and is provided on the condition that neither the USGS nor the U.S. Government shall be held liable for any damages resulting from the authorized or unauthorized use of the information.

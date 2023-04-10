@@ -22,14 +22,17 @@
     "laborHours": -1,
     "tags": [
       "R",
-      "USGS"
+      "USGS",
+      "streamflow metrics",
+      "random forest",
+      "hierarchical clustering"
     ],
     "languages": [
       "R"
     ],
     "contact": {
-      "name": "jds485",
-      "email": "FILL ME IN"
+      "name": "Jared D. Smith",
+      "email": "jsmith@usgs.gov"
     },
     "date": {
       "metadataLastUpdated": "2023-04-07"

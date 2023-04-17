@@ -2,7 +2,7 @@
   {
     "name": "regional-hydrologic-forcings-ml",
     "organization": "U.S. Geological Survey",
-    "description": "Repo for machine learning models for regional prediction of hydrologic forcing functions. FY22 regions: Delaware River Basin (DRB) region, and Upper Colorado River Basin (UCOL) region.",
+    "description": "Repo for machine learning models for regional prediction of hydrologic forcing functions. Includes probabilistic seasonal high flow regions for CONUS, and prediction of high flow metrics for selected regions.",
     "version": "main",
     "status": "Development",
     "permissions": {

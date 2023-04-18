@@ -1,0 +1,43 @@
+[
+  {
+    "name": "regional-hydrologic-forcings-ml",
+    "organization": "U.S. Geological Survey",
+    "description": "Repo for machine learning models for regional prediction of hydrologic forcing functions. Includes probabilistic seasonal high flow regions for CONUS, and prediction of high flow metrics for selected regions.",
+    "version": "main",
+    "status": "Development",
+    "permissions": {
+      "usageType": "openSource",
+      "licenses": [
+        {
+          "name": "Public Domain, CC0-1.0",
+          "URL": "https://raw.githubusercontent.com/USGS-R/regional-hydrologic-forcings-ml/main/LICENSE.md"
+        }
+      ]
+    },
+    "homepageURL": "https://github.com/USGS-R/regional-hydrologic-forcings-ml/",
+    "downloadURL": "https://github.com/USGS-R/regional-hydrologic-forcings-ml/archive/refs/heads/main.zip",
+    "disclaimerURL": "https://raw.githubusercontent.com/USGS-R/regional-hydrologic-forcings-ml/main/DISCLAIMER.md",
+    "repositoryURL": "https://github.com/USGS-R/regional-hydrologic-forcings-ml.git",
+    "vcs": "git",
+    "laborHours": -1,
+    "tags": [
+      "R",
+      "USGS",
+      "usg-artificial-intelligence",
+      "research",
+      "streamflow metrics",
+      "random forest",
+      "hierarchical clustering"
+    ],
+    "languages": [
+      "R"
+    ],
+    "contact": {
+      "name": "Jared D. Smith",
+      "email": "jsmith@usgs.gov"
+    },
+    "date": {
+      "metadataLastUpdated": "2023-04-11"
+    }
+  }
+]
